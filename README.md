@@ -7,6 +7,7 @@ Google Gemini API의 File Search 기능을 활용한 RAG (Retrieval-Augmented Ge
 - [설치](#설치)
 - [빠른 시작](#빠른-시작)
 - [웹 인터페이스](#웹-인터페이스)
+- [Google Cloud Run 배포](#google-cloud-run-배포)
 - [API 레퍼런스](#api-레퍼런스)
 - [예제](#예제)
 - [보안](#보안)
@@ -100,6 +101,83 @@ npm run dev
 - 🔒 **보안**: 환경 변수 기반 API 키 관리
 
 자세한 사용 방법은 [WEB_GUIDE.md](WEB_GUIDE.md)를 참조하세요.
+
+## ☁️ Google Cloud Run 배포
+
+프로덕션 환경에서 사용하기 위해 Google Cloud Run에 배포할 수 있습니다.
+
+### 빠른 배포
+
+```bash
+# 1. 이미지 빌드 및 푸시
+gcloud builds submit --tag gcr.io/PROJECT_ID/filesearch-rag
+
+# 2. Cloud Run에 배포
+gcloud run deploy filesearch-rag \
+  --image gcr.io/PROJECT_ID/filesearch-rag \
+  --platform managed \
+  --region asia-northeast3 \
+  --allow-unauthenticated
+```
+
+### 환경 변수 설정
+
+**Secret Manager 사용 (권장):**
+```bash
+# 시크릿 생성
+echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
+
+# Cloud Run에 시크릿 연결
+gcloud run services update filesearch-rag \
+  --update-secrets GEMINI_API_KEY=gemini-api-key:latest \
+  --region asia-northeast3
+```
+
+### 배포 스크립트
+
+```bash
+# Docker 로컬 테스트
+npm run docker:build
+npm run docker:run
+
+# GCP 배포
+npm run gcp:build    # 이미지 빌드 및 푸시
+npm run gcp:deploy   # Cloud Run 배포
+npm run gcp:logs     # 로그 확인
+```
+
+**⚠️ 주의**: `package.json`의 스크립트에서 `PROJECT_ID`를 실제 GCP 프로젝트 ID로 교체하세요.
+
+### 배포 후 확인
+
+```bash
+# 서비스 URL 확인
+gcloud run services describe filesearch-rag \
+  --region asia-northeast3 \
+  --format 'value(status.url)'
+
+# 헬스 체크
+curl https://YOUR-SERVICE-URL/api/health
+```
+
+### 무료 할당량
+
+Cloud Run 무료 티어 (월간):
+- ✅ 2,000,000 요청
+- ✅ 360,000 vCPU-초
+- ✅ 180,000 GiB-초
+
+**예상 비용**: 소규모 사용 시 무료 할당량 내에서 운영 가능
+
+### 상세 가이드
+
+완전한 배포 가이드는 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)를 참조하세요:
+- 사전 준비 및 GCP 설정
+- 단계별 배포 방법
+- Secret Manager 설정
+- 비용 관리 및 최적화
+- CI/CD 파이프라인 구성
+- 문제 해결
 
 ## 📚 API 레퍼런스
 

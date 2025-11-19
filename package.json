@@ -13,7 +13,12 @@
     "example:store": "node example-store-management.js",
     "example:metadata": "node example-metadata.js",
     "example:manager": "node example.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docker:build": "docker build -t filesearch-rag .",
+    "docker:run": "docker run -p 8080:8080 --env-file .env filesearch-rag",
+    "gcp:build": "gcloud builds submit --tag gcr.io/PROJECT_ID/filesearch-rag",
+    "gcp:deploy": "gcloud run deploy filesearch-rag --image gcr.io/PROJECT_ID/filesearch-rag --platform managed --region asia-northeast3 --allow-unauthenticated",
+    "gcp:logs": "gcloud run services logs tail filesearch-rag --region asia-northeast3"
   },
   "keywords": [
     "gemini",
