@@ -1,0 +1,35 @@
+{
+  "name": "google-filesearch-rag",
+  "version": "1.0.0",
+  "description": "Google Gemini API File Search RAG Agent",
+  "main": "RAGAgent.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "example:rag": "node example-rag-agent.js",
+    "example:import": "node example-import-workflow.js import",
+    "example:compare": "node example-import-workflow.js compare",
+    "example:chunking": "node example-chunking.js",
+    "example:store": "node example-store-management.js",
+    "example:metadata": "node example-metadata.js",
+    "example:manager": "node example.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "gemini",
+    "google",
+    "ai",
+    "rag",
+    "file-search",
+    "retrieval-augmented-generation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^1.29.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}

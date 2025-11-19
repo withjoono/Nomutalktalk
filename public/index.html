@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google File Search RAG Agent</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 헤더 -->
+    <header class="header">
+      <h1>🤖 Google File Search RAG Agent</h1>
+      <p class="subtitle">AI 기반 문서 검색 및 질의응답 시스템</p>
+      <div id="serverStatus" class="status-badge">확인 중...</div>
+    </header>
+
+    <!-- 스토어 초기화 섹션 -->
+    <section class="card">
+      <h2>📦 스토어 관리</h2>
+
+      <div class="form-group">
+        <label>스토어 초기화 방식:</label>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="storeType" value="new" checked>
+            새 스토어 생성
+          </label>
+          <label>
+            <input type="radio" name="storeType" value="existing">
+            기존 스토어 사용
+          </label>
+        </div>
+      </div>
+
+      <div id="newStoreForm" class="form-section">
+        <div class="form-group">
+          <label for="storeDisplayName">스토어 이름:</label>
+          <input
+            type="text"
+            id="storeDisplayName"
+            placeholder="예: my-knowledge-base"
+            class="input-field"
+          >
+        </div>
+        <button onclick="initializeStore()" class="btn btn-primary">
+          🚀 새 스토어 생성
+        </button>
+      </div>
+
+      <div id="existingStoreForm" class="form-section" style="display: none;">
+        <div class="form-group">
+          <label for="existingStoreName">기존 스토어 ID:</label>
+          <input
+            type="text"
+            id="existingStoreName"
+            placeholder="예: fileSearchStores/abc123"
+            class="input-field"
+          >
+        </div>
+        <button onclick="useExistingStore()" class="btn btn-primary">
+          📂 기존 스토어 사용
+        </button>
+      </div>
+
+      <div id="currentStoreInfo" class="info-box" style="display: none;">
+        <h3>현재 스토어</h3>
+        <p id="currentStoreName">-</p>
+        <button onclick="loadStoreStatus()" class="btn btn-secondary">
+          🔄 상태 새로고침
+        </button>
+        <button onclick="loadAllStores()" class="btn btn-secondary">
+          📋 모든 스토어 보기
+        </button>
+      </div>
+
+      <div id="storeStatus" class="status-box" style="display: none;"></div>
+      <div id="allStoresList" class="stores-list" style="display: none;"></div>
+    </section>
+
+    <!-- 파일 업로드 섹션 -->
+    <section class="card">
+      <h2>📤 파일 업로드</h2>
+
+      <div class="form-group">
+        <label>업로드 방식:</label>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="uploadType" value="direct" checked>
+            직접 업로드 (빠름)
+          </label>
+          <label>
+            <input type="radio" name="uploadType" value="import">
+            Files API Import (메타데이터 지원)
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="fileInput">파일 선택:</label>
+        <input
+          type="file"
+          id="fileInput"
+          class="file-input"
+          accept=".txt,.pdf,.doc,.docx,.md"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="fileDisplayName">표시 이름 (선택사항):</label>
+        <input
+          type="text"
+          id="fileDisplayName"
+          placeholder="파일 표시 이름"
+          class="input-field"
+        >
+      </div>
+
+      <!-- 청킹 설정 -->
+      <div class="collapsible">
+        <button onclick="toggleSection('chunkingSection')" class="collapsible-btn">
+          ⚙️ 청킹 설정 (선택사항)
+        </button>
+        <div id="chunkingSection" class="collapsible-content">
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="enableChunking">
+              청킹 활성화
+            </label>
+          </div>
+          <div id="chunkingOptions" style="display: none;">
+            <div class="form-group">
+              <label for="maxTokensPerChunk">청크당 최대 토큰:</label>
+              <input
+                type="number"
+                id="maxTokensPerChunk"
+                value="250"
+                min="100"
+                max="500"
+                class="input-field"
+              >
+              <small>권장: 코드 150, 기술문서 250, 장문 400</small>
+            </div>
+            <div class="form-group">
+              <label for="maxOverlapTokens">청크 간 오버랩 토큰:</label>
+              <input
+                type="number"
+                id="maxOverlapTokens"
+                value="25"
+                min="0"
+                max="100"
+                class="input-field"
+              >
+              <small>권장: 최대 토큰의 10%</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 메타데이터 설정 (Files API Import만) -->
+      <div id="metadataSection" class="collapsible" style="display: none;">
+        <button onclick="toggleSection('metadataContent')" class="collapsible-btn">
+          🏷️ 커스텀 메타데이터 (선택사항)
+        </button>
+        <div id="metadataContent" class="collapsible-content">
+          <div id="metadataList"></div>
+          <button onclick="addMetadataField()" class="btn btn-secondary">
+            ➕ 메타데이터 추가
+          </button>
+        </div>
+      </div>
+
+      <button onclick="uploadFile()" class="btn btn-primary btn-large">
+        📤 파일 업로드
+      </button>
+
+      <div id="uploadProgress" class="progress-box" style="display: none;"></div>
+    </section>
+
+    <!-- 질의응답 섹션 -->
+    <section class="card">
+      <h2>💬 질의응답</h2>
+
+      <div class="form-group">
+        <label for="questionInput">질문:</label>
+        <textarea
+          id="questionInput"
+          placeholder="업로드된 문서에 대해 질문하세요..."
+          class="textarea-field"
+          rows="3"
+        ></textarea>
+      </div>
+
+      <button onclick="askQuestion()" class="btn btn-primary btn-large">
+        🔍 질문하기
+      </button>
+
+      <div id="answerBox" class="answer-box" style="display: none;">
+        <h3>답변:</h3>
+        <div id="answerContent"></div>
+      </div>
+    </section>
+
+    <!-- 문서 관리 섹션 -->
+    <section class="card">
+      <h2>📚 문서 관리</h2>
+
+      <button onclick="loadDocuments()" class="btn btn-secondary">
+        🔄 문서 목록 새로고침
+      </button>
+
+      <div id="documentsList" class="documents-list"></div>
+    </section>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+      <p>Powered by Google Gemini API | Built with ❤️</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
