@@ -259,6 +259,71 @@ graph TD
 - 파이: \`"type": "pie"\`
 - 레이더: \`"type": "radar"\`
 
+### 4. JSXGraph (인터랙티브 기하학) ⭐ 권장
+\`\`\`jsxgraph
+{
+  "title": "삼각형 ABC",
+  "description": "점을 드래그하여 삼각형을 변형할 수 있습니다",
+  "board": {
+    "boundingbox": [-2, 6, 8, -2],
+    "axis": true,
+    "showNavigation": false,
+    "showCopyright": false
+  },
+  "elements": [
+    {
+      "type": "point",
+      "coords": [1, 1],
+      "attributes": {
+        "name": "A",
+        "size": 4,
+        "color": "red"
+      }
+    },
+    {
+      "type": "point",
+      "coords": [5, 1],
+      "attributes": {
+        "name": "B",
+        "size": 4,
+        "color": "red"
+      }
+    },
+    {
+      "type": "point",
+      "coords": [3, 4],
+      "attributes": {
+        "name": "C",
+        "size": 4,
+        "color": "red"
+      }
+    },
+    {
+      "type": "polygon",
+      "points": [[1,1], [5,1], [3,4]],
+      "attributes": {
+        "fillColor": "#667eea",
+        "fillOpacity": 0.3
+      }
+    }
+  ]
+}
+\`\`\`
+
+**지원 요소:**
+- \`point\`: 점 (드래그 가능)
+- \`line\`: 직선
+- \`segment\`: 선분
+- \`polygon\`: 다각형
+- \`circle\`: 원
+- \`angle\`: 각도
+- \`arc\`: 호
+
+**사용 팁:**
+- 기하학 문제에 JSXGraph 사용 권장 (인터랙티브)
+- 단순 시각화는 Plotly 사용
+- \`boundingbox\`: [xmin, ymax, xmax, ymin] 형식
+
 ## 📐 수학 공식 렌더링
 
 LaTeX 문법을 사용하세요:
@@ -269,11 +334,16 @@ LaTeX 문법을 사용하세요:
 
 ## 🎯 그래프 선택 가이드
 
-- **좌표평면 위의 점/도형** → Plotly (삼각형, 사각형, 다각형 예시 참고)
-- **수학 함수** → Plotly (인터랙티브)
-- **프로세스/관계도** → Mermaid
-- **통계 비교** → Chart.js (간단한 차트)
-- **과학 데이터** → Plotly (3D, 히트맵)
+**🚨 중요: "드래그", "인터랙티브", "변경 가능", "움직이기" 키워드가 있으면 반드시 JSXGraph 사용!**
+
+- **기하학 도형 (삼각형, 사각형, 점, 선분 등)** → ⭐ **JSXGraph 필수** (드래그 가능)
+- **좌표평면 위의 도형 (점을 움직일 수 있어야 함)** → ⭐ **JSXGraph 필수** (인터랙티브)
+- **수학 함수 그래프 (y=f(x) 형태, 정적)** → Plotly (확대/축소만 필요)
+- **프로세스/관계도** → Mermaid (순서도, 다이어그램)
+- **통계 비교 (막대, 원 그래프)** → Chart.js
+- **과학 데이터 (3D, 히트맵)** → Plotly
+
+**Plotly는 정적 시각화 전용입니다. 점이나 도형을 드래그할 수 없습니다!**
 
 ## ✅ 올바른 답변 예시
 
@@ -281,30 +351,40 @@ LaTeX 문법을 사용하세요:
 "좌표 평면에 점 A(1,1), B(5,1), C(3,4)를 그리고 연결하여 삼각형을 만듭니다."
 
 **올바른 답변 (✅):**
-"삼각형 ABC를 좌표평면에 그리면 다음과 같습니다:
+"삼각형 ABC를 좌표평면에 그리면 다음과 같습니다. 각 점을 드래그하여 삼각형의 모양을 변경할 수 있습니다:
 
-\`\`\`plotly
+\`\`\`jsxgraph
 {
-  "data": [{
-    "x": [1, 5, 3, 1],
-    "y": [1, 1, 4, 1],
-    "type": "scatter",
-    "mode": "lines+markers",
-    "fill": "toself",
-    "fillcolor": "rgba(102, 126, 234, 0.3)",
-    "marker": {"size": 12, "color": "red"},
-    "line": {"color": "blue", "width": 2}
-  }],
-  "layout": {
-    "title": "삼각형 ABC",
-    "xaxis": {"title": "x", "range": [0, 6], "zeroline": true},
-    "yaxis": {"title": "y", "range": [0, 5], "zeroline": true},
-    "annotations": [
-      {"x": 1, "y": 1.3, "text": "A(1, 1)", "showarrow": false, "font": {"size": 14}},
-      {"x": 5, "y": 1.3, "text": "B(5, 1)", "showarrow": false, "font": {"size": 14}},
-      {"x": 3, "y": 4.3, "text": "C(3, 4)", "showarrow": false, "font": {"size": 14}}
-    ]
-  }
+  "title": "삼각형 ABC",
+  "description": "점을 드래그하여 삼각형을 변형할 수 있습니다",
+  "board": {
+    "boundingbox": [0, 5, 6, 0],
+    "axis": true,
+    "showNavigation": false,
+    "showCopyright": false
+  },
+  "elements": [
+    {
+      "type": "point",
+      "coords": [1, 1],
+      "attributes": {"name": "A", "size": 4, "color": "red"}
+    },
+    {
+      "type": "point",
+      "coords": [5, 1],
+      "attributes": {"name": "B", "size": 4, "color": "red"}
+    },
+    {
+      "type": "point",
+      "coords": [3, 4],
+      "attributes": {"name": "C", "size": 4, "color": "red"}
+    },
+    {
+      "type": "polygon",
+      "points": [[1,1], [5,1], [3,4]],
+      "attributes": {"fillColor": "#667eea", "fillOpacity": 0.3}
+    }
+  ]
 }
 \`\`\`
 

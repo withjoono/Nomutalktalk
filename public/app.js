@@ -533,6 +533,86 @@ function formatAnswer(answer) {
     return placeholder;
   });
 
+  // JSXGraph 인터랙티브 기하학 (```jsxgraph ... ```)
+  processed = processed.replace(/```jsxgraph\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___JSXGRAPH_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'jsxgraph',
+      content: `<div class="jsxgraph-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 🧪 Chemistry: 3Dmol.js 분자 구조 (```mol3d ... ```)
+  processed = processed.replace(/```mol3d\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___MOL3D_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'mol3d',
+      content: `<div class="mol3d-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // ⚛️ Physics: Matter.js 물리 시뮬레이션 (```matter ... ```)
+  processed = processed.replace(/```matter\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___MATTER_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'matter',
+      content: `<div class="matter-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // ⚛️ Physics: p5.js 스케치 (```p5 ... ```)
+  processed = processed.replace(/```p5\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___P5_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'p5',
+      content: `<div class="p5-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 🧬 Biology: Cytoscape.js 네트워크 (```cytoscape ... ```)
+  processed = processed.replace(/```cytoscape\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___CYTOSCAPE_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'cytoscape',
+      content: `<div class="cytoscape-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 🌍 Earth Science: Leaflet 지도 (```leaflet ... ```)
+  processed = processed.replace(/```leaflet\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___LEAFLET_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'leaflet',
+      content: `<div class="leaflet-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 🌍 Earth Science: Cesium 3D 지구본 (```cesium ... ```)
+  processed = processed.replace(/```cesium\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___CESIUM_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'cesium',
+      content: `<div class="cesium-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 🔬 General Science: Three.js 3D 시각화 (```threejs ... ```)
+  processed = processed.replace(/```threejs\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___THREEJS_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'threejs',
+      content: `<div class="threejs-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
   // 2. HTML 이스케이프 처리 (XSS 방지)
   const escaped = processed
     .replace(/&/g, '&amp;')
@@ -546,9 +626,20 @@ function formatAnswer(answer) {
 
   // 4. 플레이스홀더를 실제 그래프 HTML로 복원
   graphPlaceholders.forEach((item, index) => {
-    const placeholder = item.type === 'mermaid' ? `___MERMAID_${index}___` :
-                       item.type === 'plotly' ? `___PLOTLY_${index}___` :
-                       `___CHARTJS_${index}___`;
+    const placeholderMap = {
+      'mermaid': `___MERMAID_${index}___`,
+      'plotly': `___PLOTLY_${index}___`,
+      'chartjs': `___CHARTJS_${index}___`,
+      'jsxgraph': `___JSXGRAPH_${index}___`,
+      'mol3d': `___MOL3D_${index}___`,
+      'matter': `___MATTER_${index}___`,
+      'p5': `___P5_${index}___`,
+      'cytoscape': `___CYTOSCAPE_${index}___`,
+      'leaflet': `___LEAFLET_${index}___`,
+      'cesium': `___CESIUM_${index}___`,
+      'threejs': `___THREEJS_${index}___`
+    };
+    const placeholder = placeholderMap[item.type] || `___UNKNOWN_${index}___`;
     withBreaks = withBreaks.replace(placeholder, item.content);
   });
 
@@ -799,7 +890,8 @@ function zoomFormula(mathElement) {
 let graphCounters = {
   plotly: 0,
   chart: 0,
-  mermaid: 0
+  mermaid: 0,
+  jsxgraph: 0
 };
 
 /**
@@ -898,14 +990,453 @@ async function renderMermaidDiagrams(container) {
 }
 
 /**
+ * JSXGraph 인터랙티브 기하학 렌더링
+ */
+function renderJSXGraphs(container) {
+  const jsxgraphBlocks = container.querySelectorAll('.jsxgraph-data');
+
+  jsxgraphBlocks.forEach((block) => {
+    try {
+      const boardId = `jsxgraph-board-${graphCounters.jsxgraph++}`;
+
+      // JSON 파싱 전에 JavaScript 주석 제거 (JSON은 주석을 지원하지 않음)
+      let jsonText = block.textContent;
+      // 라인 주석 제거 (// ...)
+      jsonText = jsonText.replace(/\/\/.*$/gm, '');
+      // 블록 주석 제거 (/* ... */)
+      jsonText = jsonText.replace(/\/\*[\s\S]*?\*\//g, '');
+
+      const jsxgraphConfig = JSON.parse(jsonText);
+
+      // 컨테이너 구조 생성
+      const wrapper = document.createElement('div');
+      wrapper.className = 'jsxgraph-container';
+
+      // 제목 (선택사항)
+      if (jsxgraphConfig.title) {
+        const title = document.createElement('div');
+        title.className = 'jsxgraph-title';
+        title.textContent = jsxgraphConfig.title;
+        wrapper.appendChild(title);
+      }
+
+      // 보드 div 생성
+      const boardDiv = document.createElement('div');
+      boardDiv.id = boardId;
+      boardDiv.className = 'jsxgraph-board';
+      wrapper.appendChild(boardDiv);
+
+      // 설명 (선택사항)
+      if (jsxgraphConfig.description) {
+        const desc = document.createElement('div');
+        desc.className = 'jsxgraph-description';
+        desc.textContent = jsxgraphConfig.description;
+        wrapper.appendChild(desc);
+      }
+
+      // 원본 블록을 래퍼로 교체
+      block.parentNode.replaceChild(wrapper, block);
+
+      // JSXGraph 보드 초기화
+      if (typeof JXG !== 'undefined') {
+        const boardConfig = jsxgraphConfig.board || {
+          boundingbox: [-10, 10, 10, -10],
+          axis: true,
+          showNavigation: false,
+          showCopyright: false
+        };
+
+        const board = JXG.JSXGraph.initBoard(boardId, boardConfig);
+
+        // 요소 생성 (points, lines, polygons 등)
+        if (jsxgraphConfig.elements) {
+          jsxgraphConfig.elements.forEach(element => {
+            try {
+              switch (element.type) {
+                case 'point':
+                  board.create('point', element.coords, element.attributes || {});
+                  break;
+                case 'line':
+                  board.create('line', element.points, element.attributes || {});
+                  break;
+                case 'segment':
+                  board.create('segment', element.points, element.attributes || {});
+                  break;
+                case 'polygon':
+                  board.create('polygon', element.points, element.attributes || {});
+                  break;
+                case 'circle':
+                  board.create('circle', element.params, element.attributes || {});
+                  break;
+                case 'angle':
+                  board.create('angle', element.points, element.attributes || {});
+                  break;
+                case 'arc':
+                  board.create('arc', element.params, element.attributes || {});
+                  break;
+                default:
+                  console.warn(`알 수 없는 JSXGraph 요소 타입: ${element.type}`);
+              }
+            } catch (elemError) {
+              console.error(`JSXGraph 요소 생성 오류 (${element.type}):`, elemError);
+            }
+          });
+        }
+      } else {
+        throw new Error('JSXGraph 라이브러리가 로드되지 않았습니다');
+      }
+    } catch (error) {
+      console.error('JSXGraph 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ JSXGraph 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+// ==================== 🧪 Chemistry Rendering ====================
+
+/**
+ * 3Dmol.js 분자 시각화 렌더링
+ */
+function render3DmolGraphs(container) {
+  const molBlocks = container.querySelectorAll('.mol3d-data');
+
+  molBlocks.forEach((block) => {
+    try {
+      const molId = `mol3d-${graphCounters.mol3d++}`;
+      const molConfig = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mol3d-container';
+
+      if (molConfig.title) {
+        const title = document.createElement('div');
+        title.className = 'mol3d-title';
+        title.textContent = molConfig.title;
+        wrapper.appendChild(title);
+      }
+
+      const viewerDiv = document.createElement('div');
+      viewerDiv.id = molId;
+      viewerDiv.className = 'mol3d-viewer';
+      viewerDiv.style.width = molConfig.width || '400px';
+      viewerDiv.style.height = molConfig.height || '400px';
+      wrapper.appendChild(viewerDiv);
+
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof $3Dmol !== 'undefined') {
+        const viewer = $3Dmol.createViewer(molId, molConfig.config || {});
+
+        if (molConfig.pdb) {
+          viewer.addModel(molConfig.pdb, 'pdb');
+        } else if (molConfig.sdf) {
+          viewer.addModel(molConfig.sdf, 'sdf');
+        } else if (molConfig.xyz) {
+          viewer.addModel(molConfig.xyz, 'xyz');
+        }
+
+        viewer.setStyle({}, molConfig.style || {stick: {}});
+        viewer.zoomTo();
+        viewer.render();
+      }
+    } catch (error) {
+      console.error('3Dmol 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ 3Dmol 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+// ==================== ⚛️ Physics Rendering ====================
+
+/**
+ * Matter.js 물리 시뮬레이션 렌더링
+ */
+function renderMatterJsGraphs(container) {
+  const matterBlocks = container.querySelectorAll('.matter-data');
+
+  matterBlocks.forEach((block) => {
+    try {
+      const matterId = `matter-${graphCounters.matter++}`;
+      const matterConfig = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'matter-container';
+
+      const canvasDiv = document.createElement('div');
+      canvasDiv.id = matterId;
+      canvasDiv.className = 'matter-canvas';
+      canvasDiv.style.width = matterConfig.width || '600px';
+      canvasDiv.style.height = matterConfig.height || '400px';
+      wrapper.appendChild(canvasDiv);
+
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof Matter !== 'undefined') {
+        const Engine = Matter.Engine;
+        const Render = Matter.Render;
+        const Runner = Matter.Runner;
+        const Bodies = Matter.Bodies;
+        const Composite = Matter.Composite;
+
+        const engine = Engine.create();
+        const render = Render.create({
+          element: document.getElementById(matterId),
+          engine: engine,
+          options: matterConfig.options || {
+            width: 600,
+            height: 400,
+            wireframes: false
+          }
+        });
+
+        if (matterConfig.bodies) {
+          matterConfig.bodies.forEach(bodyConfig => {
+            let body;
+            if (bodyConfig.type === 'rectangle') {
+              body = Bodies.rectangle(bodyConfig.x, bodyConfig.y, bodyConfig.width, bodyConfig.height, bodyConfig.options);
+            } else if (bodyConfig.type === 'circle') {
+              body = Bodies.circle(bodyConfig.x, bodyConfig.y, bodyConfig.radius, bodyConfig.options);
+            }
+            if (body) Composite.add(engine.world, body);
+          });
+        }
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+      }
+    } catch (error) {
+      console.error('Matter.js 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Matter.js 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+/**
+ * p5.js 시뮬레이션 렌더링
+ */
+function renderP5Graphs(container) {
+  const p5Blocks = container.querySelectorAll('.p5-data');
+
+  p5Blocks.forEach((block) => {
+    try {
+      const p5Id = `p5-${graphCounters.p5++}`;
+      const p5Config = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'p5-container';
+      wrapper.id = p5Id;
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof p5 !== 'undefined' && p5Config.sketch) {
+        new p5(eval(`(${p5Config.sketch})`), p5Id);
+      }
+    } catch (error) {
+      console.error('p5.js 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ p5.js 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+// ==================== 🧬 Biology Rendering ====================
+
+/**
+ * Cytoscape.js 생물학적 네트워크 렌더링
+ */
+function renderCytoscapeGraphs(container) {
+  const cytoBlocks = container.querySelectorAll('.cytoscape-data');
+
+  cytoBlocks.forEach((block) => {
+    try {
+      const cytoId = `cytoscape-${graphCounters.cytoscape++}`;
+      const cytoConfig = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cytoscape-container';
+
+      const cytoDiv = document.createElement('div');
+      cytoDiv.id = cytoId;
+      cytoDiv.className = 'cytoscape-graph';
+      cytoDiv.style.width = cytoConfig.width || '600px';
+      cytoDiv.style.height = cytoConfig.height || '400px';
+      wrapper.appendChild(cytoDiv);
+
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof cytoscape !== 'undefined') {
+        cytoscape({
+          container: document.getElementById(cytoId),
+          elements: cytoConfig.elements || [],
+          style: cytoConfig.style || [],
+          layout: cytoConfig.layout || { name: 'grid' }
+        });
+      }
+    } catch (error) {
+      console.error('Cytoscape 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Cytoscape 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+// ==================== 🌍 Earth Science Rendering ====================
+
+/**
+ * Leaflet 지도 렌더링
+ */
+function renderLeafletMaps(container) {
+  const leafletBlocks = container.querySelectorAll('.leaflet-data');
+
+  leafletBlocks.forEach((block) => {
+    try {
+      const leafletId = `leaflet-${graphCounters.leaflet++}`;
+      const leafletConfig = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'leaflet-container';
+
+      const mapDiv = document.createElement('div');
+      mapDiv.id = leafletId;
+      mapDiv.className = 'leaflet-map';
+      mapDiv.style.width = leafletConfig.width || '100%';
+      mapDiv.style.height = leafletConfig.height || '400px';
+      wrapper.appendChild(mapDiv);
+
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof L !== 'undefined') {
+        const map = L.map(leafletId).setView(
+          leafletConfig.center || [37.5665, 126.9780],
+          leafletConfig.zoom || 13
+        );
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: leafletConfig.attribution || '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        if (leafletConfig.markers) {
+          leafletConfig.markers.forEach(marker => {
+            L.marker(marker.position).addTo(map).bindPopup(marker.popup || '');
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Leaflet 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Leaflet 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+// ==================== 🔬 General Science Rendering ====================
+
+/**
+ * Three.js 3D 시각화 렌더링
+ */
+function renderThreeJsGraphs(container) {
+  const threeBlocks = container.querySelectorAll('.threejs-data');
+
+  threeBlocks.forEach((block) => {
+    try {
+      const threeId = `threejs-${graphCounters.threejs++}`;
+      const threeConfig = JSON.parse(block.textContent.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'threejs-container';
+
+      const canvasDiv = document.createElement('div');
+      canvasDiv.id = threeId;
+      canvasDiv.className = 'threejs-canvas';
+      canvasDiv.style.width = threeConfig.width || '600px';
+      canvasDiv.style.height = threeConfig.height || '400px';
+      wrapper.appendChild(canvasDiv);
+
+      block.parentNode.replaceChild(wrapper, block);
+
+      if (typeof THREE !== 'undefined') {
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, 600/400, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+
+        renderer.setSize(parseInt(threeConfig.width) || 600, parseInt(threeConfig.height) || 400);
+        document.getElementById(threeId).appendChild(renderer.domElement);
+
+        if (threeConfig.objects) {
+          threeConfig.objects.forEach(obj => {
+            let geometry, material, mesh;
+
+            if (obj.type === 'box') {
+              geometry = new THREE.BoxGeometry(obj.width || 1, obj.height || 1, obj.depth || 1);
+              material = new THREE.MeshBasicMaterial({ color: obj.color || 0x00ff00 });
+              mesh = new THREE.Mesh(geometry, material);
+              if (obj.position) mesh.position.set(obj.position.x, obj.position.y, obj.position.z);
+              scene.add(mesh);
+            } else if (obj.type === 'sphere') {
+              geometry = new THREE.SphereGeometry(obj.radius || 1, 32, 32);
+              material = new THREE.MeshBasicMaterial({ color: obj.color || 0x0000ff });
+              mesh = new THREE.Mesh(geometry, material);
+              if (obj.position) mesh.position.set(obj.position.x, obj.position.y, obj.position.z);
+              scene.add(mesh);
+            }
+          });
+        }
+
+        camera.position.z = threeConfig.cameraZ || 5;
+
+        function animate() {
+          requestAnimationFrame(animate);
+          scene.children.forEach(child => {
+            if (child.rotation) {
+              child.rotation.x += 0.01;
+              child.rotation.y += 0.01;
+            }
+          });
+          renderer.render(scene, camera);
+        }
+        animate();
+      }
+    } catch (error) {
+      console.error('Three.js 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Three.js 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+/**
  * 모든 그래프 렌더링
  */
 async function renderAllGraphs(container) {
   // 카운터 초기화
-  graphCounters = { plotly: 0, chart: 0, mermaid: 0 };
+  graphCounters = {
+    plotly: 0,
+    chart: 0,
+    mermaid: 0,
+    jsxgraph: 0,
+    mol3d: 0,
+    matter: 0,
+    p5: 0,
+    cytoscape: 0,
+    leaflet: 0,
+    threejs: 0
+  };
 
   // 각 그래프 타입 렌더링
   renderPlotlyGraphs(container);
   renderChartJsGraphs(container);
+  renderJSXGraphs(container);
   await renderMermaidDiagrams(container);
+
+  // 🧪 Chemistry
+  render3DmolGraphs(container);
+
+  // ⚛️ Physics
+  renderMatterJsGraphs(container);
+  renderP5Graphs(container);
+
+  // 🧬 Biology
+  renderCytoscapeGraphs(container);
+
+  // 🌍 Earth Science
+  renderLeafletMaps(container);
+
+  // 🔬 General Science
+  renderThreeJsGraphs(container);
 }

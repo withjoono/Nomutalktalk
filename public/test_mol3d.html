@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3Dmol.js 물 분자 테스트</title>
+
+  <!-- 3Dmol.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/3dmol@2.0.4/build/3Dmol-min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+
+    .viewer-container {
+      margin: 20px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .description {
+      background: #f9f9f9;
+      padding: 15px;
+      border-left: 4px solid #4CAF50;
+      margin: 20px 0;
+    }
+
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 3Dmol.js - 물 분자 3D 구조 시각화</h1>
+
+    <div class="description">
+      <h3>물 분자 (H₂O)</h3>
+      <p>
+        물 분자는 산소 원자 1개와 수소 원자 2개로 구성되어 있습니다.<br>
+        분자 기하학: <strong>굽은형 (bent)</strong><br>
+        결합각: 약 <strong>104.5°</strong><br>
+        O-H 결합 길이: 약 <strong>0.96 Å</strong>
+      </p>
+    </div>
+
+    <div class="viewer-container">
+      <div id="mol3d-viewer" style="width: 100%; height: 500px;"></div>
+    </div>
+
+    <div class="info">
+      <h4>조작 방법:</h4>
+      <ul>
+        <li><strong>마우스 드래그:</strong> 분자 회전</li>
+        <li><strong>마우스 휠:</strong> 확대/축소</li>
+        <li><strong>우클릭 드래그:</strong> 평행 이동</li>
+      </ul>
+    </div>
+
+    <h2>📊 구현된 스타일</h2>
+    <div id="style-examples"></div>
+  </div>
+
+  <script>
+    // 물 분자 XYZ 데이터
+    const waterMoleculeXYZ = `3
+Water molecule H2O
+O       0.000000    0.000000    0.117176
+H       0.000000    0.756950   -0.468706
+H       0.000000   -0.756950   -0.468706`;
+
+    // 3Dmol 뷰어 생성
+    const viewer = $3Dmol.createViewer('mol3d-viewer', {
+      backgroundColor: 'white'
+    });
+
+    // 분자 데이터 로드 (XYZ 형식)
+    viewer.addModel(waterMoleculeXYZ, 'xyz');
+
+    // 스타일 1: Ball and Stick (기본)
+    viewer.setStyle({}, {
+      stick: {radius: 0.15, color: 'gray'},
+      sphere: {radius: 0.3, colorscheme: 'Jmol'}
+    });
+
+    // 라벨 추가
+    viewer.addLabel('O', {
+      position: {x: 0, y: 0, z: 0.117176},
+      backgroundColor: 'red',
+      fontColor: 'white',
+      fontSize: 14,
+      backgroundOpacity: 0.8
+    });
+
+    viewer.addLabel('H', {
+      position: {x: 0, y: 0.75695, z: -0.468706},
+      backgroundColor: 'blue',
+      fontColor: 'white',
+      fontSize: 12,
+      backgroundOpacity: 0.8
+    });
+
+    viewer.addLabel('H', {
+      position: {x: 0, y: -0.75695, z: -0.468706},
+      backgroundColor: 'blue',
+      fontColor: 'white',
+      fontSize: 12,
+      backgroundOpacity: 0.8
+    });
+
+    // 뷰 설정
+    viewer.zoomTo();
+    viewer.render();
+
+    // 자동 회전 애니메이션
+    let angle = 0;
+    function animate() {
+      angle += 0.01;
+      viewer.rotate(angle, 'y');
+      requestAnimationFrame(animate);
+    }
+    // animate(); // 필요시 주석 해제
+
+    // 다양한 스타일 예시 표시
+    const styleExamples = document.getElementById('style-examples');
+
+    const styles = [
+      {
+        name: 'Ball and Stick',
+        description: '기본 공과 막대 모델',
+        code: `{
+  stick: {radius: 0.15, color: 'gray'},
+  sphere: {radius: 0.3, colorscheme: 'Jmol'}
+}`
+      },
+      {
+        name: 'Stick',
+        description: '막대 모델만',
+        code: `{
+  stick: {radius: 0.2, colorscheme: 'Jmol'}
+}`
+      },
+      {
+        name: 'Sphere',
+        description: '공간 채움 모델',
+        code: `{
+  sphere: {radius: 0.5, colorscheme: 'Jmol'}
+}`
+      }
+    ];
+
+    styles.forEach(style => {
+      const div = document.createElement('div');
+      div.className = 'info';
+      div.innerHTML = `
+        <h4>${style.name}</h4>
+        <p>${style.description}</p>
+        <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${style.code}</pre>
+      `;
+      styleExamples.appendChild(div);
+    });
+
+    console.log('✅ 3Dmol.js 물 분자 시각화 성공!');
+  </script>
+</body>
+</html>
