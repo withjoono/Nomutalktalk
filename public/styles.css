@@ -415,3 +415,429 @@ small {
   border-radius: 8px;
   margin-bottom: 15px;
 }
+
+/* KaTeX 수식 스타일링 */
+/* 블록 수식 중앙 정렬 및 스타일 */
+.katex-display {
+  margin: 1.5em 0;
+  text-align: center;
+  background-color: #f8f9fa;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  border-left: 4px solid #667eea;
+}
+
+/* 인라인 수식 세로 정렬 */
+.katex {
+  vertical-align: middle;
+  font-size: 1.1em;
+}
+
+/* 답변 박스 내 수식 스타일 */
+.answer-box .katex-display {
+  background-color: #ffffff;
+  border-left: 4px solid #4caf50;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* 수식 스크롤 힌트 */
+.katex-display::-webkit-scrollbar {
+  height: 8px;
+}
+
+.katex-display::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.katex-display::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
+}
+
+.katex-display::-webkit-scrollbar-thumb:hover {
+  background: #5568d3;
+}
+
+/* 수식 에러 표시 */
+.katex-error {
+  color: #f44336;
+  background-color: #ffebee;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* ==================== 수식 확대/복사 기능 스타일 ==================== */
+
+/* 수식 래퍼 */
+.formula-wrapper {
+  position: relative;
+  margin: 1.5em 0;
+}
+
+/* 수식 컨트롤 버튼 */
+.formula-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.formula-wrapper:hover .formula-controls {
+  opacity: 1;
+}
+
+.formula-copy-btn,
+.formula-zoom-btn {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.formula-copy-btn:hover,
+.formula-zoom-btn:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.formula-copy-btn:active,
+.formula-zoom-btn:active {
+  transform: translateY(0);
+}
+
+/* 확대 모달 */
+.formula-zoom-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.formula-zoom-content {
+  position: relative;
+  background: white;
+  padding: 40px;
+  border-radius: 15px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: zoomIn 0.3s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.formula-zoom-close,
+.formula-zoom-copy {
+  position: absolute;
+  top: 15px;
+  padding: 10px 16px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.formula-zoom-close {
+  right: 15px;
+}
+
+.formula-zoom-close:hover {
+  background: #d32f2f;
+  transform: rotate(90deg);
+}
+
+.formula-zoom-copy {
+  right: 70px;
+  background: #4caf50;
+  font-size: 0.9rem;
+}
+
+.formula-zoom-copy:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+}
+
+/* 확대된 수식 스타일 */
+.formula-zoom-content .katex-display {
+  background: transparent;
+  border: none;
+  padding: 2em;
+  margin: 0;
+}
+
+/* 스크롤바 스타일 (확대 모달) */
+.formula-zoom-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.formula-zoom-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 5px;
+}
+
+.formula-zoom-content::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 5px;
+}
+
+.formula-zoom-content::-webkit-scrollbar-thumb:hover {
+  background: #5568d3;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .formula-controls {
+    opacity: 1;
+  }
+
+  .formula-copy-btn,
+  .formula-zoom-btn {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+
+  .formula-zoom-content {
+    padding: 20px;
+    max-width: 95%;
+  }
+
+  .formula-zoom-close,
+  .formula-zoom-copy {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .formula-zoom-copy {
+    right: 60px;
+  }
+}
+
+/* ==================== 그래프 렌더링 스타일 ==================== */
+
+/* Plotly 그래프 컨테이너 */
+.plotly-graph-container {
+  width: 100%;
+  min-height: 400px;
+  margin: 1.5em 0;
+  padding: 1em;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Chart.js 래퍼 */
+.chartjs-wrapper {
+  width: 100%;
+  max-width: 800px;
+  margin: 1.5em auto;
+  padding: 1em;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chartjs-graph-container {
+  max-height: 400px;
+}
+
+/* Mermaid 다이어그램 */
+.mermaid-diagram {
+  margin: 1.5em 0;
+  padding: 1.5em;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 그래프 에러 표시 */
+.graph-error {
+  padding: 1em;
+  margin: 1em 0;
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef5350;
+  border-radius: 8px;
+  font-family: monospace;
+}
+
+/* 답변 박스 내 그래프 스타일 */
+.answer-box .plotly-graph-container,
+.answer-box .chartjs-wrapper,
+.answer-box .mermaid-diagram {
+  background: #ffffff;
+  border: 1px solid #4caf50;
+}
+
+/* 그래프 로딩 애니메이션 */
+.plotly-graph-container:empty::before,
+.chartjs-wrapper:empty::before,
+.mermaid-diagram:empty::before {
+  content: "📊 그래프 로딩 중...";
+  display: block;
+  text-align: center;
+  padding: 2em;
+  color: #666;
+  font-style: italic;
+}
+
+/* 반응형 그래프 */
+@media (max-width: 768px) {
+  .plotly-graph-container {
+    min-height: 300px;
+    padding: 0.5em;
+  }
+
+  .chartjs-wrapper {
+    padding: 0.5em;
+  }
+
+  .chartjs-graph-container {
+    max-height: 300px;
+  }
+
+  .mermaid-diagram {
+    padding: 1em;
+    font-size: 0.9em;
+  }
+}
+
+/* Plotly 툴바 스타일 커스터마이징 */
+.plotly .modebar {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.plotly .modebar-btn {
+  color: #667eea !important;
+}
+
+.plotly .modebar-btn:hover {
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Mermaid 다이어그램 색상 테마 조정 */
+.mermaid-diagram .node rect,
+.mermaid-diagram .node circle,
+.mermaid-diagram .node polygon {
+  fill: #667eea !important;
+  stroke: #5568d3 !important;
+}
+
+.mermaid-diagram .node text {
+  fill: #ffffff !important;
+}
+
+.mermaid-diagram .edgePath .path {
+  stroke: #5568d3 !important;
+}
+
+.mermaid-diagram .arrowheadPath {
+  fill: #5568d3 !important;
+}
+
+/* ==================== 스토어 선택 드롭다운 스타일 ==================== */
+#existingStoreSelect {
+  font-size: 14px;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#existingStoreSelect:hover:not(:disabled) {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#existingStoreSelect:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+#existingStoreSelect:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#existingStoreSelect option {
+  padding: 10px;
+}
+
+/* ==================== 현재 스토어 정보 스타일 ==================== */
+.store-name-display {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin: 10px 0;
+  word-break: break-all;
+  font-weight: 600;
+}
+
+.store-details {
+  font-size: 14px;
+  color: #666;
+  margin: 10px 0;
+  padding: 8px 15px;
+  background: #fafafa;
+  border-radius: 6px;
+  display: inline-block;
+}

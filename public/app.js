@@ -22,6 +22,8 @@ function setupEventListeners() {
       } else {
         newStoreForm.style.display = 'none';
         existingStoreForm.style.display = 'block';
+        // 기존 스토어 선택 시 자동으로 스토어 목록 불러오기
+        loadStoresForDropdown();
       }
     });
   });
@@ -70,6 +72,8 @@ async function checkServerHealth() {
       if (data.currentStore) {
         currentStore = data.currentStore;
         showCurrentStore(data.currentStore);
+        // 서버에 이미 활성 스토어가 있으면 문서 목록 자동 로드
+        loadDocuments();
       }
     } else {
       statusBadge.textContent = '❌ 서버 오류';
@@ -107,9 +111,12 @@ async function initializeStore() {
 
     if (data.success) {
       currentStore = data.storeName;
-      showCurrentStore(data.storeName);
+      await showCurrentStoreWithDetails(data.storeName);
       showAlert(`✅ ${data.message}`, 'success');
       document.getElementById('storeDisplayName').value = '';
+
+      // 스토어 생성 후 문서 목록 자동 로드
+      loadDocuments();
     } else {
       showAlert(`❌ ${data.error}`, 'error');
     }
@@ -119,11 +126,51 @@ async function initializeStore() {
   }
 }
 
+/**
+ * 드롭다운에 표시할 스토어 목록 불러오기
+ */
+async function loadStoresForDropdown() {
+  const selectElement = document.getElementById('existingStoreSelect');
+
+  try {
+    selectElement.innerHTML = '<option value="">불러오는 중...</option>';
+    selectElement.disabled = true;
+
+    const response = await fetch('/api/stores');
+    const data = await response.json();
+
+    if (data.success && data.stores && data.stores.length > 0) {
+      selectElement.innerHTML = '<option value="">-- 스토어를 선택하세요 --</option>';
+
+      data.stores.forEach(store => {
+        const option = document.createElement('option');
+        option.value = store.name;
+
+        // 표시 이름: 스토어 이름 + 문서 개수
+        const displayName = store.displayName || store.name.split('/').pop();
+        const docCount = store.documentCount !== undefined ? ` (${store.documentCount}개 문서)` : '';
+        option.textContent = `${displayName}${docCount}`;
+
+        selectElement.appendChild(option);
+      });
+
+      selectElement.disabled = false;
+    } else {
+      selectElement.innerHTML = '<option value="">사용 가능한 스토어가 없습니다</option>';
+      showAlert('생성된 스토어가 없습니다. 먼저 새 스토어를 생성하세요.', 'info');
+    }
+  } catch (error) {
+    selectElement.innerHTML = '<option value="">불러오기 실패</option>';
+    showAlert(`❌ 스토어 목록 불러오기 실패: ${error.message}`, 'error');
+    console.error('스토어 목록 불러오기 오류:', error);
+  }
+}
+
 async function useExistingStore() {
-  const storeName = document.getElementById('existingStoreName').value.trim();
+  const storeName = document.getElementById('existingStoreSelect').value;
 
   if (!storeName) {
-    showAlert('스토어 ID를 입력하세요.', 'error');
+    showAlert('스토어를 선택하세요.', 'error');
     return;
   }
 
@@ -142,9 +189,11 @@ async function useExistingStore() {
 
     if (data.success) {
       currentStore = data.storeName;
-      showCurrentStore(data.storeName);
+      await showCurrentStoreWithDetails(data.storeName);
       showAlert(`✅ ${data.message}`, 'success');
-      document.getElementById('existingStoreName').value = '';
+
+      // 기존 스토어 선택 후 문서 목록 자동 로드
+      loadDocuments();
     } else {
       showAlert(`❌ ${data.error}`, 'error');
     }
@@ -157,92 +206,43 @@ async function useExistingStore() {
 function showCurrentStore(storeName) {
   const infoBox = document.getElementById('currentStoreInfo');
   const storeNameElem = document.getElementById('currentStoreName');
+  const storeDetails = document.getElementById('currentStoreDetails');
 
   storeNameElem.textContent = storeName;
+  storeDetails.textContent = '문서 개수 확인 중...';
   infoBox.style.display = 'block';
 }
 
-async function loadStoreStatus() {
-  if (!currentStore) {
-    showAlert('먼저 스토어를 초기화하세요.', 'error');
-    return;
-  }
+/**
+ * 현재 스토어 정보를 상세하게 표시
+ */
+async function showCurrentStoreWithDetails(storeName) {
+  const infoBox = document.getElementById('currentStoreInfo');
+  const storeNameElem = document.getElementById('currentStoreName');
+  const storeDetails = document.getElementById('currentStoreDetails');
+
+  storeNameElem.textContent = storeName;
+  storeDetails.textContent = '문서 개수 확인 중...';
+  infoBox.style.display = 'block';
 
   try {
     const response = await fetch('/api/store/status');
     const data = await response.json();
 
-    if (data.success) {
-      const statusBox = document.getElementById('storeStatus');
-      statusBox.innerHTML = `
-        <h3>스토어 상태</h3>
-        <p><strong>스토어 이름:</strong> ${data.status.storeName}</p>
-        <p><strong>문서 개수:</strong> ${data.status.documentCount}개</p>
-      `;
-      statusBox.style.display = 'block';
+    if (data.success && data.status) {
+      const docCount = data.status.documentCount || 0;
+      storeDetails.textContent = `📄 ${docCount}개의 문서 보유`;
     } else {
-      showAlert(`❌ ${data.error}`, 'error');
+      storeDetails.textContent = '상태 정보를 가져올 수 없습니다';
     }
   } catch (error) {
-    showAlert(`❌ 오류: ${error.message}`, 'error');
+    storeDetails.textContent = '상태 정보 불러오기 실패';
+    console.error('스토어 상태 조회 오류:', error);
   }
 }
 
-async function loadAllStores() {
-  try {
-    showProgress('스토어 목록 로딩 중...');
-
-    const response = await fetch('/api/stores');
-    const data = await response.json();
-
-    hideProgress();
-
-    if (data.success) {
-      displayStoresList(data.stores);
-    } else {
-      showAlert(`❌ ${data.error}`, 'error');
-    }
-  } catch (error) {
-    hideProgress();
-    showAlert(`❌ 오류: ${error.message}`, 'error');
-  }
-}
-
-function displayStoresList(stores) {
-  const listContainer = document.getElementById('allStoresList');
-
-  if (stores.length === 0) {
-    listContainer.innerHTML = '<p>스토어가 없습니다.</p>';
-    listContainer.style.display = 'block';
-    return;
-  }
-
-  const html = `
-    <h3>모든 스토어 (${stores.length}개)</h3>
-    ${stores.map(store => `
-      <div class="store-item">
-        <div class="store-info">
-          <div class="store-name">${store.displayName || 'Unnamed'}</div>
-          <div class="store-meta">
-            ID: ${store.name}<br>
-            생성일: ${new Date(store.createTime).toLocaleString('ko-KR')}
-          </div>
-        </div>
-        <div class="store-actions">
-          <button onclick="useStoreById('${store.name}')" class="btn btn-secondary">
-            사용
-          </button>
-          <button onclick="deleteStore('${store.name}')" class="btn btn-danger">
-            삭제
-          </button>
-        </div>
-      </div>
-    `).join('')}
-  `;
-
-  listContainer.innerHTML = html;
-  listContainer.style.display = 'block';
-}
+// loadStoreStatus, loadAllStores, displayStoresList 함수들은
+// 새로운 드롭다운 UI로 대체되어 제거됨
 
 async function useStoreById(storeName) {
   try {
@@ -280,7 +280,12 @@ async function deleteStore(storeName) {
 
     if (data.success) {
       showAlert(`✅ 스토어 삭제 완료`, 'success');
-      loadAllStores(); // 목록 새로고침
+
+      // "기존 스토어 사용" 탭이 활성화되어 있다면 목록 새로고침
+      const existingStoreRadio = document.querySelector('input[name="storeType"][value="existing"]');
+      if (existingStoreRadio && existingStoreRadio.checked) {
+        loadStoresForDropdown();
+      }
 
       // 현재 스토어가 삭제된 경우
       if (storeName === currentStore) {
@@ -459,6 +464,31 @@ async function askQuestion() {
 
       answerContent.innerHTML = formatAnswer(data.answer);
       answerBox.style.display = 'block';
+
+      // 모든 그래프 렌더링 (비동기)
+      renderAllGraphs(answerContent).then(() => {
+        console.log('모든 그래프 렌더링 완료');
+      }).catch(err => {
+        console.error('그래프 렌더링 오류:', err);
+      });
+
+      // KaTeX로 수학 수식 렌더링
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(answerContent, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},   // 블록 수식
+            {left: '$', right: '$', display: false},    // 인라인 수식
+            {left: '\\[', right: '\\]', display: true}, // 대체 블록 구문
+            {left: '\\(', right: '\\)', display: false} // 대체 인라인 구문
+          ],
+          throwOnError: false,  // 에러 발생 시 원본 텍스트 유지
+          trust: true,  // \color, \colorbox 등 색상 명령 허용
+          strict: false  // 엄격 모드 해제 (더 많은 LaTeX 명령 허용)
+        });
+
+        // 수식에 확대/축소 기능 추가
+        addFormulaZoomFeature(answerContent);
+      }
     } else {
       showAlert(`❌ ${data.error}`, 'error');
     }
@@ -469,8 +499,60 @@ async function askQuestion() {
 }
 
 function formatAnswer(answer) {
-  // 줄바꿈을 <br>로 변환
-  return answer.replace(/\n/g, '<br>');
+  // 1. 그래프 코드 블록을 임시 플레이스홀더로 교체 (이스케이프 보호)
+  let processed = answer;
+  const graphPlaceholders = [];
+
+  // Mermaid 다이어그램 (```mermaid ... ```)
+  processed = processed.replace(/```mermaid\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___MERMAID_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'mermaid',
+      content: `<div class="mermaid-diagram">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // Plotly 그래프 (```plotly ... ```)
+  processed = processed.replace(/```plotly\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___PLOTLY_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'plotly',
+      content: `<div class="plotly-graph-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // Chart.js 그래프 (```chartjs ... ```)
+  processed = processed.replace(/```chartjs\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___CHARTJS_${graphPlaceholders.length}___`;
+    graphPlaceholders.push({
+      type: 'chartjs',
+      content: `<div class="chartjs-graph-data" style="display:none;">${code.trim()}</div>`
+    });
+    return placeholder;
+  });
+
+  // 2. HTML 이스케이프 처리 (XSS 방지)
+  const escaped = processed
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // 3. 줄바꿈을 <br>로 변환
+  let withBreaks = escaped.replace(/\n/g, '<br>');
+
+  // 4. 플레이스홀더를 실제 그래프 HTML로 복원
+  graphPlaceholders.forEach((item, index) => {
+    const placeholder = item.type === 'mermaid' ? `___MERMAID_${index}___` :
+                       item.type === 'plotly' ? `___PLOTLY_${index}___` :
+                       `___CHARTJS_${index}___`;
+    withBreaks = withBreaks.replace(placeholder, item.content);
+  });
+
+  return withBreaks;
 }
 
 // ==================== 문서 관리 ====================
@@ -574,4 +656,256 @@ function showAlert(message, type = 'info') {
   setTimeout(() => {
     alertDiv.remove();
   }, 5000);
+}
+
+// ==================== 수식 확대/축소 기능 ====================
+function addFormulaZoomFeature(container) {
+  // 모든 블록 수식에 확대 기능 추가
+  const displayMaths = container.querySelectorAll('.katex-display');
+
+  displayMaths.forEach((mathElement, index) => {
+    // 이미 처리된 요소는 건너뛰기
+    if (mathElement.dataset.zoomEnabled) return;
+
+    mathElement.dataset.zoomEnabled = 'true';
+    mathElement.style.cursor = 'zoom-in';
+    mathElement.title = '클릭하여 확대';
+
+    // 복사 버튼 추가
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'formula-copy-btn';
+    copyBtn.innerHTML = '📋 복사';
+    copyBtn.title = 'LaTeX 코드 복사';
+    copyBtn.onclick = (e) => {
+      e.stopPropagation();
+      copyFormulaToClipboard(mathElement);
+    };
+
+    // 확대 버튼 추가
+    const zoomBtn = document.createElement('button');
+    zoomBtn.className = 'formula-zoom-btn';
+    zoomBtn.innerHTML = '🔍 확대';
+    zoomBtn.title = '수식 확대';
+    zoomBtn.onclick = (e) => {
+      e.stopPropagation();
+      zoomFormula(mathElement);
+    };
+
+    // 버튼 컨테이너 생성
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'formula-controls';
+    btnContainer.appendChild(copyBtn);
+    btnContainer.appendChild(zoomBtn);
+
+    // 수식을 감싸는 래퍼 생성
+    const wrapper = document.createElement('div');
+    wrapper.className = 'formula-wrapper';
+    mathElement.parentNode.insertBefore(wrapper, mathElement);
+    wrapper.appendChild(mathElement);
+    wrapper.appendChild(btnContainer);
+
+    // 클릭으로도 확대 가능
+    mathElement.addEventListener('click', () => {
+      zoomFormula(mathElement);
+    });
+  });
+}
+
+// 수식 복사 기능
+function copyFormulaToClipboard(mathElement) {
+  // KaTeX 요소에서 LaTeX 소스 코드 추출
+  const katexElement = mathElement.querySelector('.katex');
+  if (!katexElement) return;
+
+  // annotation 태그에서 LaTeX 코드 가져오기
+  const annotation = mathElement.querySelector('annotation');
+  const latexCode = annotation ? annotation.textContent : '';
+
+  if (latexCode) {
+    navigator.clipboard.writeText(latexCode).then(() => {
+      showAlert('✅ LaTeX 코드가 클립보드에 복사되었습니다!', 'success');
+    }).catch(err => {
+      console.error('복사 실패:', err);
+      showAlert('❌ 복사에 실패했습니다.', 'error');
+    });
+  } else {
+    showAlert('⚠️ LaTeX 코드를 찾을 수 없습니다.', 'error');
+  }
+}
+
+// 수식 확대 모달
+function zoomFormula(mathElement) {
+  // 기존 모달이 있으면 제거
+  const existingModal = document.querySelector('.formula-zoom-modal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // 모달 오버레이 생성
+  const modal = document.createElement('div');
+  modal.className = 'formula-zoom-modal';
+
+  // 모달 콘텐츠
+  const modalContent = document.createElement('div');
+  modalContent.className = 'formula-zoom-content';
+
+  // 확대된 수식 복제
+  const zoomedFormula = mathElement.cloneNode(true);
+  zoomedFormula.style.cursor = 'default';
+  zoomedFormula.style.fontSize = '2em';
+  zoomedFormula.style.padding = '2em';
+
+  // 닫기 버튼
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'formula-zoom-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.title = '닫기 (ESC)';
+  closeBtn.onclick = () => modal.remove();
+
+  // 복사 버튼
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'formula-zoom-copy';
+  copyBtn.innerHTML = '📋 복사';
+  copyBtn.onclick = () => copyFormulaToClipboard(zoomedFormula);
+
+  // 조립
+  modalContent.appendChild(closeBtn);
+  modalContent.appendChild(copyBtn);
+  modalContent.appendChild(zoomedFormula);
+  modal.appendChild(modalContent);
+
+  // 모달 외부 클릭 시 닫기
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  // ESC 키로 닫기
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+
+  // DOM에 추가
+  document.body.appendChild(modal);
+}
+
+// ==================== 그래프 렌더링 기능 ====================
+
+let graphCounters = {
+  plotly: 0,
+  chart: 0,
+  mermaid: 0
+};
+
+/**
+ * Plotly 그래프 렌더링
+ */
+function renderPlotlyGraphs(container) {
+  const plotlyBlocks = container.querySelectorAll('.plotly-graph-data');
+
+  plotlyBlocks.forEach((block) => {
+    try {
+      const graphId = `plotly-graph-${graphCounters.plotly++}`;
+      const graphData = JSON.parse(block.textContent);
+
+      // 그래프 컨테이너 생성
+      const graphDiv = document.createElement('div');
+      graphDiv.id = graphId;
+      graphDiv.className = 'plotly-graph-container';
+
+      // 원본 블록을 그래프로 교체
+      block.parentNode.replaceChild(graphDiv, block);
+
+      // Plotly 그래프 렌더링
+      const data = graphData.data || [];
+      const layout = graphData.layout || {
+        autosize: true,
+        margin: { t: 40, r: 40, b: 40, l: 40 }
+      };
+      const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+      };
+
+      Plotly.newPlot(graphId, data, layout, config);
+    } catch (error) {
+      console.error('Plotly 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Plotly 그래프 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+/**
+ * Chart.js 그래프 렌더링
+ */
+function renderChartJsGraphs(container) {
+  const chartBlocks = container.querySelectorAll('.chartjs-graph-data');
+
+  chartBlocks.forEach((block) => {
+    try {
+      const chartId = `chartjs-graph-${graphCounters.chart++}`;
+      const chartData = JSON.parse(block.textContent);
+
+      // Canvas 요소 생성
+      const canvas = document.createElement('canvas');
+      canvas.id = chartId;
+      canvas.className = 'chartjs-graph-container';
+
+      // 래퍼 div 생성
+      const wrapper = document.createElement('div');
+      wrapper.className = 'chartjs-wrapper';
+      wrapper.appendChild(canvas);
+
+      // 원본 블록을 그래프로 교체
+      block.parentNode.replaceChild(wrapper, block);
+
+      // Chart.js 그래프 렌더링
+      new Chart(canvas.getContext('2d'), chartData);
+    } catch (error) {
+      console.error('Chart.js 렌더링 오류:', error);
+      block.innerHTML = `<div class="graph-error">❌ Chart.js 그래프 렌더링 실패: ${error.message}</div>`;
+    }
+  });
+}
+
+/**
+ * Mermaid 다이어그램 렌더링
+ */
+async function renderMermaidDiagrams(container) {
+  const mermaidBlocks = container.querySelectorAll('.mermaid-diagram');
+
+  if (mermaidBlocks.length === 0) return;
+
+  try {
+    if (typeof window.mermaid !== 'undefined') {
+      // Mermaid 재초기화 (필요시)
+      await window.mermaid.run({
+        nodes: mermaidBlocks
+      });
+    }
+  } catch (error) {
+    console.error('Mermaid 렌더링 오류:', error);
+    mermaidBlocks.forEach(block => {
+      block.innerHTML = `<div class="graph-error">❌ Mermaid 다이어그램 렌더링 실패: ${error.message}</div>`;
+    });
+  }
+}
+
+/**
+ * 모든 그래프 렌더링
+ */
+async function renderAllGraphs(container) {
+  // 카운터 초기화
+  graphCounters = { plotly: 0, chart: 0, mermaid: 0 };
+
+  // 각 그래프 타입 렌더링
+  renderPlotlyGraphs(container);
+  renderChartJsGraphs(container);
+  await renderMermaidDiagrams(container);
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cors = require('cors');
 const RAGAgent = require('./RAGAgent');
 require('dotenv').config();
 
@@ -30,13 +31,41 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB 제한
 });
 
+// CORS 설정
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours
+};
+
 // 미들웨어
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static('public'));
 
 // RAG Agent 인스턴스 관리
 let agentInstance = null;
 let currentStoreName = null;
+
+/**
+ * 파일 안전 삭제 (비동기, 에러 처리 포함)
+ * @param {string} filePath - 삭제할 파일 경로
+ * @returns {Promise<void>}
+ */
+async function cleanupFile(filePath) {
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`Failed to clean up file: ${filePath}`, err);
+      // 파일 삭제 실패는 로그만 남기고 계속 진행
+    }
+  }
+}
 
 /**
  * RAG Agent 초기화 또는 기존 인스턴스 반환
@@ -215,10 +244,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    // MIME 타입 검증
+    const mimeType = req.body.mimeType || req.file.mimetype;
+    if (!isAllowedMimeType(mimeType)) {
+      await cleanupFile(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: `지원하지 않는 파일 형식입니다: ${mimeType}`
+      });
+    }
+
+    // displayName 검증
+    const displayName = req.body.displayName || req.file.originalname;
+    if (req.body.displayName && !isValidDisplayName(req.body.displayName)) {
+      await cleanupFile(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: 'displayName이 유효하지 않습니다 (1-100자, 특수문자 제한).'
+      });
+    }
+
     const agent = getAgent();
     const filePath = req.file.path;
-    const displayName = req.body.displayName || req.file.originalname;
-    const mimeType = req.body.mimeType || req.file.mimetype;
 
     // 청킹 설정 파싱
     let chunkingConfig = null;
@@ -237,8 +284,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       chunkingConfig
     });
 
-    // 업로드된 파일 삭제
-    fs.unlinkSync(filePath);
+    // 업로드된 파일 삭제 (비동기)
+    await cleanupFile(filePath);
 
     res.json({
       success: true,
@@ -250,9 +297,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('파일 업로드 오류:', error);
 
-    // 오류 발생 시 임시 파일 삭제
+    // 오류 발생 시 임시 파일 삭제 (비동기)
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      await cleanupFile(req.file.path);
     }
 
     res.status(500).json({
@@ -282,10 +329,28 @@ app.post('/api/upload-import', upload.single('file'), async (req, res) => {
       });
     }
 
+    // MIME 타입 검증
+    const mimeType = req.body.mimeType || req.file.mimetype;
+    if (!isAllowedMimeType(mimeType)) {
+      await cleanupFile(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: `지원하지 않는 파일 형식입니다: ${mimeType}`
+      });
+    }
+
+    // displayName 검증
+    const displayName = req.body.displayName || req.file.originalname;
+    if (req.body.displayName && !isValidDisplayName(req.body.displayName)) {
+      await cleanupFile(req.file.path);
+      return res.status(400).json({
+        success: false,
+        error: 'displayName이 유효하지 않습니다 (1-100자, 특수문자 제한).'
+      });
+    }
+
     const agent = getAgent();
     const filePath = req.file.path;
-    const displayName = req.body.displayName || req.file.originalname;
-    const mimeType = req.body.mimeType || req.file.mimetype;
 
     // 청킹 설정 파싱
     let chunkingConfig = null;
@@ -315,8 +380,8 @@ app.post('/api/upload-import', upload.single('file'), async (req, res) => {
       customMetadata
     });
 
-    // 업로드된 파일 삭제
-    fs.unlinkSync(filePath);
+    // 업로드된 파일 삭제 (비동기)
+    await cleanupFile(filePath);
 
     res.json({
       success: true,
@@ -329,9 +394,9 @@ app.post('/api/upload-import', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('파일 가져오기 오류:', error);
 
-    // 오류 발생 시 임시 파일 삭제
+    // 오류 발생 시 임시 파일 삭제 (비동기)
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      await cleanupFile(req.file.path);
     }
 
     res.status(500).json({
@@ -340,6 +405,162 @@ app.post('/api/upload-import', upload.single('file'), async (req, res) => {
     });
   }
 });
+
+/**
+ * 좌표 라벨 새니타이제이션 (XSS 방지)
+ * @param {string} label - 검증할 라벨
+ * @returns {string} 안전한 라벨 (A-Z 단일 문자만)
+ */
+function sanitizeCoordinateLabel(label) {
+  // A-Z 단일 대문자만 허용
+  if (typeof label !== 'string' || !/^[A-Z]$/.test(label)) {
+    return 'P'; // 기본값
+  }
+  return label;
+}
+
+/**
+ * 좌표 값 검증 (유효한 숫자인지 확인)
+ * @param {number} value - 검증할 숫자
+ * @returns {boolean} 유효 여부
+ */
+function isValidCoordinate(value) {
+  return typeof value === 'number' && Number.isFinite(value) && !Number.isNaN(value);
+}
+
+/**
+ * 파일 MIME 타입 검증 (화이트리스트 기반)
+ * @param {string} mimetype - 검증할 MIME 타입
+ * @returns {boolean} 허용된 타입 여부
+ */
+function isAllowedMimeType(mimetype) {
+  const allowedTypes = [
+    'text/plain',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/markdown'
+  ];
+  return allowedTypes.includes(mimetype);
+}
+
+/**
+ * displayName 검증
+ * @param {string} name - 검증할 이름
+ * @returns {boolean} 유효 여부
+ */
+function isValidDisplayName(name) {
+  if (typeof name !== 'string') return false;
+  // 1-100 문자, 특수문자 제한
+  return name.length > 0 && name.length <= 100 && !/[<>\"'&]/.test(name);
+}
+
+/**
+ * storeName 검증
+ * @param {string} name - 검증할 스토어 이름
+ * @returns {boolean} 유효 여부
+ */
+function isValidStoreName(name) {
+  if (typeof name !== 'string') return false;
+  // fileSearchStores/[영숫자_-] 형식
+  return /^fileSearchStores\/[\w-]+$/.test(name);
+}
+
+/**
+ * 좌표 데이터를 자동으로 감지하여 Plotly 그래프 코드로 변환
+ * @param {string} text - AI 응답 텍스트
+ * @returns {string} 그래프 코드가 추가된 텍스트
+ */
+function autoGenerateGraphs(text) {
+  let enhanced = text;
+
+  // 패턴 1: 점 A(1,1), B(5,1), C(3,4) 형식의 좌표
+  const pointPattern = /점\s*([A-Z])\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+  const matches = [...text.matchAll(pointPattern)];
+
+  // 최대 포인트 수 제한 (DoS 방지)
+  const MAX_POINTS = 20;
+  if (matches.length > MAX_POINTS) {
+    console.warn(`⚠️ 너무 많은 좌표 감지됨 (${matches.length}개), ${MAX_POINTS}개로 제한`);
+    matches.splice(MAX_POINTS);
+  }
+
+  if (matches.length >= 2) {
+    console.log(`🎨 자동 그래프 생성: ${matches.length}개의 좌표 감지됨`);
+
+    // 좌표 파싱 및 검증
+    const points = matches
+      .map(m => ({
+        label: sanitizeCoordinateLabel(m[1]),
+        x: parseFloat(m[2]),
+        y: parseFloat(m[3])
+      }))
+      .filter(p => isValidCoordinate(p.x) && isValidCoordinate(p.y)); // 유효하지 않은 좌표 제거
+
+    if (points.length < 2) {
+      console.warn('⚠️ 유효한 좌표가 2개 미만, 그래프 생성 건너뜀');
+      return enhanced;
+    }
+
+    // Plotly 그래프 생성
+    const xCoords = points.map(p => p.x);
+    const yCoords = points.map(p => p.y);
+
+    // 도형을 닫기 위해 첫 점을 마지막에 추가
+    if (points.length >= 3) {
+      xCoords.push(points[0].x);
+      yCoords.push(points[0].y);
+    }
+
+    const annotations = points.map(p => ({
+      x: p.x,
+      y: p.y,
+      text: `${p.label}(${p.x},${p.y})`,
+      showarrow: false,
+      yshift: 10
+    }));
+
+    const plotlyCode = {
+      data: [{
+        x: xCoords,
+        y: yCoords,
+        type: 'scatter',
+        mode: 'lines+markers',
+        fill: points.length >= 3 ? 'toself' : undefined,
+        name: points.length >= 3 ? `도형 ${points.map(p => p.label).join('')}` : '좌표',
+        marker: { size: 10, color: 'red' },
+        line: { color: 'blue', width: 2 }
+      }],
+      layout: {
+        title: `좌표평면: 점 ${points.map(p => p.label).join(', ')}`,
+        xaxis: {
+          title: 'x',
+          zeroline: true,
+          gridcolor: '#e0e0e0'
+        },
+        yaxis: {
+          title: 'y',
+          zeroline: true,
+          gridcolor: '#e0e0e0'
+        },
+        annotations: annotations,
+        showlegend: true
+      }
+    };
+
+    const graphBlock = `\n\n\`\`\`plotly\n${JSON.stringify(plotlyCode, null, 2)}\n\`\`\`\n\n`;
+
+    // 텍스트에 그래프 블록 추가 (좌표 설명 바로 다음에)
+    const insertPosition = matches[matches.length - 1].index + matches[matches.length - 1][0].length;
+    enhanced = text.slice(0, insertPosition) + graphBlock + text.slice(insertPosition);
+
+    console.log('✅ Plotly 그래프 코드 자동 생성 완료');
+  }
+
+  // 패턴 2: 함수 형태 (y = x^2 등)는 향후 추가 가능
+
+  return enhanced;
+}
 
 /**
  * POST /api/ask
@@ -364,7 +585,20 @@ app.post('/api/ask', async (req, res) => {
     }
 
     const agent = getAgent();
-    const answer = await agent.ask(query);
+    let answer = await agent.ask(query);
+
+    console.log('\n📝 원본 AI 응답 (전체):');
+    console.log('='.repeat(80));
+    console.log(answer);
+    console.log('='.repeat(80));
+
+    // 자동 그래프 생성
+    answer = autoGenerateGraphs(answer);
+
+    console.log('\n✨ 최종 응답 (전체):');
+    console.log('='.repeat(80));
+    console.log(answer);
+    console.log('='.repeat(80) + '\n');
 
     res.json({
       success: true,
@@ -481,9 +715,16 @@ app.delete('/api/file/:fileName', async (req, res) => {
 // 에러 핸들링 미들웨어
 app.use((err, req, res, next) => {
   console.error('서버 오류:', err);
-  res.status(500).json({
+
+  // 프로덕션 환경에서는 상세 에러 메시지 숨김 (API 키, 경로 등 노출 방지)
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const safeErrorMessage = isDevelopment
+    ? err.message
+    : '서버 내부 오류가 발생했습니다.';
+
+  res.status(err.statusCode || 500).json({
     success: false,
-    error: err.message || '서버 내부 오류가 발생했습니다.'
+    error: safeErrorMessage
   });
 });
 

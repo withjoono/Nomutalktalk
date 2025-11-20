@@ -5,6 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google File Search RAG Agent</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- KaTeX CSS for LaTeX rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+
+  <!-- KaTeX Copy-tex CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/copy-tex.min.css">
+
+  <!-- KaTeX JS -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+
+  <!-- KaTeX Auto-render extension -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+
+  <!-- KaTeX Copy-tex extension (복사 기능) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/copy-tex.min.js"></script>
+
+  <!-- KaTeX mhchem extension (화학 수식) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+
+  <!-- Plotly.js for interactive scientific graphs -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+
+  <!-- Chart.js for statistical charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Mermaid.js for diagrams and flowcharts -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+    window.mermaid = mermaid;
+  </script>
 </head>
 <body>
   <div class="container">
@@ -50,32 +90,35 @@
 
       <div id="existingStoreForm" class="form-section" style="display: none;">
         <div class="form-group">
-          <label for="existingStoreName">기존 스토어 ID:</label>
-          <input
-            type="text"
-            id="existingStoreName"
-            placeholder="예: fileSearchStores/abc123"
+          <label for="existingStoreSelect">기존 스토어 선택:</label>
+          <select
+            id="existingStoreSelect"
             class="input-field"
           >
+            <option value="">스토어 목록 불러오는 중...</option>
+          </select>
         </div>
         <button onclick="useExistingStore()" class="btn btn-primary">
-          📂 기존 스토어 사용
+          📂 선택한 스토어 사용
         </button>
       </div>
 
       <div id="currentStoreInfo" class="info-box" style="display: none;">
-        <h3>현재 스토어</h3>
-        <p id="currentStoreName">-</p>
-        <button onclick="loadStoreStatus()" class="btn btn-secondary">
-          🔄 상태 새로고침
-        </button>
-        <button onclick="loadAllStores()" class="btn btn-secondary">
-          📋 모든 스토어 보기
-        </button>
+        <h3>✅ 현재 활성 스토어</h3>
+        <p id="currentStoreName" class="store-name-display">-</p>
+        <p id="currentStoreDetails" class="store-details">-</p>
       </div>
+    </section>
 
-      <div id="storeStatus" class="status-box" style="display: none;"></div>
-      <div id="allStoresList" class="stores-list" style="display: none;"></div>
+    <!-- 문서 관리 섹션 -->
+    <section class="card">
+      <h2>📚 문서 관리</h2>
+
+      <button onclick="loadDocuments()" class="btn btn-secondary">
+        🔄 문서 목록 새로고침
+      </button>
+
+      <div id="documentsList" class="documents-list"></div>
     </section>
 
     <!-- 파일 업로드 섹션 -->
@@ -199,17 +242,6 @@
         <h3>답변:</h3>
         <div id="answerContent"></div>
       </div>
-    </section>
-
-    <!-- 문서 관리 섹션 -->
-    <section class="card">
-      <h2>📚 문서 관리</h2>
-
-      <button onclick="loadDocuments()" class="btn btn-secondary">
-        🔄 문서 목록 새로고침
-      </button>
-
-      <div id="documentsList" class="documents-list"></div>
     </section>
 
     <!-- 푸터 -->
