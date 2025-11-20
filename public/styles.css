@@ -928,3 +928,432 @@ small {
   font-size: 0.85rem;
   font-style: italic;
 }
+
+/* ==================== 문제/풀이 시스템 스타일 ==================== */
+
+/* 문제 박스 */
+.problem-box {
+  background: #f9f9f9;
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 15px 0;
+}
+
+.problem-header {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.problem-type-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+}
+
+.problem-type-badge.type-multiple {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.problem-type-badge.type-subjective {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.problem-content {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #333;
+}
+
+.problem-content h3,
+.problem-content h4 {
+  color: #2c3e50;
+  margin-top: 15px;
+  margin-bottom: 10px;
+}
+
+/* 풀이 박스 */
+.solution-box {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 15px 0;
+}
+
+.solution-box h3 {
+  color: #856404;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+  border-bottom: 2px solid #ffc107;
+  padding-bottom: 10px;
+}
+
+#solutionContent {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #333;
+}
+
+#solutionContent h4 {
+  color: #856404;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+#solutionContent ol,
+#solutionContent ul {
+  margin: 10px 0;
+  padding-left: 30px;
+}
+
+#solutionContent li {
+  margin: 8px 0;
+}
+
+/* 정보 메시지 */
+.info-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 1.1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+}
+
+/* 풀이 요청 버튼 스타일 */
+#requestSolutionBtn {
+  width: 100%;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  padding: 12px 20px;
+  transition: all 0.3s ease;
+}
+
+#requestSolutionBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+/* 문제/풀이 내 수식 스타일 개선 */
+.problem-content .katex,
+.solution-box .katex {
+  font-size: 1.1em;
+}
+
+.problem-content .katex-display,
+.solution-box .katex-display {
+  margin: 1.5em 0;
+  padding: 15px;
+  background: white;
+  border-radius: 4px;
+  border-left: 4px solid #4CAF50;
+}
+
+/* 문제/풀이 내 코드 블록 */
+.problem-content pre,
+.solution-box pre {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 15px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.problem-content code,
+.solution-box code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .problem-box,
+  .solution-box {
+    padding: 15px;
+  }
+
+  .problem-content,
+  #solutionContent {
+    font-size: 1rem;
+  }
+
+  .problem-type-badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+  }
+}
+
+/* ==================== 과목 선택 시스템 스타일 ==================== */
+
+/* 과목 선택 섹션 */
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 선택된 과목 정보 박스 */
+#selectedCourseInfo {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 2px solid #667eea;
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#selectedCourseInfo h3 {
+  color: #667eea;
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 선택된 과목 표시 */
+.selected-course-display {
+  font-size: 1.1rem;
+  color: #333;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  margin: 10px 0;
+  line-height: 1.8;
+  font-weight: 500;
+}
+
+.selected-course-display span {
+  color: #666;
+  font-weight: 400;
+}
+
+.selected-course-display strong {
+  color: #667eea;
+  font-weight: 700;
+  font-size: 1.15em;
+}
+
+/* 과목 코드 표시 */
+.course-code {
+  font-size: 0.95rem;
+  color: #666;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: white;
+  border-radius: 6px;
+  border-left: 4px solid #4CAF50;
+}
+
+.course-code code {
+  font-family: 'Courier New', monospace;
+  background: #f0f4ff;
+  color: #667eea;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 1em;
+}
+
+/* 드롭다운 선택자 스타일 개선 */
+#subjectSelect,
+#categorySelect,
+#courseSelect {
+  font-size: 1rem;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 40px;
+}
+
+#subjectSelect:hover:not(:disabled),
+#categorySelect:hover:not(:disabled),
+#courseSelect:hover:not(:disabled) {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#subjectSelect:focus,
+#categorySelect:focus,
+#courseSelect:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+/* 비활성화된 드롭다운 */
+#categorySelect:disabled,
+#courseSelect:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: #e0e0e0;
+  color: #999;
+}
+
+#categorySelect:disabled,
+#courseSelect:disabled {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}
+
+/* 드롭다운 옵션 스타일 */
+#subjectSelect option,
+#categorySelect option,
+#courseSelect option {
+  padding: 12px;
+  font-size: 1rem;
+}
+
+/* 폼 그룹 레이블 개선 */
+.card .form-group label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  #selectedCourseInfo {
+    padding: 15px;
+  }
+
+  .selected-course-display {
+    font-size: 1rem;
+    padding: 10px 12px;
+  }
+
+  .selected-course-display strong {
+    font-size: 1.1em;
+  }
+
+  .course-code {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+
+  #subjectSelect,
+  #categorySelect,
+  #courseSelect {
+    font-size: 0.95rem;
+    padding: 10px 14px;
+    background-position: right 10px center;
+    padding-right: 35px;
+  }
+}
+
+/* 선택 진행 표시 시각적 피드백 */
+#subjectSelect:valid {
+  border-color: #4CAF50;
+}
+
+#categorySelect:enabled:valid {
+  border-color: #4CAF50;
+}
+
+#courseSelect:enabled:valid {
+  border-color: #4CAF50;
+}
+
+/* ==================== 문제 요청 섹션 - 출판사/단원 드롭다운 스타일 ==================== */
+
+/* 출판사, 단원, 문항수 드롭다운 */
+#publisherSelect,
+#chapterSelect,
+#questionCountSelect {
+  font-size: 1rem;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 40px;
+}
+
+#publisherSelect:hover:not(:disabled),
+#chapterSelect:hover:not(:disabled),
+#questionCountSelect:hover {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#publisherSelect:focus,
+#chapterSelect:focus,
+#questionCountSelect:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+/* 비활성화된 드롭다운 */
+#publisherSelect:disabled,
+#chapterSelect:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: #e0e0e0;
+  color: #999;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999999' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}
+
+/* 선택 진행 표시 시각적 피드백 */
+#publisherSelect:enabled:valid {
+  border-color: #4CAF50;
+}
+
+#chapterSelect:enabled:valid {
+  border-color: #4CAF50;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  #publisherSelect,
+  #chapterSelect,
+  #questionCountSelect {
+    font-size: 0.95rem;
+    padding: 10px 14px;
+    background-position: right 10px center;
+    padding-right: 35px;
+  }
+}

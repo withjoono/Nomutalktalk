@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google File Search RAG Agent</title>
+  <title>Hizen AI 문제 은행</title>
   <link rel="stylesheet" href="styles.css">
 
   <!-- KaTeX CSS for LaTeX rendering -->
@@ -98,10 +98,46 @@
   <div class="container">
     <!-- 헤더 -->
     <header class="header">
-      <h1>🤖 Google File Search RAG Agent</h1>
+      <h1>🤖 Hizen AI 문제 은행</h1>
       <p class="subtitle">AI 기반 문서 검색 및 질의응답 시스템</p>
       <div id="serverStatus" class="status-badge">확인 중...</div>
     </header>
+
+    <!-- 과목 선택 섹션 -->
+    <section class="card">
+      <h2>📚 과목 선택</h2>
+
+      <div class="form-group">
+        <label for="subjectSelect">교과 선택:</label>
+        <select
+          id="subjectSelect"
+          class="input-field"
+          onchange="onSubjectChange()"
+        >
+          <option value="">교과를 선택하세요</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="courseSelect">과목 선택:</label>
+        <select
+          id="courseSelect"
+          class="input-field"
+          onchange="onCourseChange()"
+          disabled
+        >
+          <option value="">먼저 교과를 선택하세요</option>
+        </select>
+      </div>
+
+      <div id="selectedCourseInfo" class="info-box" style="display: none;">
+        <h3>✅ 선택한 과목</h3>
+        <p class="selected-course-display">
+          <span id="selectedSubject">-</span> >
+          <strong id="selectedCourse">-</strong>
+        </p>
+      </div>
+    </section>
 
     <!-- 스토어 초기화 섹션 -->
     <section class="card">
@@ -215,11 +251,11 @@
         <div id="chunkingSection" class="collapsible-content">
           <div class="form-group">
             <label>
-              <input type="checkbox" id="enableChunking">
-              청킹 활성화
+              <input type="checkbox" id="enableChunking" checked>
+              청킹 활성화 (기본 권장)
             </label>
           </div>
-          <div id="chunkingOptions" style="display: none;">
+          <div id="chunkingOptions" style="display: block;">
             <div class="form-group">
               <label for="maxTokensPerChunk">청크당 최대 토큰:</label>
               <input
@@ -268,15 +304,128 @@
       <div id="uploadProgress" class="progress-box" style="display: none;"></div>
     </section>
 
-    <!-- 질의응답 섹션 -->
+    <!-- 1. 문제요청 섹션 -->
     <section class="card">
-      <h2>💬 질의응답</h2>
+      <h2>📝 문제 요청</h2>
+
+      <div class="form-group">
+        <label>문제 유형:</label>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="problemType" value="multiple" checked>
+            객관식
+          </label>
+          <label>
+            <input type="radio" name="problemType" value="subjective">
+            주관식
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="publisherSelect">출판사 선택:</label>
+        <select
+          id="publisherSelect"
+          class="input-field"
+          onchange="onPublisherChange()"
+          disabled
+        >
+          <option value="">먼저 과목을 선택하세요</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="chapterSelect">단원 선택:</label>
+        <select
+          id="chapterSelect"
+          class="input-field"
+          onchange="onChapterChange()"
+          disabled
+        >
+          <option value="">먼저 출판사를 선택하세요</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="questionCountSelect">문항 수:</label>
+        <select
+          id="questionCountSelect"
+          class="input-field"
+        >
+          <option value="1">1문항</option>
+          <option value="2">2문항</option>
+          <option value="3" selected>3문항</option>
+          <option value="4">4문항</option>
+          <option value="5">5문항</option>
+          <option value="10">10문항</option>
+          <option value="15">15문항</option>
+          <option value="20">20문항</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="problemRequestInput">추가 요청사항 (선택사항):</label>
+        <textarea
+          id="problemRequestInput"
+          placeholder="예: 난이도를 높게 출제해주세요"
+          class="textarea-field"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <button onclick="requestProblem()" class="btn btn-primary btn-large">
+        📋 문제 요청하기
+      </button>
+    </section>
+
+    <!-- 2. 문제 섹션 -->
+    <section class="card">
+      <h2>📚 문제</h2>
+
+      <div id="problemBox" class="problem-box" style="display: none;">
+        <div class="problem-header">
+          <span id="problemType" class="problem-type-badge">객관식</span>
+        </div>
+        <div id="problemContent" class="problem-content"></div>
+      </div>
+
+      <div id="noProblem" class="info-message">
+        ℹ️ 위 섹션에서 문제를 요청해주세요.
+      </div>
+    </section>
+
+    <!-- 3. 풀이와 해답 섹션 -->
+    <section class="card">
+      <h2>✅ 풀이와 해답</h2>
+
+      <button
+        id="requestSolutionBtn"
+        onclick="requestSolution()"
+        class="btn btn-secondary btn-large"
+        style="display: none;"
+      >
+        💡 풀이 요청하기
+      </button>
+
+      <div id="solutionBox" class="solution-box" style="display: none;">
+        <h3>풀이:</h3>
+        <div id="solutionContent"></div>
+      </div>
+
+      <div id="noSolution" class="info-message">
+        ℹ️ 문제가 출제된 후 풀이를 요청할 수 있습니다.
+      </div>
+    </section>
+
+    <!-- 질의응답 섹션 (기존 기능 유지) -->
+    <section class="card">
+      <h2>💬 질의와 응답</h2>
 
       <div class="form-group">
         <label for="questionInput">질문:</label>
         <textarea
           id="questionInput"
-          placeholder="업로드된 문서에 대해 질문하세요..."
+          placeholder="업로드된 문서에 대해 자유롭게 질문하세요..."
           class="textarea-field"
           rows="3"
         ></textarea>

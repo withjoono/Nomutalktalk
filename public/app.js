@@ -1,11 +1,17 @@
 // ==================== 전역 변수 ====================
 let currentStore = null;
 let metadataCounter = 0;
+let subjectsData = null;
+let selectedSubject = null;
+let selectedCourse = null;
+let selectedPublisher = null;
+let selectedChapter = null;
 
 // ==================== 초기화 ====================
 document.addEventListener('DOMContentLoaded', () => {
   checkServerHealth();
   setupEventListeners();
+  loadSubjectsData();
 });
 
 // ==================== 이벤트 리스너 설정 ====================
@@ -85,6 +91,186 @@ async function checkServerHealth() {
     statusBadge.className = 'status-badge offline';
     console.error('서버 연결 오류:', error);
   }
+}
+
+// ==================== 과목 선택 시스템 ====================
+
+/**
+ * 과목 데이터 로드
+ */
+async function loadSubjectsData() {
+  try {
+    const response = await fetch('/subjects.json');
+    const data = await response.json();
+    subjectsData = data.subjects;
+
+    // 교과 드롭다운 초기화
+    const subjectSelect = document.getElementById('subjectSelect');
+    subjectSelect.innerHTML = '<option value="">교과를 선택하세요</option>';
+
+    subjectsData.forEach((subject, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = subject.subject;
+      subjectSelect.appendChild(option);
+    });
+
+    console.log('✅ 과목 데이터 로드 완료:', subjectsData.length, '개 교과');
+  } catch (error) {
+    console.error('❌ 과목 데이터 로드 실패:', error);
+    showAlert('과목 데이터를 불러오는데 실패했습니다.', 'error');
+  }
+}
+
+/**
+ * 교과 선택 변경 이벤트
+ */
+function onSubjectChange() {
+  const subjectSelect = document.getElementById('subjectSelect');
+  const courseSelect = document.getElementById('courseSelect');
+  const selectedCourseInfo = document.getElementById('selectedCourseInfo');
+
+  const selectedIndex = subjectSelect.value;
+
+  if (!selectedIndex) {
+    // 교과 선택 해제
+    courseSelect.disabled = true;
+    courseSelect.innerHTML = '<option value="">먼저 교과를 선택하세요</option>';
+    selectedCourseInfo.style.display = 'none';
+    selectedSubject = null;
+    selectedCourse = null;
+    return;
+  }
+
+  // 선택된 교과 저장
+  selectedSubject = subjectsData[selectedIndex];
+
+  // 과목 드롭다운 직접 업데이트
+  courseSelect.innerHTML = '<option value="">과목을 선택하세요</option>';
+  selectedSubject.courses.forEach((course, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = course.name;
+    courseSelect.appendChild(option);
+  });
+
+  courseSelect.disabled = false;
+  selectedCourseInfo.style.display = 'none';
+  selectedCourse = null;
+
+  console.log('✅ 교과 선택:', selectedSubject.subject, '(과목 수:', selectedSubject.courses.length + ')');
+}
+
+/**
+ * 과목 선택 변경 이벤트
+ */
+function onCourseChange() {
+  const courseSelect = document.getElementById('courseSelect');
+  const publisherSelect = document.getElementById('publisherSelect');
+  const chapterSelect = document.getElementById('chapterSelect');
+  const selectedIndex = courseSelect.value;
+
+  if (!selectedIndex || !selectedSubject) {
+    document.getElementById('selectedCourseInfo').style.display = 'none';
+    selectedCourse = null;
+    selectedPublisher = null;
+    selectedChapter = null;
+    publisherSelect.disabled = true;
+    chapterSelect.disabled = true;
+    publisherSelect.innerHTML = '<option value="">먼저 과목을 선택하세요</option>';
+    chapterSelect.innerHTML = '<option value="">먼저 출판사를 선택하세요</option>';
+    return;
+  }
+
+  // 선택된 과목 저장
+  selectedCourse = selectedSubject.courses[selectedIndex];
+
+  // 선택한 과목 정보 표시
+  document.getElementById('selectedSubject').textContent = selectedSubject.subject;
+  document.getElementById('selectedCourse').textContent = selectedCourse.name;
+  document.getElementById('selectedCourseInfo').style.display = 'block';
+
+  // 출판사 드롭다운 업데이트
+  publisherSelect.innerHTML = '<option value="">출판사를 선택하세요</option>';
+
+  if (selectedCourse.publishers && selectedCourse.publishers.length > 0) {
+    selectedCourse.publishers.forEach((publisher, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = publisher.name;
+      publisherSelect.appendChild(option);
+    });
+    publisherSelect.disabled = false;
+  } else {
+    publisherSelect.innerHTML = '<option value="">이 과목은 출판사 정보가 없습니다</option>';
+    publisherSelect.disabled = true;
+  }
+
+  // 단원 드롭다운 초기화
+  chapterSelect.disabled = true;
+  chapterSelect.innerHTML = '<option value="">먼저 출판사를 선택하세요</option>';
+  selectedPublisher = null;
+  selectedChapter = null;
+
+  console.log('✅ 과목 선택:', selectedCourse, '(출판사 수:', selectedCourse.publishers?.length || 0 + ')');
+}
+
+/**
+ * 출판사 선택 변경 이벤트
+ */
+function onPublisherChange() {
+  const publisherSelect = document.getElementById('publisherSelect');
+  const chapterSelect = document.getElementById('chapterSelect');
+  const selectedIndex = publisherSelect.value;
+
+  if (!selectedIndex || !selectedCourse) {
+    chapterSelect.disabled = true;
+    chapterSelect.innerHTML = '<option value="">먼저 출판사를 선택하세요</option>';
+    selectedPublisher = null;
+    selectedChapter = null;
+    return;
+  }
+
+  // 선택된 출판사 저장
+  selectedPublisher = selectedCourse.publishers[selectedIndex];
+
+  // 단원 드롭다운 업데이트
+  chapterSelect.innerHTML = '<option value="">단원을 선택하세요</option>';
+
+  if (selectedPublisher.chapters && selectedPublisher.chapters.length > 0) {
+    selectedPublisher.chapters.forEach((chapter, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = `${chapter.id}. ${chapter.name}`;
+      chapterSelect.appendChild(option);
+    });
+    chapterSelect.disabled = false;
+  } else {
+    chapterSelect.innerHTML = '<option value="">이 출판사는 단원 정보가 없습니다</option>';
+    chapterSelect.disabled = true;
+  }
+
+  selectedChapter = null;
+
+  console.log('✅ 출판사 선택:', selectedPublisher.name, '(단원 수:', selectedPublisher.chapters?.length || 0 + ')');
+}
+
+/**
+ * 단원 선택 변경 이벤트
+ */
+function onChapterChange() {
+  const chapterSelect = document.getElementById('chapterSelect');
+  const selectedIndex = chapterSelect.value;
+
+  if (!selectedIndex || !selectedPublisher) {
+    selectedChapter = null;
+    return;
+  }
+
+  // 선택된 단원 저장
+  selectedChapter = selectedPublisher.chapters[selectedIndex];
+
+  console.log('✅ 단원 선택:', selectedChapter.name);
 }
 
 // ==================== 스토어 관리 ====================
@@ -489,6 +675,216 @@ async function askQuestion() {
         // 수식에 확대/축소 기능 추가
         addFormulaZoomFeature(answerContent);
       }
+    } else {
+      showAlert(`❌ ${data.error}`, 'error');
+    }
+  } catch (error) {
+    hideProgress();
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+// ==================== 문제/풀이 시스템 ====================
+
+// 현재 문제 저장
+let currentProblem = null;
+
+/**
+ * 문제 요청 함수
+ */
+async function requestProblem() {
+  if (!currentStore) {
+    showAlert('먼저 스토어를 초기화하세요.', 'error');
+    return;
+  }
+
+  // 필수 선택사항 확인
+  if (!selectedCourse) {
+    showAlert('과목을 선택하세요.', 'error');
+    return;
+  }
+
+  if (!selectedPublisher) {
+    showAlert('출판사를 선택하세요.', 'error');
+    return;
+  }
+
+  if (!selectedChapter) {
+    showAlert('단원을 선택하세요.', 'error');
+    return;
+  }
+
+  const problemRequest = document.getElementById('problemRequestInput').value.trim();
+  const problemTypeElement = document.querySelector('input[name="problemType"]:checked');
+  const problemType = problemTypeElement ? problemTypeElement.value : 'multiple';
+  const questionCount = document.getElementById('questionCountSelect').value;
+
+  try {
+    showProgress('문제 생성 중...');
+
+    // 과목, 출판사, 단원, 문항 수 정보를 포함한 프롬프트 생성
+    const subjectInfo = `교과: ${selectedSubject.subject}, 과목: ${selectedCourse.name}, 출판사: ${selectedPublisher.name}, 단원: ${selectedChapter.name}`;
+
+    // 문제 유형에 따라 프롬프트 조정
+    const typeInstruction = problemType === 'multiple'
+      ? `객관식 문제로 ${questionCount}문항을 출제하고, 각 문제마다 4개의 보기를 제시하세요. 정답은 절대 표시하지 마세요.`
+      : `주관식 문제로 ${questionCount}문항을 출제하세요. 정답이나 풀이는 절대 포함하지 마세요.`;
+
+    const additionalRequest = problemRequest ? `\n\n추가 요청사항: ${problemRequest}` : '';
+
+    const query = `${subjectInfo}\n\n조건: ${typeInstruction}${additionalRequest}\n\n문제만 출제하고, 풀이나 정답은 절대 포함하지 마세요. "문제:" 라는 제목으로 시작하세요.`;
+
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const data = await response.json();
+
+    hideProgress();
+
+    if (data.success) {
+      // 문제 저장
+      currentProblem = {
+        subject: selectedSubject.subject,
+        course: selectedCourse.name,
+        publisher: selectedPublisher.name,
+        chapter: selectedChapter.name,
+        questionCount: questionCount,
+        request: problemRequest,
+        type: problemType,
+        content: data.answer
+      };
+
+      // 문제 표시
+      displayProblem(data.answer, problemType);
+
+      // 풀이 요청 버튼 활성화
+      document.getElementById('requestSolutionBtn').style.display = 'block';
+      document.getElementById('noSolution').style.display = 'block';
+      document.getElementById('solutionBox').style.display = 'none';
+
+      showAlert('✅ 문제가 출제되었습니다!', 'success');
+    } else {
+      showAlert(`❌ ${data.error}`, 'error');
+    }
+  } catch (error) {
+    hideProgress();
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 문제 표시 함수
+ */
+function displayProblem(problemContent, problemType) {
+  const problemBox = document.getElementById('problemBox');
+  const problemTypeElement = document.getElementById('problemType');
+  const problemContentElement = document.getElementById('problemContent');
+  const noProblem = document.getElementById('noProblem');
+
+  // 문제 유형 배지 업데이트
+  problemTypeElement.textContent = problemType === 'multiple' ? '객관식' : '주관식';
+  problemTypeElement.className = 'problem-type-badge ' + (problemType === 'multiple' ? 'type-multiple' : 'type-subjective');
+
+  // 문제 내용 표시
+  problemContentElement.innerHTML = formatAnswer(problemContent);
+
+  // 문제 박스 표시
+  problemBox.style.display = 'block';
+  noProblem.style.display = 'none';
+
+  // 모든 그래프 렌더링
+  renderAllGraphs(problemContentElement).then(() => {
+    console.log('문제 내 그래프 렌더링 완료');
+  }).catch(err => {
+    console.error('문제 그래프 렌더링 오류:', err);
+  });
+
+  // KaTeX로 수학 수식 렌더링
+  if (typeof renderMathInElement !== 'undefined') {
+    renderMathInElement(problemContentElement, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\[', right: '\\]', display: true},
+        {left: '\\(', right: '\\)', display: false}
+      ],
+      throwOnError: false,
+      trust: true,
+      strict: false
+    });
+
+    // 수식에 확대/축소 기능 추가
+    addFormulaZoomFeature(problemContentElement);
+  }
+}
+
+/**
+ * 풀이 요청 함수
+ */
+async function requestSolution() {
+  if (!currentProblem) {
+    showAlert('먼저 문제를 요청하세요.', 'error');
+    return;
+  }
+
+  if (!currentStore) {
+    showAlert('먼저 스토어를 초기화하세요.', 'error');
+    return;
+  }
+
+  try {
+    showProgress('풀이 생성 중...');
+
+    const query = `다음 문제의 풀이와 정답을 자세히 설명해주세요:\n\n${currentProblem.content}\n\n풀이 과정을 단계별로 설명하고, 최종 정답을 명확히 제시하세요.`;
+
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const data = await response.json();
+
+    hideProgress();
+
+    if (data.success) {
+      const solutionBox = document.getElementById('solutionBox');
+      const solutionContent = document.getElementById('solutionContent');
+      const noSolution = document.getElementById('noSolution');
+
+      solutionContent.innerHTML = formatAnswer(data.answer);
+      solutionBox.style.display = 'block';
+      noSolution.style.display = 'none';
+
+      // 모든 그래프 렌더링
+      renderAllGraphs(solutionContent).then(() => {
+        console.log('풀이 내 그래프 렌더링 완료');
+      }).catch(err => {
+        console.error('풀이 그래프 렌더링 오류:', err);
+      });
+
+      // KaTeX로 수학 수식 렌더링
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(solutionContent, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false,
+          trust: true,
+          strict: false
+        });
+
+        // 수식에 확대/축소 기능 추가
+        addFormulaZoomFeature(solutionContent);
+      }
+
+      showAlert('✅ 풀이가 생성되었습니다!', 'success');
     } else {
       showAlert(`❌ ${data.error}`, 'error');
     }

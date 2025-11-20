@@ -1,0 +1,382 @@
+{
+  "subjects": [
+    {
+      "subject": "국어",
+      "subjectCode": "H1501",
+      "courses": [
+        {
+          "id": "H150111",
+          "name": "국어",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "문학의 갈래" },
+                { "id": 2, "name": "소통과 공감의 언어" },
+                { "id": 3, "name": "문학과 삶" }
+              ]
+            },
+            {
+              "name": "미래엔",
+              "chapters": [
+                { "id": 1, "name": "문학의 수용과 생산" },
+                { "id": 2, "name": "언어와 매체" },
+                { "id": 3, "name": "독서와 작문" }
+              ]
+            }
+          ]
+        },
+        { "id": "H150122", "name": "독서", "publishers": [] },
+        { "id": "H150123", "name": "문학", "publishers": [] },
+        { "id": "H150124", "name": "언어와 매체", "publishers": [] },
+        { "id": "H150125", "name": "화법과 작문", "publishers": [] },
+        { "id": "H150136", "name": "고전 읽기", "publishers": [] },
+        { "id": "H150137", "name": "실용 국어", "publishers": [] },
+        { "id": "H150138", "name": "심화 국어", "publishers": [] }
+      ]
+    },
+    {
+      "subject": "영어",
+      "subjectCode": "H1503",
+      "courses": [
+        {
+          "id": "H150311",
+          "name": "영어",
+          "publishers": [
+            {
+              "name": "동아출판",
+              "chapters": [
+                { "id": 1, "name": "People and Relationships" },
+                { "id": 2, "name": "Culture and Society" },
+                { "id": 3, "name": "Science and Technology" }
+              ]
+            },
+            {
+              "name": "천재교육",
+              "chapters": [
+                { "id": 1, "name": "Communication" },
+                { "id": 2, "name": "Understanding Cultures" },
+                { "id": 3, "name": "Future and Innovation" }
+              ]
+            }
+          ]
+        },
+        { "id": "H150322", "name": "영어 독해와 작문", "publishers": [] },
+        { "id": "H150323", "name": "영어 회화", "publishers": [] },
+        { "id": "H150324", "name": "영어Ⅰ", "publishers": [] },
+        { "id": "H150325", "name": "영어Ⅱ", "publishers": [] },
+        { "id": "H150336", "name": "심화 영어 독해Ⅰ", "publishers": [] },
+        { "id": "H150337", "name": "심화 영어 독해Ⅱ", "publishers": [] },
+        { "id": "H150338", "name": "심화 영어 작문Ⅰ", "publishers": [] },
+        { "id": "H150339", "name": "심화 영어 작문Ⅱ", "publishers": [] },
+        { "id": "H1503310", "name": "기본 영어", "publishers": [] },
+        { "id": "H1503311", "name": "실용 영어", "publishers": [] },
+        { "id": "H1503312", "name": "심화 영어 회화Ⅰ", "publishers": [] },
+        { "id": "H1503313", "name": "심화 영어 회화Ⅱ", "publishers": [] },
+        { "id": "H1503314", "name": "심화 영어Ⅰ", "publishers": [] },
+        { "id": "H1503315", "name": "심화 영어Ⅱ", "publishers": [] },
+        { "id": "H1503316", "name": "영미 문학 읽기", "publishers": [] },
+        { "id": "H1503317", "name": "영어권 문화", "publishers": [] },
+        { "id": "H1503318", "name": "진로 영어", "publishers": [] }
+      ]
+    },
+    {
+      "subject": "수학",
+      "subjectCode": "H1502",
+      "courses": [
+        {
+          "id": "H150211",
+          "name": "수학",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "다항식" },
+                { "id": 2, "name": "방정식과 부등식" },
+                { "id": 3, "name": "도형의 방정식" },
+                { "id": 4, "name": "집합과 명제" },
+                { "id": 5, "name": "함수" },
+                { "id": 6, "name": "경우의 수" }
+              ]
+            },
+            {
+              "name": "신사고",
+              "chapters": [
+                { "id": 1, "name": "다항식의 연산" },
+                { "id": 2, "name": "방정식과 부등식" },
+                { "id": 3, "name": "도형의 방정식" },
+                { "id": 4, "name": "집합과 명제" },
+                { "id": 5, "name": "함수와 그래프" },
+                { "id": 6, "name": "순열과 조합" }
+              ]
+            },
+            {
+              "name": "미래엔",
+              "chapters": [
+                { "id": 1, "name": "다항식의 계산" },
+                { "id": 2, "name": "방정식" },
+                { "id": 3, "name": "부등식" },
+                { "id": 4, "name": "도형의 방정식" },
+                { "id": 5, "name": "집합" },
+                { "id": 6, "name": "명제" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150222",
+          "name": "미적분",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "수열의 극한" },
+                { "id": 2, "name": "미분법" },
+                { "id": 3, "name": "적분법" }
+              ]
+            },
+            {
+              "name": "신사고",
+              "chapters": [
+                { "id": 1, "name": "극한과 연속" },
+                { "id": 2, "name": "다항함수의 미분법" },
+                { "id": 3, "name": "다항함수의 적분법" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150223",
+          "name": "수학Ⅰ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "지수함수와 로그함수" },
+                { "id": 2, "name": "삼각함수" },
+                { "id": 3, "name": "수열" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150224",
+          "name": "수학Ⅱ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "함수의 극한과 연속" },
+                { "id": 2, "name": "미분" },
+                { "id": 3, "name": "적분" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150225",
+          "name": "확률과 통계",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "경우의 수" },
+                { "id": 2, "name": "확률" },
+                { "id": 3, "name": "통계" }
+              ]
+            }
+          ]
+        },
+        { "id": "H150236", "name": "경제 수학", "publishers": [] },
+        { "id": "H150237", "name": "고급 수학Ⅰ", "publishers": [] },
+        { "id": "H150238", "name": "고급 수학Ⅱ", "publishers": [] },
+        { "id": "H150239", "name": "기본 수학", "publishers": [] },
+        { "id": "H1502310", "name": "기하", "publishers": [] },
+        { "id": "H1502311", "name": "수학과제 탐구", "publishers": [] },
+        { "id": "H1502312", "name": "실용 수학", "publishers": [] },
+        { "id": "H1502313", "name": "심화 수학Ⅰ", "publishers": [] },
+        { "id": "H1502314", "name": "심화 수학Ⅱ", "publishers": [] },
+        { "id": "H1502315", "name": "인공지능 수학", "publishers": [] }
+      ]
+    },
+    {
+      "subject": "과학",
+      "subjectCode": "H1505",
+      "courses": [
+        {
+          "id": "H150511",
+          "name": "과학탐구실험",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "역학적 시스템" },
+                { "id": 2, "name": "지구 시스템" },
+                { "id": 3, "name": "생명 시스템" },
+                { "id": 4, "name": "화학 변화" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150512",
+          "name": "통합과학",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "물질의 규칙성과 결합" },
+                { "id": 2, "name": "자연의 구성 물질" },
+                { "id": 3, "name": "역학적 시스템" },
+                { "id": 4, "name": "지구 시스템" },
+                { "id": 5, "name": "생명 시스템" },
+                { "id": 6, "name": "화학 변화" }
+              ]
+            },
+            {
+              "name": "천재교육",
+              "chapters": [
+                { "id": 1, "name": "물질과 규칙성" },
+                { "id": 2, "name": "시스템과 상호작용" },
+                { "id": 3, "name": "변화와 다양성" },
+                { "id": 4, "name": "환경과 에너지" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150523",
+          "name": "물리학Ⅰ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "힘과 운동" },
+                { "id": 2, "name": "에너지와 열" },
+                { "id": 3, "name": "전기와 자기" },
+                { "id": 4, "name": "파동과 정보 통신" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150524",
+          "name": "생명과학Ⅰ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "생명과학의 이해" },
+                { "id": 2, "name": "사람의 물질대사" },
+                { "id": 3, "name": "항상성과 몸의 조절" },
+                { "id": 4, "name": "유전" },
+                { "id": 5, "name": "생태계와 상호작용" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150525",
+          "name": "지구과학Ⅰ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "고체 지구" },
+                { "id": 2, "name": "대기와 해양" },
+                { "id": 3, "name": "우주" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "H150526",
+          "name": "화학Ⅰ",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "화학의 첫걸음" },
+                { "id": 2, "name": "원자의 세계" },
+                { "id": 3, "name": "화학 결합과 분자의 세계" },
+                { "id": 4, "name": "역동적인 화학 반응" }
+              ]
+            }
+          ]
+        },
+        { "id": "H150537", "name": "물리학 실험", "publishers": [] },
+        { "id": "H150538", "name": "생명과학 실험", "publishers": [] },
+        { "id": "H150539", "name": "지구과학 실험", "publishers": [] },
+        { "id": "H1505310", "name": "화학 실험", "publishers": [] },
+        { "id": "H1505311", "name": "고급 물리학", "publishers": [] },
+        { "id": "H1505312", "name": "고급 생명과학", "publishers": [] },
+        { "id": "H1505313", "name": "고급 지구과학", "publishers": [] },
+        { "id": "H1505314", "name": "고급 화학", "publishers": [] },
+        { "id": "H1505315", "name": "과학과제 연구", "publishers": [] },
+        { "id": "H1505316", "name": "과학사", "publishers": [] },
+        { "id": "H1505317", "name": "물리학Ⅱ", "publishers": [] },
+        { "id": "H1505318", "name": "생명과학Ⅱ", "publishers": [] },
+        { "id": "H1505319", "name": "생태와 환경", "publishers": [] },
+        { "id": "H1505320", "name": "생활과 과학", "publishers": [] },
+        { "id": "H1505321", "name": "융합과학", "publishers": [] },
+        { "id": "H1505322", "name": "융합과학 탐구", "publishers": [] },
+        { "id": "H1505323", "name": "정보과학", "publishers": [] },
+        { "id": "H1505324", "name": "지구과학Ⅱ", "publishers": [] },
+        { "id": "H1505325", "name": "화학Ⅱ", "publishers": [] }
+      ]
+    },
+    {
+      "subject": "사회",
+      "subjectCode": "H1504",
+      "courses": [
+        {
+          "id": "H150411",
+          "name": "통합사회",
+          "publishers": [
+            {
+              "name": "비상교육",
+              "chapters": [
+                { "id": 1, "name": "인간, 사회, 환경과 행복" },
+                { "id": 2, "name": "자연환경과 인간" },
+                { "id": 3, "name": "생활공간과 사회" },
+                { "id": 4, "name": "인권 보장과 헌법" },
+                { "id": 5, "name": "시장경제와 금융" }
+              ]
+            },
+            {
+              "name": "천재교육",
+              "chapters": [
+                { "id": 1, "name": "삶의 이해와 환경" },
+                { "id": 2, "name": "인간과 공동체" },
+                { "id": 3, "name": "사회 변화와 공존" }
+              ]
+            }
+          ]
+        },
+        { "id": "H150422", "name": "경제", "publishers": [] },
+        { "id": "H150423", "name": "동아시아사", "publishers": [] },
+        { "id": "H150424", "name": "사회·문화", "publishers": [] },
+        { "id": "H150425", "name": "생활과 윤리", "publishers": [] },
+        { "id": "H150426", "name": "세계사", "publishers": [] },
+        { "id": "H150427", "name": "세계지리", "publishers": [] },
+        { "id": "H150428", "name": "윤리와 사상", "publishers": [] },
+        { "id": "H150429", "name": "정치와 법", "publishers": [] },
+        { "id": "H1504210", "name": "한국지리", "publishers": [] },
+        { "id": "H1504311", "name": "비교 문화", "publishers": [] },
+        { "id": "H1504312", "name": "한국 사회의 이해", "publishers": [] },
+        { "id": "H1504313", "name": "고전과 윤리", "publishers": [] },
+        { "id": "H1504314", "name": "국제 경제", "publishers": [] },
+        { "id": "H1504315", "name": "국제 관계와 국제기구", "publishers": [] },
+        { "id": "H1504316", "name": "국제 정치", "publishers": [] },
+        { "id": "H1504317", "name": "국제법", "publishers": [] },
+        { "id": "H1504318", "name": "사회 탐구 방법", "publishers": [] },
+        { "id": "H1504319", "name": "사회과제 연구", "publishers": [] },
+        { "id": "H1504320", "name": "사회문제 탐구", "publishers": [] },
+        { "id": "H1504321", "name": "세계 문제와 미래 사회", "publishers": [] },
+        { "id": "H1504322", "name": "여행지리", "publishers": [] },
+        { "id": "H1504323", "name": "지역 이해", "publishers": [] },
+        { "id": "H1504324", "name": "현대 세계의 변화", "publishers": [] }
+      ]
+    }
+  ]
+}
