@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkServerHealth();
   setupEventListeners();
   loadSubjectsData();
+  loadRecords(); // 저장된 학습 기록 로드
 });
 
 // ==================== 이벤트 리스너 설정 ====================
@@ -882,6 +883,21 @@ async function requestSolution() {
 
         // 수식에 확대/축소 기능 추가
         addFormulaZoomFeature(solutionContent);
+      }
+
+      // 풀이 내용을 currentProblem에 저장
+      currentProblem.solution = data.answer;
+
+      // 저장 버튼 표시
+      const saveButtonArea = document.getElementById('saveButtonArea');
+      if (saveButtonArea) {
+        saveButtonArea.style.display = 'block';
+        // 저장 상태 초기화
+        const saveStatus = document.getElementById('saveStatus');
+        if (saveStatus) {
+          saveStatus.textContent = '';
+          saveStatus.className = 'save-status';
+        }
       }
 
       showAlert('✅ 풀이가 생성되었습니다!', 'success');
@@ -1836,3 +1852,3465 @@ async function renderAllGraphs(container) {
   // 🔬 General Science
   renderThreeJsGraphs(container);
 }
+
+// ==================== 💾 학습 기록 저장 시스템 ====================
+
+/**
+ * 문제와 풀이 저장
+ */
+async function saveRecord() {
+  if (!currentProblem) {
+    showAlert('저장할 문제가 없습니다.', 'error');
+    return;
+  }
+
+  if (!currentProblem.solution) {
+    showAlert('먼저 풀이를 요청하세요.', 'error');
+    return;
+  }
+
+  const saveBtn = document.getElementById('saveRecordBtn');
+  const saveStatus = document.getElementById('saveStatus');
+
+  try {
+    // 버튼 비활성화 및 로딩 상태
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ 저장 중...';
+    saveStatus.textContent = '클라우드에 저장하는 중...';
+    saveStatus.className = 'save-status loading';
+
+    const response = await fetch('/api/records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: currentProblem.subject || selectedSubject || '',
+        course: currentProblem.course || selectedCourse || '',
+        publisher: currentProblem.publisher || selectedPublisher || '',
+        chapter: currentProblem.chapter || selectedChapter || '',
+        type: currentProblem.type || 'multiple',
+        problem: currentProblem.content,
+        solution: currentProblem.solution,
+        request: currentProblem.request || ''
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      saveStatus.textContent = '✅ 저장되었습니다!';
+      saveStatus.className = 'save-status success';
+      saveBtn.textContent = '✅ 저장 완료';
+
+      // 3초 후 버튼 원래대로
+      setTimeout(() => {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 문제와 풀이 저장하기';
+      }, 3000);
+
+      // 기록 목록 새로고침
+      loadRecords();
+
+      showAlert('✅ 학습 기록이 저장되었습니다!', 'success');
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('저장 오류:', error);
+    saveStatus.textContent = `❌ 저장 실패: ${error.message}`;
+    saveStatus.className = 'save-status error';
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 문제와 풀이 저장하기';
+    showAlert(`❌ 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 저장된 학습 기록 목록 불러오기
+ */
+async function loadRecords() {
+  const recordsList = document.getElementById('recordsList');
+
+  if (!recordsList) return;
+
+  try {
+    recordsList.innerHTML = '<p class="info-message">📂 기록 불러오는 중...</p>';
+
+    const response = await fetch('/api/records');
+    const data = await response.json();
+
+    if (data.success && data.records.length > 0) {
+      recordsList.innerHTML = data.records.map(record => `
+        <div class="record-card" data-id="${record.id}">
+          <div class="record-header">
+            <div class="record-meta">
+              <div class="record-subject">${record.subject || '미분류'} > ${record.course || ''}</div>
+              <div class="record-chapter">${record.publisher || ''} ${record.chapter || ''}</div>
+            </div>
+            <div class="record-date">${formatDate(record.createdAt)}</div>
+          </div>
+          <div class="record-preview">${stripHtml(record.problem).substring(0, 150)}...</div>
+          <div class="record-actions">
+            <button class="record-btn record-btn-view" onclick="viewRecord('${record.id}')">📖 상세 보기</button>
+            <button class="record-btn record-btn-delete" onclick="deleteRecord('${record.id}')">🗑️ 삭제</button>
+          </div>
+        </div>
+      `).join('');
+    } else if (data.success && data.records.length === 0) {
+      recordsList.innerHTML = '<p class="records-empty">📭 저장된 학습 기록이 없습니다.</p>';
+    } else {
+      throw new Error(data.error || '기록 불러오기 실패');
+    }
+  } catch (error) {
+    console.error('기록 불러오기 오류:', error);
+    recordsList.innerHTML = `<p class="records-empty">❌ 오류: ${error.message}</p>`;
+  }
+}
+
+/**
+ * 특정 학습 기록 상세 보기
+ */
+async function viewRecord(id) {
+  try {
+    const response = await fetch(`/api/records/${id}`);
+    const data = await response.json();
+
+    if (data.success) {
+      showRecordModal(data.record);
+    } else {
+      throw new Error(data.error || '기록 조회 실패');
+    }
+  } catch (error) {
+    console.error('기록 조회 오류:', error);
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 학습 기록 삭제
+ */
+async function deleteRecord(id) {
+  if (!confirm('정말 이 기록을 삭제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/records/${id}`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 기록이 삭제되었습니다.', 'success');
+      loadRecords();
+    } else {
+      throw new Error(data.error || '삭제 실패');
+    }
+  } catch (error) {
+    console.error('삭제 오류:', error);
+    showAlert(`❌ 삭제 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 학습 기록 상세 모달 표시
+ */
+function showRecordModal(record) {
+  // 기존 모달 제거
+  const existingModal = document.querySelector('.record-modal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'record-modal';
+  modal.innerHTML = `
+    <div class="record-modal-content">
+      <button class="record-modal-close" onclick="closeRecordModal()">×</button>
+      <h2 class="record-modal-title">📚 학습 기록 상세</h2>
+
+      <div class="record-modal-section">
+        <h4>📌 정보</h4>
+        <div class="record-modal-section-content">
+          <p><strong>과목:</strong> ${record.subject || '미분류'} > ${record.course || ''}</p>
+          <p><strong>출판사/단원:</strong> ${record.publisher || ''} ${record.chapter || ''}</p>
+          <p><strong>유형:</strong> ${record.type === 'multiple' ? '객관식' : '주관식'}</p>
+          <p><strong>저장일:</strong> ${formatDate(record.createdAt)}</p>
+        </div>
+      </div>
+
+      <div class="record-modal-section">
+        <h4>📝 문제</h4>
+        <div class="record-modal-section-content problem-content" id="modalProblemContent">
+          ${formatAnswer(record.problem)}
+        </div>
+      </div>
+
+      <div class="record-modal-section">
+        <h4>✅ 풀이</h4>
+        <div class="record-modal-section-content solution-content" id="modalSolutionContent">
+          ${formatAnswer(record.solution)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // 모달 외부 클릭 시 닫기
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeRecordModal();
+    }
+  });
+
+  // ESC 키로 닫기
+  document.addEventListener('keydown', handleModalEscKey);
+
+  // 수식 렌더링
+  setTimeout(() => {
+    const problemContent = document.getElementById('modalProblemContent');
+    const solutionContent = document.getElementById('modalSolutionContent');
+
+    if (typeof renderMathInElement !== 'undefined') {
+      const katexOptions = {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\[', right: '\\]', display: true},
+          {left: '\\(', right: '\\)', display: false}
+        ],
+        throwOnError: false,
+        trust: true,
+        strict: false
+      };
+
+      if (problemContent) renderMathInElement(problemContent, katexOptions);
+      if (solutionContent) renderMathInElement(solutionContent, katexOptions);
+    }
+
+    // 그래프 렌더링
+    if (problemContent) renderAllGraphs(problemContent);
+    if (solutionContent) renderAllGraphs(solutionContent);
+  }, 100);
+}
+
+/**
+ * 모달 닫기
+ */
+function closeRecordModal() {
+  const modal = document.querySelector('.record-modal');
+  if (modal) {
+    modal.remove();
+  }
+  document.removeEventListener('keydown', handleModalEscKey);
+}
+
+/**
+ * ESC 키 핸들러
+ */
+function handleModalEscKey(e) {
+  if (e.key === 'Escape') {
+    closeRecordModal();
+  }
+}
+
+/**
+ * 날짜 포맷팅
+ */
+function formatDate(dateString) {
+  if (!dateString) return '알 수 없음';
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now - date;
+
+  // 1시간 이내
+  if (diff < 60 * 60 * 1000) {
+    const minutes = Math.floor(diff / (60 * 1000));
+    return `${minutes}분 전`;
+  }
+
+  // 24시간 이내
+  if (diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    return `${hours}시간 전`;
+  }
+
+  // 7일 이내
+  if (diff < 7 * 24 * 60 * 60 * 1000) {
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    return `${days}일 전`;
+  }
+
+  // 그 외
+  return date.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+/**
+ * HTML 태그 제거 (미리보기용)
+ */
+function stripHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+
+// ==================== 참조 문제 기반 변형 출제 시스템 (Phase 1) ====================
+
+// 참조 문제 파일 저장용 전역 변수
+let referenceFiles = [];
+let currentVariationProblem = null;
+
+/**
+ * 초기화: 참조 문제 업로드 이벤트 리스너 설정
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  setupReferenceUploadListeners();
+  setupExamTypeListener();
+});
+
+/**
+ * 참조 문제 업로드 이벤트 리스너 설정
+ */
+function setupReferenceUploadListeners() {
+  const dropZone = document.getElementById('referenceDropZone');
+  const fileInput = document.getElementById('referenceFileInput');
+
+  if (!dropZone || !fileInput) return;
+
+  // 드래그 앤 드롭 이벤트
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleReferenceFiles(e.dataTransfer.files);
+  });
+
+  // 파일 선택 이벤트
+  fileInput.addEventListener('change', (e) => {
+    handleReferenceFiles(e.target.files);
+  });
+}
+
+/**
+ * 시험 종류에 따른 추가 필드 표시/숨김
+ */
+function setupExamTypeListener() {
+  const examTypeSelect = document.getElementById('examTypeSelect');
+  if (!examTypeSelect) return;
+
+  examTypeSelect.addEventListener('change', (e) => {
+    const isNaesin = e.target.value === '내신';
+    document.getElementById('schoolNameGroup').style.display = isNaesin ? 'block' : 'none';
+    document.getElementById('semesterGroup').style.display = isNaesin ? 'block' : 'none';
+  });
+}
+
+/**
+ * 참조 파일 처리
+ */
+function handleReferenceFiles(files) {
+  const preview = document.getElementById('referencePreview');
+
+  for (const file of files) {
+    // 파일 크기 체크 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      showAlert(`⚠️ ${file.name}: 파일 크기가 10MB를 초과합니다.`, 'error');
+      continue;
+    }
+
+    // 파일 형식 체크
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    if (!isImage && !isPDF) {
+      showAlert(`⚠️ ${file.name}: 지원하지 않는 형식입니다.`, 'error');
+      continue;
+    }
+
+    // 파일 저장
+    const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    referenceFiles.push({ id: fileId, file });
+
+    // 미리보기 생성
+    const previewItem = document.createElement('div');
+    previewItem.className = 'preview-item';
+    previewItem.id = `preview-${fileId}`;
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewItem.innerHTML = `
+          <img src="${e.target.result}" alt="${file.name}">
+          <button class="preview-remove" onclick="removeReferenceFile('${fileId}')">×</button>
+          <div class="preview-filename">${file.name}</div>
+        `;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      previewItem.innerHTML = `
+        <div class="pdf-icon">📄</div>
+        <button class="preview-remove" onclick="removeReferenceFile('${fileId}')">×</button>
+        <div class="preview-filename">${file.name}</div>
+      `;
+    }
+
+    preview.appendChild(previewItem);
+  }
+
+  // 과목 정보 연동
+  updateRefSubjectDisplay();
+}
+
+/**
+ * 참조 파일 제거
+ */
+function removeReferenceFile(fileId) {
+  referenceFiles = referenceFiles.filter(f => f.id !== fileId);
+  const previewItem = document.getElementById(`preview-${fileId}`);
+  if (previewItem) {
+    previewItem.remove();
+  }
+}
+
+/**
+ * 선택된 과목 정보를 참조 문제 섹션에 표시
+ */
+function updateRefSubjectDisplay() {
+  const refSubjectDisplay = document.getElementById('refSubjectDisplay');
+  if (refSubjectDisplay && selectedCourse) {
+    const subjectName = selectedSubject?.subject || '';
+    refSubjectDisplay.value = `${subjectName} > ${selectedCourse.name || ''}`;
+  }
+}
+
+/**
+ * 변형 문제 생성
+ */
+async function generateVariation() {
+  // 파일 확인
+  if (referenceFiles.length === 0) {
+    showAlert('⚠️ 참조 문제 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  // 메타데이터 수집
+  const metadata = collectVariationMetadata();
+  if (!metadata) return;
+
+  const llmType = document.querySelector('input[name="llmSelect"]:checked').value;
+  const variationCount = parseInt(document.getElementById('variationCountSelect').value);
+  const instructions = document.getElementById('variationInstructions').value;
+
+  // 진행 상태 표시
+  const progressBox = document.getElementById('variationProgress');
+  const progressText = document.getElementById('variationProgressText');
+  const generateBtn = document.getElementById('generateVariationBtn');
+
+  progressBox.style.display = 'block';
+  generateBtn.disabled = true;
+
+  try {
+    // 파일을 Base64로 변환
+    progressText.textContent = '이미지 처리 중...';
+    const imageDataList = await Promise.all(
+      referenceFiles.map(async (rf) => {
+        const base64 = await fileToBase64(rf.file);
+        return {
+          filename: rf.file.name,
+          mimeType: rf.file.type,
+          data: base64
+        };
+      })
+    );
+
+    progressText.textContent = 'AI 분석 중...';
+
+    // API 호출
+    const response = await fetch('/api/generate-variation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        images: imageDataList,
+        metadata,
+        llmType,
+        variationCount,
+        instructions
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      progressText.textContent = '변형 문제 생성 완료!';
+      currentVariationProblem = data.variation;
+      displayVariationResult(data.variation);
+    } else {
+      throw new Error(data.error || '변형 문제 생성 실패');
+    }
+  } catch (error) {
+    console.error('변형 문제 생성 오류:', error);
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  } finally {
+    progressBox.style.display = 'none';
+    generateBtn.disabled = false;
+  }
+}
+
+/**
+ * 메타데이터 수집
+ */
+function collectVariationMetadata() {
+  const examType = document.getElementById('examTypeSelect').value;
+  const problemCategory = document.getElementById('problemCategorySelect').value;
+  const examYear = document.getElementById('examYearInput').value;
+  const grade = document.getElementById('gradeSelect').value;
+  const refChapter = document.getElementById('refChapterInput').value;
+
+  // 필수 필드 검증
+  if (!examType || !problemCategory) {
+    showAlert('⚠️ 시험 종류와 문제 유형을 선택해주세요.', 'error');
+    return null;
+  }
+
+  const metadata = {
+    examType,
+    problemCategory,
+    examYear,
+    grade,
+    subject: selectedSubject,
+    course: selectedCourse?.name || '',
+    courseId: selectedCourse?.id || '',
+    chapter: refChapter
+  };
+
+  // 내신인 경우 추가 정보
+  if (examType === '내신') {
+    metadata.schoolName = document.getElementById('schoolNameInput').value;
+    metadata.semester = document.getElementById('semesterSelect').value;
+  }
+
+  return metadata;
+}
+
+/**
+ * 파일을 Base64로 변환
+ */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // data:image/png;base64, 부분 제거
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * 변형 문제 결과 표시
+ */
+function displayVariationResult(variation) {
+  const resultBox = document.getElementById('variationResultBox');
+  const content = document.getElementById('variationContent');
+
+  content.innerHTML = formatAnswer(variation.problem);
+  resultBox.style.display = 'block';
+
+  // 수식 렌더링
+  setTimeout(() => {
+    if (typeof renderMathInElement !== 'undefined') {
+      renderMathInElement(content, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false},
+          {left: '\\[', right: '\\]', display: true},
+          {left: '\\(', right: '\\)', display: false}
+        ],
+        throwOnError: false,
+        trust: true,
+        strict: false
+      });
+    }
+    renderAllGraphs(content);
+    console.log('변형 문제 렌더링 완료');
+  }, 100);
+
+  // 결과 영역으로 스크롤
+  resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * 변형 문제 풀이 요청
+ */
+async function requestVariationSolution() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  const progressBox = document.getElementById('variationProgress');
+  const progressText = document.getElementById('variationProgressText');
+
+  progressBox.style.display = 'block';
+  progressText.textContent = '풀이 생성 중...';
+
+  try {
+    const llmType = document.querySelector('input[name="llmSelect"]:checked').value;
+
+    const response = await fetch('/api/variation-solution', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        problem: currentVariationProblem.problem,
+        metadata: currentVariationProblem.metadata,
+        llmType
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      currentVariationProblem.solution = data.solution;
+
+      // 풀이를 결과 박스에 추가
+      const content = document.getElementById('variationContent');
+      content.innerHTML += `
+        <div class="solution-box" style="margin-top: 20px;">
+          <h3>💡 풀이:</h3>
+          <div id="variationSolutionContent">${formatAnswer(data.solution)}</div>
+        </div>
+      `;
+
+      // 수식 렌더링
+      setTimeout(() => {
+        const solutionContent = document.getElementById('variationSolutionContent');
+        if (typeof renderMathInElement !== 'undefined' && solutionContent) {
+          renderMathInElement(solutionContent, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\[', right: '\\]', display: true},
+              {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false,
+            trust: true,
+            strict: false
+          });
+        }
+        if (solutionContent) renderAllGraphs(solutionContent);
+      }, 100);
+
+      showAlert('✅ 풀이가 생성되었습니다!', 'success');
+    } else {
+      throw new Error(data.error || '풀이 생성 실패');
+    }
+  } catch (error) {
+    console.error('풀이 생성 오류:', error);
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  } finally {
+    progressBox.style.display = 'none';
+  }
+}
+
+/**
+ * 변형 문제 저장
+ */
+async function saveVariation() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 저장할 변형 문제가 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/records', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'variation',
+        subject: currentVariationProblem.metadata?.subject || '',
+        course: currentVariationProblem.metadata?.course || '',
+        publisher: currentVariationProblem.metadata?.examType || '',
+        chapter: currentVariationProblem.metadata?.chapter || '',
+        problem: currentVariationProblem.problem,
+        solution: currentVariationProblem.solution || '',
+        metadata: currentVariationProblem.metadata
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 변형 문제가 저장되었습니다!', 'success');
+      loadRecords();
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('저장 오류:', error);
+    showAlert(`❌ 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 변형 문제 다시 생성
+ */
+function regenerateVariation() {
+  currentVariationProblem = null;
+  document.getElementById('variationResultBox').style.display = 'none';
+  document.getElementById('reviewResultBox').style.display = 'none';
+  generateVariation();
+}
+
+// ==================== Phase 2: OCR 및 자동화 기능 ====================
+
+// 현재 검토 결과 저장
+let currentReviewResult = null;
+let extractedOCRText = '';
+
+/**
+ * OCR 텍스트 추출
+ */
+async function extractOCRText() {
+  if (referenceFiles.length === 0) {
+    showAlert('⚠️ 먼저 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  const ocrBtn = document.getElementById('ocrBtn');
+  ocrBtn.disabled = true;
+  ocrBtn.textContent = '📝 추출 중...';
+
+  try {
+    // 이미지를 base64로 변환
+    const images = await Promise.all(referenceFiles.map(async (file) => {
+      const data = await fileToBase64(file.file);
+      return {
+        data,
+        mimeType: file.file.type
+      };
+    }));
+
+    const response = await fetch('/api/ocr-extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        images,
+        extractType: 'problem'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      extractedOCRText = data.extractedText;
+      displayOCRResult(data.extractedText);
+      showAlert('✅ OCR 추출 완료!', 'success');
+    } else {
+      throw new Error(data.error || 'OCR 추출 실패');
+    }
+  } catch (error) {
+    console.error('OCR 오류:', error);
+    showAlert(`❌ OCR 오류: ${error.message}`, 'error');
+  } finally {
+    ocrBtn.disabled = false;
+    ocrBtn.textContent = '📝 OCR 추출';
+  }
+}
+
+/**
+ * OCR 결과 표시
+ */
+function displayOCRResult(text) {
+  const ocrBox = document.getElementById('ocrResultBox');
+  const ocrContent = document.getElementById('ocrContent');
+
+  ocrContent.textContent = text;
+  ocrBox.style.display = 'block';
+}
+
+/**
+ * OCR 텍스트 복사
+ */
+function copyOCRText() {
+  navigator.clipboard.writeText(extractedOCRText).then(() => {
+    showAlert('📋 클립보드에 복사되었습니다!', 'success');
+  }).catch(err => {
+    console.error('복사 실패:', err);
+    showAlert('❌ 복사 실패', 'error');
+  });
+}
+
+/**
+ * OCR 결과 닫기
+ */
+function closeOCRResult() {
+  document.getElementById('ocrResultBox').style.display = 'none';
+}
+
+/**
+ * 자동 라벨링 실행
+ */
+async function autoLabelProblem() {
+  if (referenceFiles.length === 0) {
+    showAlert('⚠️ 먼저 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  const labelBtn = document.getElementById('autoLabelBtn');
+  labelBtn.disabled = true;
+  labelBtn.textContent = '🏷️ 분류 중...';
+
+  try {
+    const images = await Promise.all(referenceFiles.map(async (file) => {
+      const data = await fileToBase64(file.file);
+      return {
+        data,
+        mimeType: file.file.type
+      };
+    }));
+
+    const response = await fetch('/api/auto-label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problemText: extractedOCRText || null,
+        images
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.labels) {
+      applyAutoLabels(data.labels);
+      showAlert('✅ 자동 분류 완료! 메타데이터가 자동 입력되었습니다.', 'success');
+    } else {
+      throw new Error(data.error || '자동 분류 실패');
+    }
+  } catch (error) {
+    console.error('자동 분류 오류:', error);
+    showAlert(`❌ 자동 분류 오류: ${error.message}`, 'error');
+  } finally {
+    labelBtn.disabled = false;
+    labelBtn.textContent = '🏷️ 자동 분류';
+  }
+}
+
+/**
+ * 자동 분류된 라벨 적용
+ */
+function applyAutoLabels(labels) {
+  if (labels.parseError) {
+    console.warn('라벨 파싱 실패, 원본:', labels.raw);
+    return;
+  }
+
+  // 학년 선택
+  if (labels.grade) {
+    const gradeSelect = document.getElementById('refGradeSelect');
+    if (gradeSelect) {
+      const gradeOption = Array.from(gradeSelect.options).find(
+        opt => opt.text.includes(labels.grade) || labels.grade.includes(opt.text)
+      );
+      if (gradeOption) {
+        gradeSelect.value = gradeOption.value;
+      }
+    }
+  }
+
+  // 단원명
+  if (labels.chapter) {
+    const chapterInput = document.getElementById('refChapterInput');
+    if (chapterInput) {
+      chapterInput.value = labels.chapter;
+    }
+  }
+
+  // 문제 유형
+  if (labels.problemType) {
+    const typeSelect = document.getElementById('refCategorySelect');
+    if (typeSelect) {
+      const typeOption = Array.from(typeSelect.options).find(
+        opt => opt.text.includes(labels.problemType)
+      );
+      if (typeOption) {
+        typeSelect.value = typeOption.value;
+      }
+    }
+  }
+
+  // 분류 결과 요약 표시
+  const summaryHtml = `
+    <div class="auto-label-result">
+      <strong>🤖 AI 분류 결과:</strong>
+      <span class="label-item">📚 ${labels.subject || '?'}</span>
+      <span class="label-item">📖 ${labels.course || '?'}</span>
+      <span class="label-item">📊 난이도: ${labels.difficulty || '?'}</span>
+      <span class="label-item">⏱️ 예상 ${labels.estimatedTime || '?'}분</span>
+      ${labels.concepts ? `<br><small>개념: ${labels.concepts.join(', ')}</small>` : ''}
+    </div>
+  `;
+
+  // 기존 결과 제거 후 추가
+  const existingResult = document.querySelector('.auto-label-result');
+  if (existingResult) existingResult.remove();
+
+  const metadataSection = document.getElementById('problemMetadataSection');
+  if (metadataSection) {
+    metadataSection.insertAdjacentHTML('beforeend', summaryHtml);
+  }
+}
+
+/**
+ * 다중 LLM 검토 실행
+ */
+async function runMultiLLMReview() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  const reviewBtn = document.getElementById('reviewBtn');
+  reviewBtn.disabled = true;
+  reviewBtn.textContent = '🔍 검토 중...';
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/multi-llm-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        originalProblem: extractedOCRText || '[이미지로 제공됨]',
+        variationProblem: currentVariationProblem,
+        metadata
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      currentReviewResult = data;
+      displayReviewResult(data);
+      showAlert('✅ AI 검토 완료!', 'success');
+    } else {
+      throw new Error(data.error || '검토 실패');
+    }
+  } catch (error) {
+    console.error('검토 오류:', error);
+    showAlert(`❌ 검토 오류: ${error.message}`, 'error');
+  } finally {
+    reviewBtn.disabled = false;
+    reviewBtn.textContent = '🔍 AI 검토 요청';
+  }
+}
+
+/**
+ * 검토 결과 표시
+ */
+function displayReviewResult(data) {
+  const reviewBox = document.getElementById('reviewResultBox');
+  const scoreEl = document.getElementById('reviewScore');
+  const recommendationEl = document.getElementById('reviewRecommendation');
+  const accuracyEl = document.getElementById('accuracyReview');
+  const pedagogyEl = document.getElementById('pedagogyReview');
+  const qualityEl = document.getElementById('qualityReview');
+  const approveBtn = document.getElementById('approveBtn');
+
+  // 점수 표시
+  const score = data.summary.averageScore;
+  scoreEl.textContent = score;
+  scoreEl.className = 'score-value ' + (score >= 80 ? 'high' : score >= 60 ? 'medium' : 'low');
+
+  // 권장 사항
+  recommendationEl.textContent = data.summary.recommendation;
+  recommendationEl.className = 'review-recommendation ' + (data.summary.isApproved ? 'approved' : 'rejected');
+
+  // 상세 결과
+  const { accuracy, pedagogy, quality } = data.reviews;
+
+  accuracyEl.innerHTML = `
+    <p>정확성: ${accuracy.isAccurate ? '✅ 통과' : '❌ 오류 발견'}
+       <span class="score-badge ${accuracy.score >= 70 ? 'pass' : 'fail'}">${accuracy.score || '--'}점</span></p>
+    ${accuracy.errors?.length ? `<p style="color:#c62828">오류: ${accuracy.errors.join(', ')}</p>` : ''}
+  `;
+
+  pedagogyEl.innerHTML = `
+    <p>적합성: ${pedagogy.isAppropriate ? '✅ 적합' : '⚠️ 수정 필요'}
+       <span class="score-badge ${pedagogy.score >= 70 ? 'pass' : 'fail'}">${pedagogy.score || '--'}점</span></p>
+    <p>난이도: ${pedagogy.difficulty || '미확인'}</p>
+    ${pedagogy.feedback?.length ? `<p>피드백: ${pedagogy.feedback.join(', ')}</p>` : ''}
+  `;
+
+  qualityEl.innerHTML = `
+    <p>품질: <span class="score-badge ${quality.overallQuality >= 70 ? 'pass' : 'fail'}">${quality.overallQuality || '--'}점</span></p>
+    <p>창의성: ${quality.creativity || '--'}점 | 완성도: ${quality.completeness || '--'}점</p>
+    ${quality.improvements?.length ? `<p>개선점: ${quality.improvements.join(', ')}</p>` : ''}
+  `;
+
+  // 승인 버튼 표시 (검토 통과 시)
+  approveBtn.style.display = data.summary.isApproved ? 'inline-block' : 'none';
+
+  reviewBox.style.display = 'block';
+}
+
+/**
+ * 상태와 함께 변형 문제 저장
+ */
+async function saveVariationWithStatus(status) {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 저장할 변형 문제가 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/save-variation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        originalProblem: extractedOCRText || '[이미지 참조]',
+        variationProblem: currentVariationProblem,
+        solution: currentVariationSolution || '',
+        metadata,
+        reviewResult: currentReviewResult || null,
+        status
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      const statusText = status === 'approved' ? '승인됨' : '검토 대기';
+      showAlert(`✅ 변형 문제가 저장되었습니다! (상태: ${statusText})`, 'success');
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('저장 오류:', error);
+    showAlert(`❌ 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+// 현재 풀이 저장 변수
+let currentVariationSolution = '';
+
+// ============================================
+// Phase 3: 고급 기능 - 영역 선택, 다중 문제, 대화형 수정
+// ============================================
+
+// 영역 선택 관련 변수
+let regionCanvas = null;
+let regionCtx = null;
+let regionMode = 'problem'; // 'problem' | 'asset'
+let isDrawing = false;
+let startX, startY;
+let problemRegions = [];
+let assetRegions = [];
+let currentRegionImage = null;
+
+// 다중 문제 추출 관련 변수
+let extractedProblems = [];
+let pdfDocument = null;
+let currentPdfPage = 1;
+let totalPdfPages = 0;
+
+// 대화형 수정 관련 변수
+let chatHistory = [];
+let originalProblemBeforeChat = '';
+let modifiedProblemInChat = '';
+let isChatProcessing = false;
+
+// 엔진 규칙 관련 변수
+const engineRules = {
+  gradeLevel: {
+    '초등학교 3학년': { maxComplexity: 2, allowedOperations: ['+', '-', '×'], maxDigits: 3 },
+    '초등학교 4학년': { maxComplexity: 3, allowedOperations: ['+', '-', '×', '÷'], maxDigits: 4 },
+    '초등학교 5학년': { maxComplexity: 4, allowedOperations: ['+', '-', '×', '÷', '분수'], maxDigits: 5 },
+    '초등학교 6학년': { maxComplexity: 5, allowedOperations: ['+', '-', '×', '÷', '분수', '소수'], maxDigits: 6 },
+    '중학교 1학년': { maxComplexity: 6, allowedOperations: ['all'], concepts: ['정수', '유리수', '방정식'] },
+    '중학교 2학년': { maxComplexity: 7, allowedOperations: ['all'], concepts: ['일차함수', '연립방정식', '부등식'] },
+    '중학교 3학년': { maxComplexity: 8, allowedOperations: ['all'], concepts: ['이차방정식', '이차함수', '피타고라스'] },
+    '고등학교 1학년': { maxComplexity: 9, allowedOperations: ['all'], concepts: ['집합', '명제', '함수'] },
+    '고등학교 2학년': { maxComplexity: 10, allowedOperations: ['all'], concepts: ['미분', '적분', '확률'] },
+    '고등학교 3학년': { maxComplexity: 10, allowedOperations: ['all'], concepts: ['고급미적분', '기하벡터'] }
+  },
+  categoryRules: {
+    '계산': { requiresNumericAnswer: true, maxSteps: 5 },
+    '도형': { requiresDiagram: true, concepts: ['넓이', '둘레', '부피', '각도'] },
+    '문장제': { requiresContext: true, minWordCount: 20 },
+    '증명': { requiresLogicalSteps: true, minSteps: 3 },
+    '그래프': { requiresVisualization: true, dataTypes: ['좌표', '함수', '통계'] }
+  }
+};
+
+// 자료(에셋) 관련 변수
+let problemAssets = [];
+
+/**
+ * ============================
+ * 영역 선택 기능 (Region Selection)
+ * ============================
+ */
+
+// 영역 선택 모달 열기
+function openRegionSelectModal() {
+  const modal = document.getElementById('regionSelectModal');
+  if (!modal) {
+    showAlert('⚠️ 영역 선택 모달을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  // 현재 업로드된 이미지 가져오기
+  const preview = document.getElementById('imagePreview');
+  const img = preview?.querySelector('img');
+
+  if (!img || !img.src) {
+    showAlert('⚠️ 먼저 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  modal.style.display = 'flex';
+  initRegionCanvas(img.src);
+}
+
+// 영역 선택 모달 닫기
+function closeRegionModal() {
+  const modal = document.getElementById('regionSelectModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  // 캔버스 정리
+  problemRegions = [];
+  assetRegions = [];
+  updateRegionInfo();
+}
+
+// 캔버스 초기화
+function initRegionCanvas(imageSrc) {
+  const canvasContainer = document.getElementById('regionCanvasContainer');
+  if (!canvasContainer) return;
+
+  // 기존 캔버스 제거
+  canvasContainer.innerHTML = '';
+
+  // 새 캔버스 생성
+  regionCanvas = document.createElement('canvas');
+  regionCanvas.id = 'regionCanvas';
+  regionCanvas.style.cursor = 'crosshair';
+  canvasContainer.appendChild(regionCanvas);
+
+  regionCtx = regionCanvas.getContext('2d');
+
+  // 이미지 로드
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    currentRegionImage = img;
+
+    // 캔버스 크기 설정 (컨테이너에 맞게 조정)
+    const maxWidth = canvasContainer.clientWidth - 20;
+    const maxHeight = 600;
+    const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+
+    regionCanvas.width = img.width * scale;
+    regionCanvas.height = img.height * scale;
+    regionCanvas.dataset.scale = scale;
+
+    // 이미지 그리기
+    regionCtx.drawImage(img, 0, 0, regionCanvas.width, regionCanvas.height);
+
+    // 이벤트 리스너 추가
+    regionCanvas.addEventListener('mousedown', startDrawRegion);
+    regionCanvas.addEventListener('mousemove', drawRegion);
+    regionCanvas.addEventListener('mouseup', endDrawRegion);
+    regionCanvas.addEventListener('mouseleave', endDrawRegion);
+  };
+  img.src = imageSrc;
+}
+
+// 영역 그리기 시작
+function startDrawRegion(e) {
+  const rect = regionCanvas.getBoundingClientRect();
+  startX = e.clientX - rect.left;
+  startY = e.clientY - rect.top;
+  isDrawing = true;
+}
+
+// 영역 그리기
+function drawRegion(e) {
+  if (!isDrawing) return;
+
+  const rect = regionCanvas.getBoundingClientRect();
+  const currentX = e.clientX - rect.left;
+  const currentY = e.clientY - rect.top;
+
+  // 캔버스 다시 그리기
+  redrawCanvas();
+
+  // 현재 그리는 사각형 표시
+  regionCtx.strokeStyle = regionMode === 'problem' ? '#2196F3' : '#FF9800';
+  regionCtx.lineWidth = 2;
+  regionCtx.setLineDash([5, 5]);
+  regionCtx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+  regionCtx.setLineDash([]);
+}
+
+// 영역 그리기 끝
+function endDrawRegion(e) {
+  if (!isDrawing) return;
+  isDrawing = false;
+
+  const rect = regionCanvas.getBoundingClientRect();
+  const endX = e.clientX - rect.left;
+  const endY = e.clientY - rect.top;
+
+  // 최소 크기 확인
+  const width = Math.abs(endX - startX);
+  const height = Math.abs(endY - startY);
+
+  if (width < 20 || height < 20) return;
+
+  // 영역 저장
+  const region = {
+    x: Math.min(startX, endX),
+    y: Math.min(startY, endY),
+    width: width,
+    height: height,
+    id: Date.now()
+  };
+
+  if (regionMode === 'problem') {
+    problemRegions.push(region);
+  } else {
+    assetRegions.push(region);
+  }
+
+  redrawCanvas();
+  updateRegionInfo();
+}
+
+// 캔버스 다시 그리기
+function redrawCanvas() {
+  if (!regionCtx || !currentRegionImage) return;
+
+  // 이미지 다시 그리기
+  regionCtx.drawImage(currentRegionImage, 0, 0, regionCanvas.width, regionCanvas.height);
+
+  // 문제 영역 그리기 (파란색)
+  regionCtx.strokeStyle = '#2196F3';
+  regionCtx.fillStyle = 'rgba(33, 150, 243, 0.2)';
+  regionCtx.lineWidth = 2;
+  problemRegions.forEach((r, i) => {
+    regionCtx.fillRect(r.x, r.y, r.width, r.height);
+    regionCtx.strokeRect(r.x, r.y, r.width, r.height);
+    regionCtx.fillStyle = '#2196F3';
+    regionCtx.font = 'bold 14px Arial';
+    regionCtx.fillText(`문제 ${i + 1}`, r.x + 5, r.y + 18);
+    regionCtx.fillStyle = 'rgba(33, 150, 243, 0.2)';
+  });
+
+  // 자료 영역 그리기 (주황색)
+  regionCtx.strokeStyle = '#FF9800';
+  regionCtx.fillStyle = 'rgba(255, 152, 0, 0.2)';
+  assetRegions.forEach((r, i) => {
+    regionCtx.fillRect(r.x, r.y, r.width, r.height);
+    regionCtx.strokeRect(r.x, r.y, r.width, r.height);
+    regionCtx.fillStyle = '#FF9800';
+    regionCtx.font = 'bold 14px Arial';
+    regionCtx.fillText(`자료 ${i + 1}`, r.x + 5, r.y + 18);
+    regionCtx.fillStyle = 'rgba(255, 152, 0, 0.2)';
+  });
+}
+
+// 영역 정보 업데이트
+function updateRegionInfo() {
+  const infoEl = document.getElementById('regionInfo');
+  if (infoEl) {
+    infoEl.textContent = `문제 영역: ${problemRegions.length}개 | 자료 영역: ${assetRegions.length}개`;
+  }
+}
+
+// 영역 모드 설정
+function setRegionMode(mode) {
+  regionMode = mode;
+
+  // 버튼 스타일 업데이트
+  document.querySelectorAll('.region-toolbar .btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+
+  showAlert(`📐 ${mode === 'problem' ? '문제' : '자료'} 영역 선택 모드`, 'info');
+}
+
+// 모든 영역 지우기
+function clearAllRegions() {
+  problemRegions = [];
+  assetRegions = [];
+  redrawCanvas();
+  updateRegionInfo();
+  showAlert('🗑️ 모든 영역이 삭제되었습니다.', 'info');
+}
+
+// 영역 자동 감지
+async function autoDetectRegions() {
+  if (!currentRegionImage) {
+    showAlert('⚠️ 이미지를 먼저 로드해주세요.', 'error');
+    return;
+  }
+
+  showAlert('🔍 AI가 영역을 자동 감지 중...', 'info');
+
+  try {
+    // 캔버스에서 이미지 데이터 추출
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = currentRegionImage.width;
+    tempCanvas.height = currentRegionImage.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(currentRegionImage, 0, 0);
+    const imageData = tempCanvas.toDataURL('image/png');
+
+    const response = await fetch('/api/detect-regions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.regions) {
+      const scale = parseFloat(regionCanvas.dataset.scale) || 1;
+
+      // 감지된 영역 적용
+      if (data.regions.problems) {
+        problemRegions = data.regions.problems.map(r => ({
+          x: r.x * scale,
+          y: r.y * scale,
+          width: r.width * scale,
+          height: r.height * scale,
+          id: Date.now() + Math.random()
+        }));
+      }
+
+      if (data.regions.assets) {
+        assetRegions = data.regions.assets.map(r => ({
+          x: r.x * scale,
+          y: r.y * scale,
+          width: r.width * scale,
+          height: r.height * scale,
+          id: Date.now() + Math.random()
+        }));
+      }
+
+      redrawCanvas();
+      updateRegionInfo();
+      showAlert(`✅ 자동 감지 완료! 문제: ${problemRegions.length}개, 자료: ${assetRegions.length}개`, 'success');
+    } else {
+      throw new Error(data.error || '영역 감지 실패');
+    }
+  } catch (error) {
+    console.error('영역 자동 감지 오류:', error);
+    showAlert(`❌ 자동 감지 실패: ${error.message}`, 'error');
+  }
+}
+
+// 영역 적용
+async function applyRegions() {
+  if (problemRegions.length === 0) {
+    showAlert('⚠️ 적어도 하나의 문제 영역을 선택해주세요.', 'error');
+    return;
+  }
+
+  showAlert('🔄 선택된 영역을 처리 중...', 'info');
+
+  try {
+    const scale = parseFloat(regionCanvas.dataset.scale) || 1;
+
+    // 각 영역의 이미지 추출
+    const extractedRegions = [];
+
+    for (let i = 0; i < problemRegions.length; i++) {
+      const r = problemRegions[i];
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = r.width / scale;
+      tempCanvas.height = r.height / scale;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      tempCtx.drawImage(
+        currentRegionImage,
+        r.x / scale, r.y / scale, r.width / scale, r.height / scale,
+        0, 0, tempCanvas.width, tempCanvas.height
+      );
+
+      const regionImage = tempCanvas.toDataURL('image/png');
+
+      // 연결된 자료 영역 찾기
+      const relatedAssets = assetRegions.filter(asset => {
+        // 문제 영역과 겹치거나 근접한 자료 영역
+        const overlap = !(asset.x > r.x + r.width || asset.x + asset.width < r.x ||
+                         asset.y > r.y + r.height + 100 || asset.y + asset.height < r.y - 100);
+        return overlap;
+      });
+
+      extractedRegions.push({
+        problemImage: regionImage,
+        assets: relatedAssets.map(a => {
+          const assetCanvas = document.createElement('canvas');
+          assetCanvas.width = a.width / scale;
+          assetCanvas.height = a.height / scale;
+          const assetCtx = assetCanvas.getContext('2d');
+          assetCtx.drawImage(
+            currentRegionImage,
+            a.x / scale, a.y / scale, a.width / scale, a.height / scale,
+            0, 0, assetCanvas.width, assetCanvas.height
+          );
+          return assetCanvas.toDataURL('image/png');
+        }),
+        index: i + 1
+      });
+    }
+
+    // 다중 문제 모달로 전달
+    extractedProblems = extractedRegions;
+    closeRegionModal();
+    openMultiProblemModal();
+
+    showAlert(`✅ ${extractedRegions.length}개의 문제 영역이 추출되었습니다.`, 'success');
+  } catch (error) {
+    console.error('영역 적용 오류:', error);
+    showAlert(`❌ 영역 적용 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * ============================
+ * 다중 문제 추출 기능 (Multi-Problem Extraction)
+ * ============================
+ */
+
+// 다중 문제 모달 열기
+function openMultiProblemModal() {
+  const modal = document.getElementById('multiProblemModal');
+  if (!modal) {
+    showAlert('⚠️ 다중 문제 모달을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  modal.style.display = 'flex';
+  renderExtractedProblems();
+}
+
+// 다중 문제 모달 닫기
+function closeMultiProblemModal() {
+  const modal = document.getElementById('multiProblemModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 추출된 문제 목록 렌더링
+function renderExtractedProblems() {
+  const container = document.getElementById('extractedProblemsList');
+  if (!container) return;
+
+  if (extractedProblems.length === 0) {
+    container.innerHTML = '<p class="no-problems">추출된 문제가 없습니다. 영역 선택 또는 자동 추출을 사용해주세요.</p>';
+    return;
+  }
+
+  container.innerHTML = extractedProblems.map((problem, idx) => `
+    <div class="extracted-problem-item" data-index="${idx}">
+      <div class="problem-preview">
+        <img src="${problem.problemImage}" alt="문제 ${idx + 1}" />
+        ${problem.assets && problem.assets.length > 0 ? `
+          <div class="asset-thumbnails">
+            ${problem.assets.map((asset, aidx) => `
+              <img src="${asset}" alt="자료 ${aidx + 1}" class="asset-thumb" />
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+      <div class="problem-info">
+        <h4>문제 ${idx + 1}</h4>
+        <p class="ocr-preview">${problem.ocrText || '(OCR 대기 중...)'}</p>
+        <div class="problem-actions">
+          <button class="btn btn-sm btn-primary" onclick="extractSingleProblem(${idx})">
+            📝 OCR 추출
+          </button>
+          <button class="btn btn-sm btn-secondary" onclick="editProblemRegion(${idx})">
+            ✏️ 수정
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="removeProblem(${idx})">
+            🗑️ 삭제
+          </button>
+        </div>
+      </div>
+      <div class="problem-labels">
+        <select class="grade-select" onchange="updateProblemLabel(${idx}, 'grade', this.value)">
+          <option value="">학년 선택</option>
+          <option value="초등학교 3학년">초3</option>
+          <option value="초등학교 4학년">초4</option>
+          <option value="초등학교 5학년">초5</option>
+          <option value="초등학교 6학년">초6</option>
+          <option value="중학교 1학년">중1</option>
+          <option value="중학교 2학년">중2</option>
+          <option value="중학교 3학년">중3</option>
+          <option value="고등학교 1학년">고1</option>
+          <option value="고등학교 2학년">고2</option>
+          <option value="고등학교 3학년">고3</option>
+        </select>
+        <select class="category-select" onchange="updateProblemLabel(${idx}, 'category', this.value)">
+          <option value="">유형 선택</option>
+          <option value="계산">계산</option>
+          <option value="도형">도형</option>
+          <option value="문장제">문장제</option>
+          <option value="함수">함수</option>
+          <option value="확률통계">확률통계</option>
+        </select>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 개별 문제 OCR 추출
+async function extractSingleProblem(index) {
+  const problem = extractedProblems[index];
+  if (!problem) return;
+
+  showAlert(`🔍 문제 ${index + 1} OCR 추출 중...`, 'info');
+
+  try {
+    const response = await fetch('/api/extract-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: problem.problemImage })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      extractedProblems[index].ocrText = data.text;
+      renderExtractedProblems();
+      showAlert(`✅ 문제 ${index + 1} OCR 완료!`, 'success');
+    } else {
+      throw new Error(data.error || 'OCR 실패');
+    }
+  } catch (error) {
+    console.error('OCR 오류:', error);
+    showAlert(`❌ OCR 실패: ${error.message}`, 'error');
+  }
+}
+
+// 문제 라벨 업데이트
+function updateProblemLabel(index, field, value) {
+  if (extractedProblems[index]) {
+    if (!extractedProblems[index].labels) {
+      extractedProblems[index].labels = {};
+    }
+    extractedProblems[index].labels[field] = value;
+  }
+}
+
+// 문제 삭제
+function removeProblem(index) {
+  if (confirm(`문제 ${index + 1}을(를) 삭제하시겠습니까?`)) {
+    extractedProblems.splice(index, 1);
+    renderExtractedProblems();
+    showAlert('🗑️ 문제가 삭제되었습니다.', 'info');
+  }
+}
+
+// 모든 문제 OCR 추출
+async function extractAllProblems() {
+  if (extractedProblems.length === 0) {
+    showAlert('⚠️ 추출할 문제가 없습니다.', 'error');
+    return;
+  }
+
+  showAlert(`🔄 ${extractedProblems.length}개 문제 OCR 추출 중...`, 'info');
+
+  let successCount = 0;
+
+  for (let i = 0; i < extractedProblems.length; i++) {
+    try {
+      await extractSingleProblem(i);
+      successCount++;
+    } catch (error) {
+      console.error(`문제 ${i + 1} 추출 실패:`, error);
+    }
+  }
+
+  showAlert(`✅ ${successCount}/${extractedProblems.length}개 문제 OCR 완료!`, 'success');
+}
+
+// 추출된 문제 적용
+async function applyExtractedProblems() {
+  const problemsWithOCR = extractedProblems.filter(p => p.ocrText);
+
+  if (problemsWithOCR.length === 0) {
+    showAlert('⚠️ OCR 추출된 문제가 없습니다. 먼저 OCR을 실행해주세요.', 'error');
+    return;
+  }
+
+  // 첫 번째 문제를 현재 작업 문제로 설정
+  const firstProblem = problemsWithOCR[0];
+
+  // OCR 텍스트 표시
+  extractedOCRText = firstProblem.ocrText;
+  document.getElementById('extractedText').textContent = extractedOCRText;
+  document.getElementById('ocrResult').style.display = 'block';
+
+  // 라벨 적용
+  if (firstProblem.labels) {
+    if (firstProblem.labels.grade) {
+      document.getElementById('refGradeSelect').value = firstProblem.labels.grade;
+    }
+    if (firstProblem.labels.category) {
+      document.getElementById('refCategorySelect').value = firstProblem.labels.category;
+    }
+  }
+
+  // 자료 저장
+  if (firstProblem.assets && firstProblem.assets.length > 0) {
+    problemAssets = firstProblem.assets;
+    showAlert(`📎 ${problemAssets.length}개의 자료가 연결되었습니다.`, 'info');
+  }
+
+  closeMultiProblemModal();
+  showAlert('✅ 문제가 적용되었습니다. 변형 생성을 진행해주세요.', 'success');
+
+  // 나머지 문제는 대기열에 저장
+  if (problemsWithOCR.length > 1) {
+    localStorage.setItem('pendingProblems', JSON.stringify(problemsWithOCR.slice(1)));
+    showAlert(`📋 ${problemsWithOCR.length - 1}개의 추가 문제가 대기열에 저장되었습니다.`, 'info');
+  }
+}
+
+/**
+ * ============================
+ * 대화형 수정 기능 (Chat Edit)
+ * ============================
+ */
+
+// 대화형 수정 모달 열기
+function openChatEditModal() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('chatEditModal');
+  if (!modal) {
+    showAlert('⚠️ 대화형 수정 모달을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  // 원본 저장
+  originalProblemBeforeChat = currentVariationProblem;
+  modifiedProblemInChat = currentVariationProblem;
+
+  // 현재 문제(원본) 표시
+  const currentProblemEl = document.getElementById('chatCurrentProblem');
+  if (currentProblemEl) {
+    currentProblemEl.innerHTML = renderMathContent(originalProblemBeforeChat);
+  }
+
+  // 수정된 문제 영역 초기화
+  const modifiedProblemEl = document.getElementById('chatModifiedProblem');
+  if (modifiedProblemEl) {
+    modifiedProblemEl.innerHTML = '<p class="placeholder-text">💡 수정 요청을 입력하면 여기에 수정된 문제가 표시됩니다.</p>';
+  }
+
+  // 채팅 히스토리 초기화
+  chatHistory = [];
+  isChatProcessing = false;
+  updateChatMessages();
+
+  // Enter 키 이벤트 리스너 추가
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) {
+    chatInput.value = '';
+    chatInput.removeEventListener('keydown', handleChatKeyDown);
+    chatInput.addEventListener('keydown', handleChatKeyDown);
+    setTimeout(() => chatInput.focus(), 100);
+  }
+
+  modal.style.display = 'flex';
+}
+
+// 채팅 입력 키 이벤트 핸들러
+function handleChatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+}
+
+// 대화형 수정 모달 닫기
+function closeChatEditModal() {
+  const modal = document.getElementById('chatEditModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 채팅 메시지 전송
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+
+  if (!message || isChatProcessing) return;
+
+  // 사용자 메시지 추가
+  chatHistory.push({ role: 'user', content: message });
+  input.value = '';
+  updateChatMessages();
+
+  // 로딩 상태 표시
+  isChatProcessing = true;
+  addChatLoadingIndicator();
+  setChatInputState(false);
+
+  // AI 응답 요청
+  try {
+    const response = await fetch('/api/chat-modify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problem: modifiedProblemInChat,
+        message: message,
+        history: chatHistory.filter(m => m.role !== 'loading')
+      })
+    });
+
+    const data = await response.json();
+
+    // 로딩 인디케이터 제거
+    removeChatLoadingIndicator();
+
+    if (data.success) {
+      // AI 응답 추가
+      chatHistory.push({
+        role: 'assistant',
+        content: data.response,
+        hasModification: !!data.modifiedProblem
+      });
+
+      // 수정된 문제가 있으면 업데이트
+      if (data.modifiedProblem) {
+        modifiedProblemInChat = data.modifiedProblem;
+        updateModifiedProblemPreview();
+      }
+
+      updateChatMessages();
+    } else {
+      throw new Error(data.error || '응답 실패');
+    }
+  } catch (error) {
+    console.error('채팅 오류:', error);
+    removeChatLoadingIndicator();
+    chatHistory.push({
+      role: 'assistant',
+      content: `❌ 오류가 발생했습니다: ${error.message}`,
+      isError: true
+    });
+    updateChatMessages();
+  } finally {
+    isChatProcessing = false;
+    setChatInputState(true);
+  }
+}
+
+// 채팅 로딩 인디케이터 추가
+function addChatLoadingIndicator() {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.id = 'chatLoadingIndicator';
+  loadingDiv.className = 'chat-message assistant loading';
+  loadingDiv.innerHTML = `
+    <div class="message-avatar">🤖</div>
+    <div class="message-content">
+      <div class="typing-indicator">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  `;
+  container.appendChild(loadingDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+// 채팅 로딩 인디케이터 제거
+function removeChatLoadingIndicator() {
+  const indicator = document.getElementById('chatLoadingIndicator');
+  if (indicator) {
+    indicator.remove();
+  }
+}
+
+// 채팅 입력 상태 설정
+function setChatInputState(enabled) {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.querySelector('.chat-input-area .btn-primary');
+
+  if (input) {
+    input.disabled = !enabled;
+    if (enabled) {
+      input.focus();
+    }
+  }
+  if (sendBtn) {
+    sendBtn.disabled = !enabled;
+    sendBtn.textContent = enabled ? '📤 전송' : '⏳ 처리중...';
+  }
+}
+
+// 수정된 문제 미리보기 업데이트
+function updateModifiedProblemPreview() {
+  const modifiedEl = document.getElementById('chatModifiedProblem');
+  if (!modifiedEl) return;
+
+  // 원본과 비교하여 변경 여부 표시
+  const hasChanges = originalProblemBeforeChat !== modifiedProblemInChat;
+
+  modifiedEl.innerHTML = `
+    ${hasChanges ? '<div class="modification-badge">✏️ 수정됨</div>' : ''}
+    <div class="modified-problem-content">${renderMathContent(modifiedProblemInChat)}</div>
+    ${hasChanges ? `
+      <div class="diff-toggle">
+        <button class="btn btn-small btn-outline" onclick="toggleDiffView()">📊 변경사항 보기</button>
+      </div>
+    ` : ''}
+  `;
+}
+
+// 채팅 메시지 목록 업데이트
+function updateChatMessages() {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+
+  if (chatHistory.length === 0) {
+    container.innerHTML = `
+      <div class="chat-welcome">
+        <p>💬 수정하고 싶은 부분을 자유롭게 요청해보세요!</p>
+        <div class="chat-suggestions">
+          <button class="suggestion-chip" onclick="applyChatSuggestion('난이도를 높여주세요')">🔼 난이도 높이기</button>
+          <button class="suggestion-chip" onclick="applyChatSuggestion('숫자를 다른 값으로 변경해주세요')">🔢 숫자 변경</button>
+          <button class="suggestion-chip" onclick="applyChatSuggestion('보기의 순서를 바꿔주세요')">🔄 보기 순서 변경</button>
+          <button class="suggestion-chip" onclick="applyChatSuggestion('문제를 더 명확하게 다듬어주세요')">✨ 문장 다듬기</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = chatHistory.map((msg, idx) => {
+    const isError = msg.isError;
+    const hasModification = msg.hasModification;
+
+    return `
+      <div class="chat-message ${msg.role}${isError ? ' error' : ''}${hasModification ? ' has-modification' : ''}">
+        <div class="message-avatar">${msg.role === 'user' ? '👤' : '🤖'}</div>
+        <div class="message-content">
+          ${renderMathContent(msg.content)}
+          ${hasModification ? '<span class="modification-indicator">✏️ 문제가 수정되었습니다</span>' : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 스크롤 맨 아래로
+  container.scrollTop = container.scrollHeight;
+}
+
+// 채팅 제안 적용
+function applyChatSuggestion(suggestion) {
+  const input = document.getElementById('chatInput');
+  if (input) {
+    input.value = suggestion;
+    input.focus();
+  }
+}
+
+// 대화형 수정 적용
+function applyChatChanges() {
+  if (originalProblemBeforeChat === modifiedProblemInChat) {
+    showAlert('ℹ️ 변경된 내용이 없습니다.', 'info');
+    closeChatEditModal();
+    return;
+  }
+
+  // 메인 화면에 변경된 문제 적용
+  currentVariationProblem = modifiedProblemInChat;
+  displayVariationResult({ problem: currentVariationProblem });
+  closeChatEditModal();
+  showAlert('✅ 수정된 문제가 적용되었습니다.', 'success');
+}
+
+// 변경 사항 되돌리기
+function revertChanges() {
+  if (originalProblemBeforeChat) {
+    modifiedProblemInChat = originalProblemBeforeChat;
+    updateModifiedProblemPreview();
+
+    // 되돌림 메시지 추가
+    chatHistory.push({
+      role: 'assistant',
+      content: '↩️ 문제가 원래 상태로 되돌려졌습니다.',
+      isSystem: true
+    });
+    updateChatMessages();
+    showAlert('↩️ 원래 문제로 되돌렸습니다.', 'info');
+  }
+}
+
+// 변경사항 비교 보기 토글
+function toggleDiffView() {
+  const modifiedEl = document.getElementById('chatModifiedProblem');
+  if (!modifiedEl) return;
+
+  const existingDiff = modifiedEl.querySelector('.diff-view');
+  if (existingDiff) {
+    existingDiff.remove();
+    return;
+  }
+
+  // 간단한 diff 표시 (원본 vs 수정본)
+  const diffHtml = `
+    <div class="diff-view">
+      <div class="diff-section original">
+        <h5>📋 원본</h5>
+        <div class="diff-content">${renderMathContent(originalProblemBeforeChat)}</div>
+      </div>
+      <div class="diff-section modified">
+        <h5>✏️ 수정본</h5>
+        <div class="diff-content">${renderMathContent(modifiedProblemInChat)}</div>
+      </div>
+    </div>
+  `;
+
+  modifiedEl.insertAdjacentHTML('beforeend', diffHtml);
+}
+
+/**
+ * ============================
+ * 라벨 수정 기능 (Label Edit)
+ * ============================
+ */
+
+// 라벨 수정 모달 열기
+function openLabelEditModal() {
+  const modal = document.getElementById('labelEditModal');
+  if (!modal) {
+    showAlert('⚠️ 라벨 수정 모달을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  // 현재 값 로드
+  const currentLabels = collectVariationMetadata();
+
+  // HTML ID와 일치하도록 수정
+  const subjectEl = document.getElementById('editLabelSubject');
+  const courseEl = document.getElementById('editLabelCourse');
+  const gradeEl = document.getElementById('editLabelGrade');
+  const chapterEl = document.getElementById('editLabelChapter');
+  const difficultyEl = document.getElementById('editLabelDifficulty');
+  const conceptsEl = document.getElementById('editLabelConcepts');
+
+  if (subjectEl) subjectEl.value = currentLabels.subject || '수학';
+  if (courseEl) courseEl.value = currentLabels.course || '';
+  if (gradeEl) gradeEl.value = currentLabels.grade || '고등학교 1학년';
+  if (chapterEl) chapterEl.value = currentLabels.chapter || '';
+  if (difficultyEl) difficultyEl.value = currentLabels.difficulty || '중';
+  if (conceptsEl) conceptsEl.value = currentLabels.concepts || '';
+
+  modal.style.display = 'flex';
+}
+
+// 라벨 수정 모달 닫기
+function closeLabelEditModal() {
+  const modal = document.getElementById('labelEditModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 라벨 저장
+function saveLabelEdit() {
+  // HTML ID와 일치하도록 수정
+  const subject = document.getElementById('editLabelSubject')?.value || '';
+  const course = document.getElementById('editLabelCourse')?.value || '';
+  const grade = document.getElementById('editLabelGrade')?.value || '';
+  const chapter = document.getElementById('editLabelChapter')?.value || '';
+  const difficulty = document.getElementById('editLabelDifficulty')?.value || '';
+  const concepts = document.getElementById('editLabelConcepts')?.value || '';
+
+  // 메인 폼에 값 적용 (해당 요소가 있는 경우)
+  const gradeSelect = document.getElementById('gradeSelect');
+  if (gradeSelect) {
+    // 학년 형식 변환 (고등학교 1학년 → 고1)
+    const gradeMap = {
+      '고등학교 1학년': '고1',
+      '고등학교 2학년': '고2',
+      '고등학교 3학년': '고3',
+      '중학교 1학년': '중1',
+      '중학교 2학년': '중2',
+      '중학교 3학년': '중3'
+    };
+    gradeSelect.value = gradeMap[grade] || grade;
+  }
+
+  const chapterInput = document.getElementById('refChapterInput');
+  if (chapterInput) {
+    chapterInput.value = chapter;
+  }
+
+  // 로컬 저장 (메인 폼에 없는 값 포함)
+  const editedLabels = {
+    subject,
+    course,
+    grade,
+    chapter,
+    difficulty,
+    concepts: concepts.split(',').map(c => c.trim()).filter(c => c)
+  };
+
+  localStorage.setItem('currentProblemLabels', JSON.stringify(editedLabels));
+
+  closeLabelEditModal();
+  showAlert('✅ 라벨이 수정되었습니다.', 'success');
+}
+
+/**
+ * ============================
+ * 엔진 규칙 검사 기능 (Engine Rules)
+ * ============================
+ */
+
+// 엔진 규칙 검사
+async function checkEngineRules() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  showAlert('⚙️ 엔진 규칙 검사 중...', 'info');
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/check-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problem: currentVariationProblem,
+        metadata
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      if (data.violations && data.violations.length > 0) {
+        displayRuleViolations(data.violations, data.suggestions);
+      } else {
+        showAlert('✅ 모든 엔진 규칙을 통과했습니다!', 'success');
+      }
+    } else {
+      throw new Error(data.error || '규칙 검사 실패');
+    }
+  } catch (error) {
+    console.error('규칙 검사 오류:', error);
+
+    // 클라이언트 측 기본 검사
+    const violations = performLocalRuleCheck();
+    if (violations.length > 0) {
+      displayRuleViolations(violations, []);
+    } else {
+      showAlert('✅ 기본 규칙 검사 통과!', 'success');
+    }
+  }
+}
+
+// 클라이언트 측 기본 규칙 검사
+function performLocalRuleCheck() {
+  const violations = [];
+  const metadata = collectVariationMetadata();
+  const problem = currentVariationProblem;
+
+  // 학년별 규칙 검사
+  const gradeRules = engineRules.gradeLevel[metadata.grade];
+  if (gradeRules) {
+    // 초등학교인 경우 복잡한 수식 검사
+    if (metadata.grade.includes('초등학교')) {
+      if (problem.includes('\\int') || problem.includes('\\lim') || problem.includes('\\sum')) {
+        violations.push({
+          rule: '학년 수준',
+          message: `${metadata.grade}에 적합하지 않은 고급 수학 개념이 포함되어 있습니다.`,
+          severity: 'error'
+        });
+      }
+    }
+  }
+
+  // 유형별 규칙 검사
+  const categoryRules = engineRules.categoryRules[metadata.category];
+  if (categoryRules) {
+    if (categoryRules.requiresDiagram && !problem.includes('그림') && !problem.includes('도형')) {
+      violations.push({
+        rule: '도형 문제 요구사항',
+        message: '도형 문제에는 그림이나 도형에 대한 설명이 필요합니다.',
+        severity: 'warning'
+      });
+    }
+
+    if (categoryRules.minWordCount && problem.length < categoryRules.minWordCount * 3) {
+      violations.push({
+        rule: '문장제 최소 길이',
+        message: `문장제 문제는 최소 ${categoryRules.minWordCount}단어 이상이어야 합니다.`,
+        severity: 'warning'
+      });
+    }
+  }
+
+  return violations;
+}
+
+// 규칙 위반 표시
+function displayRuleViolations(violations, suggestions) {
+  const modal = document.getElementById('ruleViolationModal');
+  const list = document.getElementById('violationList');
+
+  if (!modal || !list) return;
+
+  list.innerHTML = violations.map(v => `
+    <div class="violation-item ${v.severity}">
+      <span class="violation-icon">${v.severity === 'error' ? '❌' : '⚠️'}</span>
+      <div class="violation-content">
+        <strong>${v.rule}</strong>
+        <p>${v.message}</p>
+      </div>
+    </div>
+  `).join('');
+
+  // 자동 수정 제안이 있으면 버튼 활성화
+  const autoFixBtn = document.getElementById('autoFixBtn');
+  if (autoFixBtn) {
+    autoFixBtn.disabled = !suggestions || suggestions.length === 0;
+    autoFixBtn.dataset.suggestions = JSON.stringify(suggestions || []);
+  }
+
+  modal.style.display = 'flex';
+}
+
+// 규칙 위반 모달 닫기
+function closeRuleViolationModal() {
+  const modal = document.getElementById('ruleViolationModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 자동 수정
+async function autoFixViolations() {
+  const autoFixBtn = document.getElementById('autoFixBtn');
+  const suggestions = JSON.parse(autoFixBtn.dataset.suggestions || '[]');
+
+  if (suggestions.length === 0) {
+    showAlert('⚠️ 자동 수정 제안이 없습니다.', 'error');
+    return;
+  }
+
+  showAlert('🔧 자동 수정 중...', 'info');
+
+  try {
+    const response = await fetch('/api/auto-fix-problem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problem: currentVariationProblem,
+        suggestions: suggestions,
+        metadata: collectVariationMetadata()
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.fixedProblem) {
+      currentVariationProblem = data.fixedProblem;
+      displayVariationResult({ problem: currentVariationProblem });
+      closeRuleViolationModal();
+      showAlert('✅ 문제가 자동 수정되었습니다!', 'success');
+    } else {
+      throw new Error(data.error || '자동 수정 실패');
+    }
+  } catch (error) {
+    console.error('자동 수정 오류:', error);
+    showAlert(`❌ 자동 수정 실패: ${error.message}`, 'error');
+  }
+}
+
+// 위반 무시
+function ignoreViolations() {
+  closeRuleViolationModal();
+  showAlert('⚠️ 규칙 위반이 무시되었습니다. 문제 품질을 확인해주세요.', 'warning');
+}
+
+/**
+ * ============================
+ * 자료 관리 기능 (Asset Manager)
+ * ============================
+ */
+
+// 자료 관리 모달 열기
+function openAssetManagerModal() {
+  const modal = document.getElementById('assetManagerModal');
+  if (!modal) {
+    showAlert('⚠️ 자료 관리 모달을 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  modal.style.display = 'flex';
+  renderAssetGrid();
+}
+
+// 자료 관리 모달 닫기
+function closeAssetManagerModal() {
+  const modal = document.getElementById('assetManagerModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// 자료 그리드 렌더링
+function renderAssetGrid() {
+  const grid = document.getElementById('assetGrid');
+  if (!grid) return;
+
+  if (problemAssets.length === 0) {
+    grid.innerHTML = '<p class="no-assets">연결된 자료가 없습니다. 영역 선택에서 자료 영역을 지정하거나 새 자료를 추가하세요.</p>';
+    return;
+  }
+
+  grid.innerHTML = problemAssets.map((asset, idx) => `
+    <div class="asset-card" data-index="${idx}">
+      <div class="asset-preview">
+        <img src="${asset.data || asset}" alt="자료 ${idx + 1}" />
+      </div>
+      <div class="asset-info">
+        <input type="text" class="asset-label" placeholder="자료 설명"
+               value="${asset.label || ''}"
+               onchange="updateAssetLabel(${idx}, this.value)" />
+        <select class="asset-type" onchange="updateAssetType(${idx}, this.value)">
+          <option value="image" ${asset.type === 'image' ? 'selected' : ''}>이미지</option>
+          <option value="graph" ${asset.type === 'graph' ? 'selected' : ''}>그래프</option>
+          <option value="table" ${asset.type === 'table' ? 'selected' : ''}>표</option>
+          <option value="diagram" ${asset.type === 'diagram' ? 'selected' : ''}>도형</option>
+        </select>
+        <button class="btn btn-sm btn-danger" onclick="removeAsset(${idx})">🗑️ 삭제</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// 자료 라벨 업데이트
+function updateAssetLabel(index, label) {
+  if (typeof problemAssets[index] === 'string') {
+    problemAssets[index] = { data: problemAssets[index], label: label, type: 'image' };
+  } else {
+    problemAssets[index].label = label;
+  }
+}
+
+// 자료 유형 업데이트
+function updateAssetType(index, type) {
+  if (typeof problemAssets[index] === 'string') {
+    problemAssets[index] = { data: problemAssets[index], label: '', type: type };
+  } else {
+    problemAssets[index].type = type;
+  }
+}
+
+// 자료 삭제
+function removeAsset(index) {
+  if (confirm(`자료 ${index + 1}을(를) 삭제하시겠습니까?`)) {
+    problemAssets.splice(index, 1);
+    renderAssetGrid();
+    showAlert('🗑️ 자료가 삭제되었습니다.', 'info');
+  }
+}
+
+// 새 자료 추가
+function addNewAsset() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      problemAssets.push({
+        data: event.target.result,
+        label: file.name,
+        type: 'image'
+      });
+      renderAssetGrid();
+      showAlert('📎 새 자료가 추가되었습니다.', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// 모든 자료 저장
+async function saveAllAssets() {
+  if (problemAssets.length === 0) {
+    showAlert('⚠️ 저장할 자료가 없습니다.', 'error');
+    return;
+  }
+
+  showAlert('💾 자료 저장 중...', 'info');
+
+  try {
+    const response = await fetch('/api/save-assets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assets: problemAssets,
+        problemId: currentVariationProblem ? `var_${Date.now()}` : `ref_${Date.now()}`
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      closeAssetManagerModal();
+      showAlert(`✅ ${problemAssets.length}개의 자료가 저장되었습니다.`, 'success');
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('자료 저장 오류:', error);
+    showAlert(`❌ 자료 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * ============================
+ * PDF 다중 페이지 처리
+ * ============================
+ */
+
+// PDF 파일 처리
+async function processPdfFile(file) {
+  showAlert('📄 PDF 로딩 중...', 'info');
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    pdfDocument = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    totalPdfPages = pdfDocument.numPages;
+    currentPdfPage = 1;
+
+    showAlert(`📄 PDF 로드 완료! 총 ${totalPdfPages} 페이지`, 'success');
+
+    // PDF 네비게이션 표시
+    showPdfNavigation();
+
+    // 첫 페이지 렌더링
+    await renderPdfPage(1);
+  } catch (error) {
+    console.error('PDF 처리 오류:', error);
+    showAlert(`❌ PDF 처리 실패: ${error.message}`, 'error');
+  }
+}
+
+// PDF 네비게이션 표시
+function showPdfNavigation() {
+  let nav = document.getElementById('pdfNavigation');
+  if (!nav) {
+    nav = document.createElement('div');
+    nav.id = 'pdfNavigation';
+    nav.className = 'pdf-navigation';
+    document.getElementById('imagePreview').after(nav);
+  }
+
+  nav.innerHTML = `
+    <button class="btn btn-sm" onclick="renderPdfPage(${currentPdfPage - 1})" ${currentPdfPage <= 1 ? 'disabled' : ''}>◀ 이전</button>
+    <span class="page-info">${currentPdfPage} / ${totalPdfPages}</span>
+    <button class="btn btn-sm" onclick="renderPdfPage(${currentPdfPage + 1})" ${currentPdfPage >= totalPdfPages ? 'disabled' : ''}>다음 ▶</button>
+    <button class="btn btn-sm btn-primary" onclick="extractAllPdfPages()">📑 전체 추출</button>
+  `;
+  nav.style.display = 'flex';
+}
+
+// PDF 페이지 렌더링
+async function renderPdfPage(pageNum) {
+  if (!pdfDocument || pageNum < 1 || pageNum > totalPdfPages) return;
+
+  currentPdfPage = pageNum;
+
+  const page = await pdfDocument.getPage(pageNum);
+  const scale = 2;
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // 이미지로 변환
+  const imageData = canvas.toDataURL('image/png');
+
+  // 미리보기 표시
+  const preview = document.getElementById('imagePreview');
+  preview.innerHTML = `<img src="${imageData}" alt="PDF 페이지 ${pageNum}" />`;
+
+  // 고급 버튼 표시
+  document.getElementById('advancedUploadButtons').style.display = 'flex';
+
+  // 네비게이션 업데이트
+  showPdfNavigation();
+}
+
+// 모든 PDF 페이지 추출
+async function extractAllPdfPages() {
+  if (!pdfDocument) return;
+
+  showAlert(`📄 ${totalPdfPages} 페이지 추출 중...`, 'info');
+
+  extractedProblems = [];
+
+  for (let i = 1; i <= totalPdfPages; i++) {
+    const page = await pdfDocument.getPage(i);
+    const scale = 2;
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    extractedProblems.push({
+      problemImage: canvas.toDataURL('image/png'),
+      assets: [],
+      index: i,
+      ocrText: null
+    });
+  }
+
+  showAlert(`✅ ${totalPdfPages} 페이지 추출 완료!`, 'success');
+  openMultiProblemModal();
+}
+
+/**
+ * ============================
+ * 이벤트 리스너 및 초기화
+ * ============================
+ */
+
+// 파일 업로드 이벤트 확장 (PDF 지원)
+document.addEventListener('DOMContentLoaded', function() {
+  const refImageInput = document.getElementById('refImageInput');
+  if (refImageInput) {
+    const originalHandler = refImageInput.onchange;
+    refImageInput.onchange = async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.type === 'application/pdf') {
+        await processPdfFile(file);
+      } else if (originalHandler) {
+        originalHandler.call(this, e);
+        // 고급 버튼 표시
+        setTimeout(() => {
+          document.getElementById('advancedUploadButtons').style.display = 'flex';
+        }, 100);
+      }
+    };
+  }
+
+  // 채팅 입력 엔터 키 처리
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) {
+    chatInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+  }
+});
+
+// 전역 함수로 노출 (onclick에서 사용하기 위해)
+window.openRegionSelectModal = openRegionSelectModal;
+window.closeRegionModal = closeRegionModal;
+window.setRegionMode = setRegionMode;
+window.clearAllRegions = clearAllRegions;
+window.autoDetectRegions = autoDetectRegions;
+window.applyRegions = applyRegions;
+window.openMultiProblemModal = openMultiProblemModal;
+window.closeMultiProblemModal = closeMultiProblemModal;
+window.extractSingleProblem = extractSingleProblem;
+window.removeProblem = removeProblem;
+window.updateProblemLabel = updateProblemLabel;
+window.extractAllProblems = extractAllProblems;
+window.applyExtractedProblems = applyExtractedProblems;
+window.openChatEditModal = openChatEditModal;
+window.closeChatEditModal = closeChatEditModal;
+window.sendChatMessage = sendChatMessage;
+window.applyChatChanges = applyChatChanges;
+window.revertChanges = revertChanges;
+window.openLabelEditModal = openLabelEditModal;
+window.closeLabelEditModal = closeLabelEditModal;
+window.saveLabelEdit = saveLabelEdit;
+window.checkEngineRules = checkEngineRules;
+window.autoFixViolations = autoFixViolations;
+window.ignoreViolations = ignoreViolations;
+window.closeRuleViolationModal = closeRuleViolationModal;
+window.openAssetManagerModal = openAssetManagerModal;
+window.closeAssetManagerModal = closeAssetManagerModal;
+window.addNewAsset = addNewAsset;
+window.saveAllAssets = saveAllAssets;
+window.updateAssetLabel = updateAssetLabel;
+window.updateAssetType = updateAssetType;
+window.removeAsset = removeAsset;
+window.renderPdfPage = renderPdfPage;
+window.extractAllPdfPages = extractAllPdfPages;
+
+// ==================== Phase 4: 완전 구현 API 호출 함수들 ====================
+
+/**
+ * #8: 문제와 자료 분리 저장
+ */
+async function saveProblemComplete(problemData) {
+  try {
+    showAlert('💾 문제와 자료 저장 중...', 'info');
+
+    const formData = new FormData();
+    formData.append('problemText', problemData.text || currentVariationProblem);
+    formData.append('solution', problemData.solution || '');
+    formData.append('metadata', JSON.stringify(collectVariationMetadata() || {}));
+    formData.append('isReference', problemData.isReference || false);
+    formData.append('isVariation', problemData.isVariation !== false);
+    formData.append('originalProblemId', problemData.originalProblemId || '');
+    formData.append('status', problemData.status || 'pending');
+
+    // 자료 정보 추가
+    if (problemData.assets && problemData.assets.length > 0) {
+      formData.append('assets', JSON.stringify(problemData.assets));
+      problemData.assets.forEach((asset, idx) => {
+        if (asset.file) {
+          formData.append('assets', asset.file);
+        }
+      });
+    }
+
+    const response = await fetch('/api/problems/save-complete', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 저장 완료! 문제 ID: ${data.problemId}, 자료 ${data.assetIds?.length || 0}개`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('저장 오류:', error);
+    showAlert(`❌ 저장 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * #4: 영역 자동 감지 (AI 기반)
+ */
+async function autoDetectRegionsAI() {
+  if (!currentReferenceImage) {
+    showAlert('⚠️ 먼저 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  showAlert('🤖 AI가 영역을 감지하고 있습니다...', 'info');
+  document.getElementById('autoDetectBtn').disabled = true;
+  document.getElementById('autoDetectBtn').textContent = '⏳ 감지 중...';
+
+  try {
+    const response = await fetch('/api/detect-regions-auto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: currentReferenceImage,
+        mimeType: 'image/png'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.regions) {
+      // 감지된 영역을 캔버스에 그리기
+      clearAllRegions();
+      data.regions.forEach(region => {
+        addDetectedRegion(region);
+      });
+
+      updateRegionCountInfo();
+      showAlert(`✅ ${data.regions.length}개 영역이 자동 감지되었습니다. 필요시 수동 조정하세요.`, 'success');
+    } else {
+      throw new Error(data.error || '영역 감지 실패');
+    }
+  } catch (error) {
+    console.error('영역 자동 감지 오류:', error);
+    showAlert(`❌ 자동 감지 실패: ${error.message}`, 'error');
+  } finally {
+    document.getElementById('autoDetectBtn').disabled = false;
+    document.getElementById('autoDetectBtn').textContent = '🤖 자동 감지';
+  }
+}
+
+// 감지된 영역 추가 헬퍼
+function addDetectedRegion(region) {
+  const canvas = document.getElementById('regionCanvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const bounds = region.bounds;
+
+  // 비율을 실제 픽셀로 변환
+  const x = bounds.x * canvas.width;
+  const y = bounds.y * canvas.height;
+  const width = bounds.width * canvas.width;
+  const height = bounds.height * canvas.height;
+
+  // 영역 그리기
+  ctx.strokeStyle = region.type === 'problem' ? '#4CAF50' : '#2196F3';
+  ctx.lineWidth = 2;
+  ctx.setLineDash(region.type === 'asset' ? [5, 5] : []);
+  ctx.strokeRect(x, y, width, height);
+
+  // 라벨 표시
+  ctx.fillStyle = region.type === 'problem' ? '#4CAF50' : '#2196F3';
+  ctx.fillRect(x, y - 20, 60, 20);
+  ctx.fillStyle = 'white';
+  ctx.font = '12px sans-serif';
+  ctx.fillText(region.type === 'problem' ? `문제 ${region.problemNumber || ''}` : `자료`, x + 5, y - 6);
+
+  // 영역 목록에 추가
+  if (!window.detectedRegions) window.detectedRegions = [];
+  window.detectedRegions.push(region);
+}
+
+/**
+ * #2, #3: 다중 문제 일괄 추출
+ */
+async function extractProblemsBatch() {
+  if (!currentReferenceImage) {
+    showAlert('⚠️ 먼저 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  showAlert('📑 문제를 추출하고 있습니다...', 'info');
+
+  try {
+    const response = await fetch('/api/extract-problems-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: currentReferenceImage,
+        mimeType: 'image/png'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.problems) {
+      displayExtractedProblems(data.problems);
+      showAlert(`✅ ${data.problems.length}개 문제가 추출되었습니다.`, 'success');
+      return data.problems;
+    } else {
+      throw new Error(data.error || '문제 추출 실패');
+    }
+  } catch (error) {
+    console.error('문제 일괄 추출 오류:', error);
+    showAlert(`❌ 추출 실패: ${error.message}`, 'error');
+    return [];
+  }
+}
+
+// 추출된 문제 표시
+function displayExtractedProblems(problems) {
+  const container = document.getElementById('extractedProblemsList');
+  if (!container) return;
+
+  if (problems.length === 0) {
+    container.innerHTML = '<p class="info-message">추출된 문제가 없습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = problems.map((p, idx) => `
+    <div class="extracted-problem-item" data-index="${idx}">
+      <div class="problem-header">
+        <input type="checkbox" id="selectProblem${idx}" checked>
+        <label for="selectProblem${idx}">
+          <strong>문제 ${p.problemNumber || idx + 1}</strong>
+          <span class="difficulty-badge ${p.estimatedDifficulty}">${p.estimatedDifficulty || '중'}</span>
+        </label>
+      </div>
+      <div class="problem-preview">${renderMathContent(p.text?.substring(0, 200) + '...')}</div>
+      <div class="problem-tags">
+        ${(p.estimatedConcepts || []).map(c => `<span class="concept-tag">${c}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  // 전역 변수에 저장
+  window.extractedProblemsData = problems;
+}
+
+/**
+ * #6: 엔진 기반 문제 생성
+ */
+async function generateWithEngine() {
+  showAlert('🔧 엔진 규칙 + RAG 기반 문제 생성 중...', 'info');
+
+  try {
+    const metadata = collectVariationMetadata();
+    const variationCount = parseInt(document.getElementById('variationCountSelect')?.value || 3);
+
+    const response = await fetch('/api/generate-with-engine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceProblem: currentOCRText || '',
+        referenceImage: currentReferenceImage,
+        metadata,
+        variationCount,
+        useRag: true,
+        engineRuleSet: 'default'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.variations) {
+      // 첫 번째 변형 문제 표시
+      if (data.variations.length > 0) {
+        const firstVar = data.variations[0];
+        currentVariationProblem = firstVar.text;
+        displayVariationResult({
+          problem: firstVar.text,
+          choices: firstVar.choices,
+          solution: firstVar.solution,
+          variations: data.variations,
+          engineRules: data.engineRulesApplied
+        });
+      }
+
+      showAlert(`✅ ${data.variations.length}개 변형 문제가 엔진 규칙 기반으로 생성되었습니다.`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '생성 실패');
+    }
+  } catch (error) {
+    console.error('엔진 기반 생성 오류:', error);
+    showAlert(`❌ 생성 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * #7: 엔진 규칙 위반 자동 수정
+ */
+async function autoFixViolationsAI() {
+  if (!currentViolations || currentViolations.length === 0) {
+    showAlert('⚠️ 수정할 위반 사항이 없습니다.', 'info');
+    return;
+  }
+
+  showAlert('🔧 AI가 위반 사항을 자동 수정하고 있습니다...', 'info');
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/auto-fix-violations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problem: currentVariationProblem,
+        violations: currentViolations,
+        metadata
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.fixedProblem) {
+      currentVariationProblem = data.fixedProblem;
+      displayVariationResult({ problem: data.fixedProblem });
+
+      // 수정 내역 표시
+      if (data.changes && data.changes.length > 0) {
+        showAlert(`✅ ${data.changes.length}개 위반 사항이 자동 수정되었습니다.`, 'success');
+      }
+
+      closeRuleViolationModal();
+      return data;
+    } else {
+      throw new Error(data.error || '자동 수정 실패');
+    }
+  } catch (error) {
+    console.error('자동 수정 오류:', error);
+    showAlert(`❌ 자동 수정 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * #10: 참조 문제 완전 처리 (OCR + 라벨링 + RAG)
+ */
+async function processReferenceComplete() {
+  if (!currentReferenceImage) {
+    showAlert('⚠️ 먼저 참조 문제 이미지를 업로드해주세요.', 'error');
+    return;
+  }
+
+  showAlert('📝 참조 문제 처리 중 (OCR → 라벨링 → RAG)...', 'info');
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/reference/process-complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: currentReferenceImage,
+        mimeType: 'image/png',
+        metadata: JSON.stringify(metadata)
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // OCR 결과 저장
+      currentOCRText = data.ocrText;
+
+      // 자동 라벨 적용
+      if (data.autoLabels) {
+        applyAutoLabels(data.autoLabels);
+      }
+
+      const statusMsg = [];
+      if (data.steps.ocr) statusMsg.push('✅ OCR 완료');
+      if (data.steps.labeling) statusMsg.push('✅ 라벨링 완료');
+      if (data.steps.saved) statusMsg.push('✅ DB 저장 완료');
+      if (data.steps.ragIndexed) statusMsg.push('✅ RAG 인덱싱 완료');
+
+      showAlert(statusMsg.join(' | '), 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '처리 실패');
+    }
+  } catch (error) {
+    console.error('참조 문제 처리 오류:', error);
+    showAlert(`❌ 처리 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+// 자동 라벨 적용 헬퍼
+function applyAutoLabels(labels) {
+  if (labels.subject) {
+    // 교과 선택
+    const subjectSelect = document.getElementById('subjectSelect');
+    if (subjectSelect) {
+      for (let option of subjectSelect.options) {
+        if (option.text.includes(labels.subject) || option.value.includes(labels.subject)) {
+          subjectSelect.value = option.value;
+          break;
+        }
+      }
+    }
+  }
+
+  if (labels.chapter) {
+    const chapterInput = document.getElementById('refChapterInput');
+    if (chapterInput) chapterInput.value = labels.chapter;
+  }
+
+  if (labels.difficulty) {
+    // 난이도 저장 (별도 필드에)
+    localStorage.setItem('autoDetectedDifficulty', labels.difficulty);
+  }
+
+  console.log('✅ 자동 라벨 적용:', labels);
+}
+
+/**
+ * #11: Multi-LLM 검수 실행
+ */
+async function runMultiLLMReviewComplete() {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  showAlert('🔍 Multi-LLM 검수 중 (Gemini + GPT-4)...', 'info');
+  document.getElementById('reviewBtn').disabled = true;
+  document.getElementById('reviewBtn').textContent = '⏳ 검수 중...';
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    // 사용할 LLM 선택
+    const llmList = ['gemini'];
+    if (document.getElementById('useGPT4Review')?.checked) {
+      llmList.push('gpt4');
+    }
+
+    const response = await fetch('/api/review/multi-llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problem: currentVariationProblem,
+        solution: currentVariationSolution || '',
+        metadata,
+        llmList
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      displayMultiLLMReview(data);
+
+      if (data.summary.averageScore >= 80) {
+        document.getElementById('approveBtn').style.display = 'inline-block';
+      }
+
+      showAlert(`✅ ${data.summary.reviewCount}개 LLM 검수 완료 (평균 ${data.summary.averageScore}점)`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '검수 실패');
+    }
+  } catch (error) {
+    console.error('Multi-LLM 검수 오류:', error);
+    showAlert(`❌ 검수 실패: ${error.message}`, 'error');
+    return null;
+  } finally {
+    document.getElementById('reviewBtn').disabled = false;
+    document.getElementById('reviewBtn').textContent = '🔍 AI 검토 요청';
+  }
+}
+
+// Multi-LLM 검수 결과 표시
+function displayMultiLLMReview(data) {
+  const reviewBox = document.getElementById('reviewResultBox');
+  if (!reviewBox) return;
+
+  reviewBox.style.display = 'block';
+
+  // 점수 표시
+  document.getElementById('reviewScore').textContent = data.summary.averageScore || '--';
+  document.getElementById('reviewScore').className = `score-value ${
+    data.summary.averageScore >= 80 ? 'high' : data.summary.averageScore >= 60 ? 'medium' : 'low'
+  }`;
+
+  // 추천 표시
+  const recEl = document.getElementById('reviewRecommendation');
+  const recText = {
+    'approve': '✅ 승인 권장',
+    'revise': '⚠️ 수정 필요',
+    'reject': '❌ 재생성 권장',
+    'pending': '⏳ 검토 대기'
+  };
+  recEl.textContent = recText[data.summary.consensusRecommendation] || recText.pending;
+  recEl.className = `review-recommendation ${data.summary.consensusRecommendation}`;
+
+  // 각 LLM 결과 표시
+  data.reviews.forEach(review => {
+    if (review.categories) {
+      if (review.llm === 'gemini') {
+        document.getElementById('accuracyReview').innerHTML = `
+          <strong>Gemini:</strong> ${review.categories.accuracy?.score || '--'}점
+          <p>${review.categories.accuracy?.comments || ''}</p>
+        `;
+      }
+    }
+  });
+
+  // 이슈 목록
+  if (data.summary.allIssues && data.summary.allIssues.length > 0) {
+    const issueHtml = data.summary.allIssues.map(issue => `
+      <div class="issue-item ${issue.severity}">
+        <span class="issue-badge">${issue.from}</span>
+        <span class="issue-severity">${issue.severity}</span>
+        <span class="issue-desc">${issue.description}</span>
+      </div>
+    `).join('');
+    document.getElementById('qualityReview').innerHTML = issueHtml;
+  }
+}
+
+/**
+ * #12, #13: 변형 문제 완전 처리 (라벨링 + RAG + 승인)
+ */
+async function processVariationComplete(autoApprove = false) {
+  if (!currentVariationProblem) {
+    showAlert('⚠️ 먼저 변형 문제를 생성해주세요.', 'error');
+    return;
+  }
+
+  showAlert('💾 변형 문제 처리 중 (라벨링 → 저장 → RAG)...', 'info');
+
+  try {
+    const metadata = collectVariationMetadata();
+
+    const response = await fetch('/api/variation/process-complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        variationProblem: currentVariationProblem,
+        solution: currentVariationSolution || '',
+        originalProblemId: currentReferenceProblemId || null,
+        metadata: JSON.stringify(metadata),
+        reviewResult: currentReviewResult || null,
+        autoApprove
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      const statusMsg = [];
+      if (data.steps.labeling) statusMsg.push('✅ 라벨링');
+      if (data.steps.saved) statusMsg.push('✅ 저장');
+      if (data.steps.approved) statusMsg.push('✅ 승인');
+      if (data.steps.ragIndexed) statusMsg.push('✅ RAG');
+
+      showAlert(`${statusMsg.join(' | ')} | ID: ${data.variationId}`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '처리 실패');
+    }
+  } catch (error) {
+    console.error('변형 문제 처리 오류:', error);
+    showAlert(`❌ 처리 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * 변형 문제 승인
+ */
+async function approveVariation(variationId) {
+  try {
+    const response = await fetch('/api/variation/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        variationId,
+        reviewNote: '사용자 승인'
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 문제가 승인되고 RAG에 인덱싱되었습니다.`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '승인 실패');
+    }
+  } catch (error) {
+    console.error('승인 오류:', error);
+    showAlert(`❌ 승인 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * #15, #16: 자료 라벨링
+ */
+async function labelAsset(assetId, autoLabel = true) {
+  try {
+    const response = await fetch('/api/assets/label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId, autoLabel })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 자료 라벨링 완료`, 'success');
+      return data.labels;
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('자료 라벨링 오류:', error);
+    showAlert(`❌ 라벨링 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+/**
+ * 자료 RAG 인덱싱
+ */
+async function indexAssetsToRAG(assetIds) {
+  try {
+    const response = await fetch('/api/assets/rag-index', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetIds })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      const successCount = data.results.filter(r => r.success).length;
+      showAlert(`✅ ${successCount}/${assetIds.length} 자료 RAG 인덱싱 완료`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('자료 RAG 인덱싱 오류:', error);
+    showAlert(`❌ RAG 인덱싱 실패: ${error.message}`, 'error');
+    return null;
+  }
+}
+
+// 전역 변수 추가
+let currentViolations = [];
+let currentReviewResult = null;
+let currentReferenceProblemId = null;
+let currentOCRText = '';
+let currentVariationSolution = '';
+
+// ==================== Phase 4: UI 핸들러 함수들 ====================
+
+/**
+ * 생성 모드에 따라 적절한 생성 함수 호출
+ */
+function handleGenerateVariation() {
+  const mode = document.querySelector('input[name="generationMode"]:checked')?.value || 'standard';
+
+  if (mode === 'engine') {
+    // 엔진 기반 생성
+    const ruleSet = document.getElementById('engineRuleSet')?.value || 'default';
+    const useRAG = document.getElementById('useRAGContext')?.checked ?? true;
+    generateWithEngineOptions(ruleSet, useRAG);
+  } else {
+    // 기존 일반 생성
+    generateVariation();
+  }
+}
+
+/**
+ * 옵션을 포함한 엔진 기반 생성
+ */
+async function generateWithEngineOptions(ruleSet, useRAG) {
+  showAlert('🔧 엔진 규칙 + RAG 기반 문제 생성 중...', 'info');
+
+  const progressBox = document.getElementById('variationProgress');
+  const progressText = document.getElementById('variationProgressText');
+  const generateBtn = document.getElementById('generateVariationBtn');
+
+  if (progressBox) progressBox.style.display = 'block';
+  if (progressText) progressText.textContent = '엔진 규칙 적용 중...';
+  if (generateBtn) generateBtn.disabled = true;
+
+  try {
+    const metadata = collectVariationMetadata();
+    const variationCount = parseInt(document.getElementById('variationCountSelect')?.value || 3);
+    const instructions = document.getElementById('variationInstructions')?.value || '';
+
+    const response = await fetch('/api/generate-with-engine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceProblem: currentOCRText || '',
+        referenceImage: currentReferenceImage,
+        metadata,
+        variationCount,
+        instructions,
+        useRag: useRAG,
+        engineRuleSet: ruleSet
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.variations) {
+      if (data.variations.length > 0) {
+        const firstVar = data.variations[0];
+        currentVariationProblem = firstVar.text;
+        displayVariationResult({
+          problem: firstVar.text,
+          choices: firstVar.choices,
+          solution: firstVar.solution,
+          variations: data.variations,
+          engineRules: data.engineRulesApplied
+        });
+      }
+
+      showAlert(`✅ ${data.variations.length}개 변형 문제 생성 완료 (규칙: ${ruleSet})`, 'success');
+      return data;
+    } else {
+      throw new Error(data.error || '생성 실패');
+    }
+  } catch (error) {
+    console.error('엔진 기반 생성 오류:', error);
+    showAlert(`❌ 생성 실패: ${error.message}`, 'error');
+    return null;
+  } finally {
+    if (progressBox) progressBox.style.display = 'none';
+    if (generateBtn) generateBtn.disabled = false;
+  }
+}
+
+/**
+ * 모든 자료에 AI 라벨링 적용
+ */
+async function labelAllAssetsAI() {
+  const assetGrid = document.getElementById('assetGrid');
+  const statusEl = document.getElementById('assetProcessingStatus');
+
+  if (!window.problemAssetsData || window.problemAssetsData.length === 0) {
+    showAlert('⚠️ 라벨링할 자료가 없습니다.', 'error');
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = '🏷️ AI 라벨링 중...';
+
+  try {
+    let successCount = 0;
+
+    for (const asset of window.problemAssetsData) {
+      if (asset.id) {
+        const result = await labelAsset(asset.id, true);
+        if (result) {
+          asset.labels = result;
+          successCount++;
+        }
+      }
+    }
+
+    if (statusEl) statusEl.textContent = '';
+    showAlert(`✅ ${successCount}/${window.problemAssetsData.length} 자료 라벨링 완료`, 'success');
+
+    // UI 업데이트
+    renderAssetGrid();
+  } catch (error) {
+    console.error('전체 라벨링 오류:', error);
+    if (statusEl) statusEl.textContent = '❌ 오류 발생';
+    showAlert(`❌ 라벨링 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 모든 자료를 RAG에 인덱싱
+ */
+async function indexAllAssetsToRAG() {
+  const statusEl = document.getElementById('assetProcessingStatus');
+
+  if (!window.problemAssetsData || window.problemAssetsData.length === 0) {
+    showAlert('⚠️ 인덱싱할 자료가 없습니다.', 'error');
+    return;
+  }
+
+  const assetIds = window.problemAssetsData
+    .filter(a => a.id)
+    .map(a => a.id);
+
+  if (assetIds.length === 0) {
+    showAlert('⚠️ 먼저 자료를 저장해주세요.', 'error');
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = '📚 RAG 인덱싱 중...';
+
+  try {
+    const result = await indexAssetsToRAG(assetIds);
+    if (statusEl) statusEl.textContent = '';
+    return result;
+  } catch (error) {
+    if (statusEl) statusEl.textContent = '❌ 오류 발생';
+    throw error;
+  }
+}
+
+/**
+ * 모든 자료 완전 처리 (라벨링 → 저장 → RAG)
+ */
+async function processAllAssetsComplete() {
+  const statusEl = document.getElementById('assetProcessingStatus');
+
+  if (!window.problemAssetsData || window.problemAssetsData.length === 0) {
+    showAlert('⚠️ 처리할 자료가 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    // 1단계: 라벨링
+    if (statusEl) statusEl.textContent = '1/3 라벨링 중...';
+    await labelAllAssetsAI();
+
+    // 2단계: 저장
+    if (statusEl) statusEl.textContent = '2/3 저장 중...';
+    await saveAllAssets();
+
+    // 3단계: RAG 인덱싱
+    if (statusEl) statusEl.textContent = '3/3 RAG 인덱싱 중...';
+    await indexAllAssetsToRAG();
+
+    if (statusEl) statusEl.textContent = '✅ 완료!';
+    showAlert('✅ 모든 자료가 완전 처리되었습니다!', 'success');
+
+    setTimeout(() => {
+      if (statusEl) statusEl.textContent = '';
+    }, 2000);
+  } catch (error) {
+    console.error('자료 완전 처리 오류:', error);
+    if (statusEl) statusEl.textContent = '❌ 오류 발생';
+    showAlert(`❌ 처리 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 자료 그리드 렌더링 (라벨 포함)
+ */
+function renderAssetGrid() {
+  const container = document.getElementById('assetGrid');
+  if (!container || !window.problemAssetsData) return;
+
+  if (window.problemAssetsData.length === 0) {
+    container.innerHTML = '<p class="info-message">추출된 자료가 없습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = window.problemAssetsData.map((asset, idx) => `
+    <div class="asset-item" data-index="${idx}">
+      <div class="asset-preview">
+        <img src="${asset.imageData || asset.url}" alt="자료 ${idx + 1}">
+      </div>
+      <div class="asset-info">
+        <input type="text" class="asset-label-input"
+               placeholder="자료 설명"
+               value="${asset.labels?.description || ''}"
+               onchange="updateAssetDescription(${idx}, this.value)">
+        <div class="asset-tags">
+          ${(asset.labels?.concepts || []).map(c =>
+            `<span class="concept-tag">${c}</span>`
+          ).join('')}
+        </div>
+        <select class="asset-type-select" onchange="updateAssetType(${idx}, this.value)">
+          <option value="diagram" ${asset.type === 'diagram' ? 'selected' : ''}>그래프/도형</option>
+          <option value="table" ${asset.type === 'table' ? 'selected' : ''}>표</option>
+          <option value="formula" ${asset.type === 'formula' ? 'selected' : ''}>수식</option>
+          <option value="image" ${asset.type === 'image' ? 'selected' : ''}>이미지</option>
+        </select>
+      </div>
+      <div class="asset-actions">
+        <button class="btn btn-sm btn-info" onclick="labelAsset('${asset.id}', true)" title="AI 라벨링">
+          🏷️
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="removeAsset(${idx})">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/**
+ * 자료 설명 업데이트
+ */
+function updateAssetDescription(index, description) {
+  if (window.problemAssetsData && window.problemAssetsData[index]) {
+    if (!window.problemAssetsData[index].labels) {
+      window.problemAssetsData[index].labels = {};
+    }
+    window.problemAssetsData[index].labels.description = description;
+  }
+}
+
+// ==================== 이벤트 리스너 초기화 ====================
+
+// 생성 모드 토글 이벤트
+document.addEventListener('DOMContentLoaded', function() {
+  // 생성 모드 라디오 버튼 이벤트
+  document.querySelectorAll('input[name="generationMode"]').forEach(radio => {
+    radio.addEventListener('change', function(e) {
+      const engineOptions = document.getElementById('engineRuleOptions');
+      if (engineOptions) {
+        engineOptions.style.display = e.target.value === 'engine' ? 'block' : 'none';
+      }
+    });
+  });
+
+  // Multi-LLM 검토 버튼 연결 (기존 runMultiLLMReview를 runMultiLLMReviewComplete로 연결)
+  const reviewBtn = document.getElementById('reviewBtn');
+  if (reviewBtn) {
+    reviewBtn.onclick = function() {
+      runMultiLLMReviewComplete();
+    };
+  }
+});
+
+// 전역 함수로 노출
+window.saveProblemComplete = saveProblemComplete;
+window.autoDetectRegionsAI = autoDetectRegionsAI;
+window.extractProblemsBatch = extractProblemsBatch;
+window.generateWithEngine = generateWithEngine;
+window.autoFixViolationsAI = autoFixViolationsAI;
+window.processReferenceComplete = processReferenceComplete;
+window.runMultiLLMReviewComplete = runMultiLLMReviewComplete;
+window.processVariationComplete = processVariationComplete;
+window.approveVariation = approveVariation;
+window.labelAsset = labelAsset;
+window.indexAssetsToRAG = indexAssetsToRAG;
+
+// 새 UI 핸들러 함수 노출
+window.handleGenerateVariation = handleGenerateVariation;
+window.generateWithEngineOptions = generateWithEngineOptions;
+window.labelAllAssetsAI = labelAllAssetsAI;
+window.indexAllAssetsToRAG = indexAllAssetsToRAG;
+window.processAllAssetsComplete = processAllAssetsComplete;
+window.renderAssetGrid = renderAssetGrid;
+window.updateAssetDescription = updateAssetDescription;

@@ -304,6 +304,302 @@
       <div id="uploadProgress" class="progress-box" style="display: none;"></div>
     </section>
 
+    <!-- 0. 참조 문제 기반 변형 출제 섹션 (Phase 1) -->
+    <section class="card">
+      <h2>🔄 참조 문제 → 변형 출제</h2>
+      <p class="section-description">참조 문제를 업로드하면 AI가 유사한 변형 문제를 출제합니다.</p>
+
+      <!-- LLM 선택 -->
+      <div class="form-group">
+        <label>AI 모델 선택:</label>
+        <div class="radio-group llm-selector">
+          <label class="llm-option">
+            <input type="radio" name="llmSelect" value="gemini" checked>
+            <span class="llm-badge gemini">🔷 Gemini Vision</span>
+          </label>
+          <label class="llm-option">
+            <input type="radio" name="llmSelect" value="gpt4">
+            <span class="llm-badge gpt">🟢 GPT-4 Vision</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 참조 문제 업로드 -->
+      <div class="form-group">
+        <label for="referenceFileInput">📎 참조 문제 업로드:</label>
+        <div class="file-upload-area" id="referenceDropZone">
+          <input
+            type="file"
+            id="referenceFileInput"
+            class="file-input-hidden"
+            accept="image/*,.pdf"
+            multiple
+          >
+          <div class="drop-zone-content">
+            <span class="drop-icon">📄</span>
+            <p>이미지 또는 PDF를 드래그하거나 클릭하여 업로드</p>
+            <small>지원 형식: JPG, PNG, PDF (최대 10MB)</small>
+          </div>
+        </div>
+        <div id="referencePreview" class="reference-preview"></div>
+
+        <!-- 영역 선택 및 다중 문제 추출 버튼 -->
+        <div id="advancedUploadButtons" class="advanced-upload-buttons" style="display: none;">
+          <button class="btn btn-secondary" onclick="openRegionSelectModal()">
+            📐 영역 선택
+          </button>
+          <button class="btn btn-secondary" onclick="openMultiProblemModal()">
+            📑 다중 문제 추출
+          </button>
+          <button class="btn btn-secondary" onclick="openAssetManagerModal()">
+            🖼️ 자료 관리
+          </button>
+          <!-- Phase 4: 완전 파이프라인 버튼 -->
+          <button class="btn btn-info" onclick="processReferenceComplete()" title="OCR → 라벨링 → 저장 → RAG 인덱싱 자동 수행">
+            🚀 완전 처리
+          </button>
+          <button class="btn btn-purple" onclick="extractProblemsBatch()" title="PDF/이미지에서 다중 문제 일괄 추출">
+            📚 일괄 추출
+          </button>
+        </div>
+      </div>
+
+      <!-- 문제 메타데이터 입력 -->
+      <div class="collapsible">
+        <button onclick="toggleSection('problemMetadataSection')" class="collapsible-btn">
+          🏷️ 문제 정보 입력 (필수)
+        </button>
+        <div id="problemMetadataSection" class="collapsible-content" style="display: block;">
+
+          <div class="metadata-grid">
+            <!-- 시험 종류 -->
+            <div class="form-group">
+              <label for="examTypeSelect">시험 종류:</label>
+              <select id="examTypeSelect" class="input-field">
+                <option value="">선택하세요</option>
+                <option value="내신">내신</option>
+                <option value="수능">수능/모의고사</option>
+                <option value="논술">논술</option>
+                <option value="심층면접">심층면접</option>
+              </select>
+            </div>
+
+            <!-- 문제 유형 -->
+            <div class="form-group">
+              <label for="problemCategorySelect">문제 유형:</label>
+              <select id="problemCategorySelect" class="input-field">
+                <option value="">선택하세요</option>
+                <option value="기출문제">기출문제</option>
+                <option value="연습문제">연습문제</option>
+                <option value="예상문제">예상문제</option>
+              </select>
+            </div>
+
+            <!-- 학교명 (내신인 경우) -->
+            <div class="form-group" id="schoolNameGroup" style="display: none;">
+              <label for="schoolNameInput">학교명:</label>
+              <input type="text" id="schoolNameInput" class="input-field" placeholder="예: 서울고등학교">
+            </div>
+
+            <!-- 출제년도 -->
+            <div class="form-group">
+              <label for="examYearInput">출제년도:</label>
+              <input type="number" id="examYearInput" class="input-field" placeholder="예: 2024" min="2000" max="2030">
+            </div>
+
+            <!-- 학년 -->
+            <div class="form-group">
+              <label for="gradeSelect">학년:</label>
+              <select id="gradeSelect" class="input-field">
+                <option value="">선택하세요</option>
+                <option value="고1">고등학교 1학년</option>
+                <option value="고2">고등학교 2학년</option>
+                <option value="고3">고등학교 3학년</option>
+                <option value="중1">중학교 1학년</option>
+                <option value="중2">중학교 2학년</option>
+                <option value="중3">중학교 3학년</option>
+              </select>
+            </div>
+
+            <!-- 학기/시험 구분 (내신인 경우) -->
+            <div class="form-group" id="semesterGroup" style="display: none;">
+              <label for="semesterSelect">학기/시험:</label>
+              <select id="semesterSelect" class="input-field">
+                <option value="">선택하세요</option>
+                <option value="1학기 중간">1학기 중간고사</option>
+                <option value="1학기 기말">1학기 기말고사</option>
+                <option value="2학기 중간">2학기 중간고사</option>
+                <option value="2학기 기말">2학기 기말고사</option>
+              </select>
+            </div>
+
+            <!-- 과목 (연동) -->
+            <div class="form-group">
+              <label for="refSubjectDisplay">과목:</label>
+              <input type="text" id="refSubjectDisplay" class="input-field" readonly placeholder="위에서 과목을 선택하세요">
+            </div>
+
+            <!-- 단원 -->
+            <div class="form-group">
+              <label for="refChapterInput">단원명:</label>
+              <input type="text" id="refChapterInput" class="input-field" placeholder="예: 1. 다항식">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 변형 옵션 -->
+      <div class="form-group">
+        <label>변형 문제 수:</label>
+        <select id="variationCountSelect" class="input-field">
+          <option value="1">1문제</option>
+          <option value="2">2문제</option>
+          <option value="3" selected>3문제</option>
+          <option value="5">5문제</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="variationInstructions">변형 지시사항 (선택):</label>
+        <textarea
+          id="variationInstructions"
+          placeholder="예: 난이도를 높이고, 숫자를 변경해주세요"
+          class="textarea-field"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- 변형 생성 방식 선택 -->
+      <div class="generation-mode-selector">
+        <label class="generation-mode-option">
+          <input type="radio" name="generationMode" value="standard" checked>
+          <span>🔄 일반 생성</span>
+        </label>
+        <label class="generation-mode-option">
+          <input type="radio" name="generationMode" value="engine">
+          <span>⚙️ 엔진 규칙 기반</span>
+        </label>
+      </div>
+
+      <div id="engineRuleOptions" class="engine-rule-options" style="display: none;">
+        <div class="form-group">
+          <label for="engineRuleSet">엔진 규칙 세트:</label>
+          <select id="engineRuleSet" class="input-field">
+            <option value="default">기본 규칙</option>
+            <option value="math_high">수학 (고등)</option>
+            <option value="science_physics">과학 (물리)</option>
+            <option value="suneung">수능형</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="useRAGContext" checked>
+            RAG 컨텍스트 활용
+          </label>
+        </div>
+      </div>
+
+      <button onclick="handleGenerateVariation()" class="btn btn-primary btn-large" id="generateVariationBtn">
+        🔄 변형 문제 생성하기
+      </button>
+
+      <div id="variationProgress" class="progress-box" style="display: none;">
+        <div class="progress-spinner"></div>
+        <span id="variationProgressText">이미지 분석 중...</span>
+      </div>
+
+      <!-- 변형 문제 결과 -->
+      <div id="variationResultBox" class="variation-result-box" style="display: none;">
+        <h3>📝 생성된 변형 문제</h3>
+        <div id="variationContent" class="problem-content"></div>
+
+        <!-- Phase 2: AI 검토 결과 -->
+        <div id="reviewResultBox" class="review-result-box" style="display: none;">
+          <h4>🔍 AI 검토 결과</h4>
+          <div class="review-summary">
+            <div class="review-score">
+              <span class="score-label">종합 점수</span>
+              <span id="reviewScore" class="score-value">--</span>
+            </div>
+            <div id="reviewRecommendation" class="review-recommendation"></div>
+          </div>
+          <div class="review-details">
+            <div class="review-item">
+              <span class="review-title">📐 수학적 정확성</span>
+              <div id="accuracyReview" class="review-content"></div>
+            </div>
+            <div class="review-item">
+              <span class="review-title">📚 교육적 적절성</span>
+              <div id="pedagogyReview" class="review-content"></div>
+            </div>
+            <div class="review-item">
+              <span class="review-title">✨ 변형 품질</span>
+              <div id="qualityReview" class="review-content"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="variation-actions">
+          <button onclick="requestVariationSolution()" class="btn btn-secondary">
+            💡 풀이 보기
+          </button>
+
+          <!-- Multi-LLM 검토 옵션 -->
+          <div class="review-options-inline">
+            <button onclick="runMultiLLMReview()" class="btn btn-info" id="reviewBtn">
+              🔍 AI 검토
+            </button>
+            <label class="checkbox-inline" title="GPT-4도 함께 검토">
+              <input type="checkbox" id="useGPT4Review">
+              <span>+GPT-4</span>
+            </label>
+          </div>
+
+          <button onclick="openChatEditModal()" class="btn btn-purple" id="chatEditBtn">
+            💬 대화형 수정
+          </button>
+          <button onclick="openLabelEditModal()" class="btn btn-teal" id="labelEditBtn">
+            🏷️ 라벨 수정
+          </button>
+          <button onclick="checkEngineRules()" class="btn btn-orange" id="ruleCheckBtn">
+            ⚙️ 규칙 검사
+          </button>
+
+          <!-- Phase 4: 완전 처리 버튼 -->
+          <div class="complete-processing-group">
+            <button onclick="processVariationComplete(false)" class="btn btn-warning" title="라벨링 → 저장 → 검토 대기">
+              💾 완전 저장
+            </button>
+            <button onclick="processVariationComplete(true)" class="btn btn-success" id="approveBtn" title="라벨링 → 저장 → 자동 승인 → RAG">
+              ✅ 완전 승인
+            </button>
+          </div>
+
+          <button onclick="regenerateVariation()" class="btn btn-outline">
+            🔄 다시 생성
+          </button>
+        </div>
+      </div>
+
+      <!-- Phase 2: OCR 및 자동 라벨링 도구 -->
+      <div class="phase2-tools">
+        <button onclick="extractOCRText()" class="btn btn-tool" id="ocrBtn" title="이미지에서 텍스트 추출">
+          📝 OCR 추출
+        </button>
+        <button onclick="autoLabelProblem()" class="btn btn-tool" id="autoLabelBtn" title="자동으로 메타데이터 분류">
+          🏷️ 자동 분류
+        </button>
+      </div>
+
+      <!-- OCR 결과 표시 -->
+      <div id="ocrResultBox" class="ocr-result-box" style="display: none;">
+        <h4>📝 OCR 추출 결과</h4>
+        <div id="ocrContent" class="ocr-content"></div>
+        <button onclick="copyOCRText()" class="btn btn-small">📋 복사</button>
+        <button onclick="closeOCRResult()" class="btn btn-small btn-outline">닫기</button>
+      </div>
+    </section>
+
     <!-- 1. 문제요청 섹션 -->
     <section class="card">
       <h2>📝 문제 요청</h2>
@@ -415,6 +711,32 @@
       <div id="noSolution" class="info-message">
         ℹ️ 문제가 출제된 후 풀이를 요청할 수 있습니다.
       </div>
+
+      <!-- 저장 버튼 영역 -->
+      <div id="saveButtonArea" class="save-button-area" style="display: none;">
+        <hr style="margin: 20px 0; border-color: #e0e0e0;">
+        <button
+          id="saveRecordBtn"
+          onclick="saveRecord()"
+          class="btn btn-success btn-large"
+        >
+          💾 문제와 풀이 저장하기
+        </button>
+        <p id="saveStatus" class="save-status"></p>
+      </div>
+    </section>
+
+    <!-- 4. 저장된 학습 기록 섹션 -->
+    <section class="card">
+      <h2>📁 저장된 학습 기록</h2>
+
+      <button onclick="loadRecords()" class="btn btn-secondary">
+        🔄 기록 새로고침
+      </button>
+
+      <div id="recordsList" class="records-list">
+        <p class="info-message">ℹ️ 저장된 기록이 없습니다.</p>
+      </div>
     </section>
 
     <!-- 질의응답 섹션 (기존 기능 유지) -->
@@ -448,5 +770,248 @@
   </div>
 
   <script src="app.js"></script>
+<!-- ==================== 문제 영역 선택 모달 ==================== -->
+<div id="regionSelectModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>📐 문제 영역 선택</h3>
+      <button class="modal-close" onclick="closeRegionModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="region-toolbar">
+        <div class="toolbar-group">
+          <button id="autoDetectBtn" class="btn btn-primary" onclick="autoDetectRegionsAI()" title="Gemini Vision으로 문제/자료 영역 자동 감지">
+            🤖 AI 자동 감지
+          </button>
+          <button id="addProblemRegionBtn" class="btn btn-secondary" onclick="setRegionMode('problem')">
+            ➕ 문제 영역 추가
+          </button>
+          <button id="addAssetRegionBtn" class="btn btn-secondary" onclick="setRegionMode('asset')">
+            🖼️ 자료 영역 추가
+          </button>
+          <button id="clearRegionsBtn" class="btn btn-outline" onclick="clearAllRegions()">
+            🗑️ 전체 삭제
+          </button>
+        </div>
+        <div class="toolbar-info">
+          <span id="regionModeIndicator" class="mode-indicator">선택 모드: 없음</span>
+          <span id="regionCountInfo">문제: 0개 | 자료: 0개</span>
+        </div>
+      </div>
+
+      <div class="region-canvas-container">
+        <canvas id="regionCanvas"></canvas>
+        <img id="regionSourceImage" style="display: none;">
+      </div>
+
+      <div class="region-list-container">
+        <h4>📋 선택된 영역</h4>
+        <div id="regionList" class="region-list"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeRegionModal()">취소</button>
+      <button class="btn btn-primary" onclick="applyRegions()">✅ 영역 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 다중 문제 추출 모달 ==================== -->
+<div id="multiProblemModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>📑 다중 문제 추출</h3>
+      <button class="modal-close" onclick="closeMultiProblemModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="multi-problem-toolbar">
+        <button class="btn btn-primary" onclick="extractProblemsBatch()" title="AI가 모든 문제를 자동으로 추출하고 LaTeX 변환">
+          🔍 AI 일괄 추출
+        </button>
+        <button class="btn btn-secondary" onclick="extractAllProblems()" title="기존 방식으로 추출">
+          📋 기본 추출
+        </button>
+        <span class="extraction-status" id="extractionStatus"></span>
+      </div>
+
+      <div class="extracted-problems-container">
+        <div id="extractedProblemsList" class="extracted-problems-list">
+          <p class="info-message">📤 이미지를 업로드하면 자동으로 문제를 추출합니다.</p>
+        </div>
+      </div>
+
+      <div class="page-navigation" id="pageNavigation" style="display: none;">
+        <button class="btn btn-small" onclick="prevPage()">◀ 이전</button>
+        <span id="pageIndicator">1 / 1</span>
+        <button class="btn btn-small" onclick="nextPage()">다음 ▶</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeMultiProblemModal()">취소</button>
+      <button class="btn btn-primary" onclick="applyExtractedProblems()">✅ 선택 문제 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 대화형 수정 모달 ==================== -->
+<div id="chatEditModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>💬 AI 대화형 수정</h3>
+      <button class="modal-close" onclick="closeChatEditModal()">&times;</button>
+    </div>
+    <div class="modal-body chat-modal-body">
+      <div class="chat-preview-section">
+        <h4>현재 문제</h4>
+        <div id="chatCurrentProblem" class="chat-problem-preview"></div>
+      </div>
+
+      <div class="chat-conversation-section">
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-area">
+          <textarea id="chatInput" placeholder="수정 요청을 입력하세요... (예: 난이도를 높여주세요, 숫자를 변경해주세요)" rows="2"></textarea>
+          <button class="btn btn-primary" onclick="sendChatMessage()">
+            📤 전송
+          </button>
+        </div>
+      </div>
+
+      <div class="chat-result-section">
+        <h4>수정된 문제</h4>
+        <div id="chatModifiedProblem" class="chat-problem-preview"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeChatEditModal()">취소</button>
+      <button class="btn btn-secondary" onclick="revertChanges()">↩️ 원본으로</button>
+      <button class="btn btn-primary" onclick="applyChatChanges()">✅ 수정 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 라벨링 수정 모달 ==================== -->
+<div id="labelEditModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>🏷️ 라벨링 수정</h3>
+      <button class="modal-close" onclick="closeLabelEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="label-edit-form">
+        <div class="form-group">
+          <label>교과:</label>
+          <select id="editLabelSubject" class="input-field">
+            <option value="국어">국어</option>
+            <option value="영어">영어</option>
+            <option value="수학">수학</option>
+            <option value="과학">과학</option>
+            <option value="사회">사회</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>과목:</label>
+          <input type="text" id="editLabelCourse" class="input-field" placeholder="예: 수학I, 물리학I">
+        </div>
+        <div class="form-group">
+          <label>학년:</label>
+          <select id="editLabelGrade" class="input-field">
+            <option value="고등학교 1학년">고등학교 1학년</option>
+            <option value="고등학교 2학년">고등학교 2학년</option>
+            <option value="고등학교 3학년">고등학교 3학년</option>
+            <option value="중학교 1학년">중학교 1학년</option>
+            <option value="중학교 2학년">중학교 2학년</option>
+            <option value="중학교 3학년">중학교 3학년</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>단원:</label>
+          <input type="text" id="editLabelChapter" class="input-field" placeholder="예: 다항식, 좌표평면">
+        </div>
+        <div class="form-group">
+          <label>난이도:</label>
+          <select id="editLabelDifficulty" class="input-field">
+            <option value="상">상</option>
+            <option value="중">중</option>
+            <option value="하">하</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>관련 개념 (쉼표 구분):</label>
+          <input type="text" id="editLabelConcepts" class="input-field" placeholder="예: 인수분해, 다항식의 연산">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeLabelEditModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveLabelEdit()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 엔진 규칙 위반 모달 ==================== -->
+<div id="ruleViolationModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>⚠️ 엔진 규칙 검사 결과</h3>
+      <button class="modal-close" onclick="closeRuleViolationModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="ruleViolationList" class="rule-violation-list"></div>
+      <div class="rule-action-buttons">
+        <button class="btn btn-primary" onclick="autoFixViolationsAI()" title="AI가 규칙 위반 사항을 자동으로 수정">
+          🤖 AI 자동 수정
+        </button>
+        <button class="btn btn-secondary" onclick="autoFixViolations()" title="기본 규칙 기반 수정">
+          🔧 기본 수정
+        </button>
+        <button class="btn btn-outline" onclick="ignoreViolations()">⏭️ 무시하고 진행</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 자료 관리 모달 ==================== -->
+<div id="assetManagerModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>🖼️ 문제 자료 관리</h3>
+      <button class="modal-close" onclick="closeAssetManagerModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- 자료 관리 도구 바 -->
+      <div class="asset-toolbar">
+        <button class="btn btn-info" onclick="labelAllAssetsAI()" title="모든 자료에 AI 라벨링 적용">
+          🏷️ 전체 AI 라벨링
+        </button>
+        <button class="btn btn-purple" onclick="indexAllAssetsToRAG()" title="모든 자료를 RAG에 인덱싱">
+          📚 전체 RAG 인덱싱
+        </button>
+        <span id="assetProcessingStatus" class="processing-status"></span>
+      </div>
+
+      <div class="asset-grid" id="assetGrid">
+        <p class="info-message">추출된 자료가 없습니다.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAssetManagerModal()">닫기</button>
+      <button class="btn btn-secondary" onclick="saveAllAssets()">💾 전체 저장</button>
+      <button class="btn btn-primary" onclick="processAllAssetsComplete()" title="라벨링 → 저장 → RAG 인덱싱 자동 수행">
+        🚀 완전 처리
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Cropper.js 라이브러리 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+<!-- PDF.js 라이브러리 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+
 </body>
 </html>
