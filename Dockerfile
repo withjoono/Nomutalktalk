@@ -23,6 +23,7 @@ USER node
 
 # Cloud Run이 제공하는 PORT 환경 변수 사용
 ENV PORT=8080
+ENV NODE_ENV=production
 
 # 포트 노출
 EXPOSE 8080
