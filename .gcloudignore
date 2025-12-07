@@ -24,5 +24,4 @@ npm-debug.log*
 nul
 *.tmp
 
-# Firebase credentials (will use Cloud Run secret)
-firebase-service-account.json
+# Firebase credentials - included for Cloud Run deployment

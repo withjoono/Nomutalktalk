@@ -3111,6 +3111,153 @@ small {
   margin-bottom: 0;
 }
 
+/* 엔진 탭 UI */
+.engine-source-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.engine-tab {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.engine-tab:hover {
+  background: #f5f5f5;
+  border-color: #2196f3;
+}
+
+.engine-tab.active {
+  background: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+
+.engine-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+/* 엔진 선택 행 */
+.engine-select-row {
+  display: flex;
+  gap: 8px;
+}
+
+.engine-select-row select {
+  flex: 1;
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* 엔진 정보 카드 */
+.engine-info-card {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #4caf50;
+}
+
+.engine-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.engine-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.engine-version {
+  font-size: 12px;
+  color: #666;
+  background: #e0e0e0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.engine-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.engine-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #888;
+}
+
+.engine-stats strong {
+  color: #333;
+}
+
+/* 엔진 생성 폼 */
+.create-engine-form .form-group {
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-group.half {
+  flex: 1;
+}
+
+.code-editor {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: none;
+  padding: 12px;
+}
+
+.code-editor::placeholder {
+  color: #6a9955;
+}
+
+.file-import-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* 공통 옵션 */
+.engine-common-options {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
 /* Multi-LLM 검토 옵션 (인라인) */
 .review-options-inline {
   display: flex;

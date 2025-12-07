@@ -69,14 +69,35 @@ const upload = multer({
 
 // CORS 설정
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : process.env.NODE_ENV === 'production'
-      ? true
-      : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: function (origin, callback) {
+    // 허용할 origin 목록
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:3001',
+          'https://google-file-search.vercel.app',
+          'https://google-file-search.netlify.app'
+        ];
+
+    // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
+    if (!origin || allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.netlify.app') ||
+        origin.endsWith('.railway.app') ||
+        origin.endsWith('.render.com') ||
+        origin.endsWith('.run.app')) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('CORS not allowed'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   maxAge: 86400 // 24 hours
 };
 
@@ -1293,18 +1314,7 @@ app.post('/api/ocr-extract', async (req, res) => {
 4. 그림이나 그래프 설명이 필요하면 [그림: 설명] 형태로 추가
 5. 문제 번호가 있으면 포함
 
-## 출력 형식 (JSON)
-{
-  "problems": [
-    {
-      "number": "문제 번호 또는 null",
-      "text": "문제 텍스트 (LaTeX 수식 포함)",
-      "choices": ["보기1", "보기2", ...] 또는 null,
-      "hasImage": true/false,
-      "imageDescription": "그림 설명" 또는 null
-    }
-  ]
-}`
+추출된 문제 텍스트만 그대로 출력해주세요. JSON이나 다른 형식 없이 순수한 문제 내용만 출력합니다.`
       : `이 이미지의 모든 텍스트를 정확하게 추출해주세요.
 
 ## 추출 규칙
@@ -4133,6 +4143,474 @@ app.get('/api/variations/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('통계 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 커스텀 엔진 관리 API ====================
+
+/**
+ * GET /api/engines
+ * 저장된 커스텀 엔진 목록 조회
+ */
+app.get('/api/engines', async (req, res) => {
+  try {
+    if (!db) {
+      return res.json({
+        success: true,
+        engines: [],
+        message: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const snapshot = await db.collection('engines')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const engines = [];
+    snapshot.forEach(doc => {
+      engines.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      engines,
+      count: engines.length
+    });
+  } catch (error) {
+    console.error('엔진 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/engines/:id
+ * 특정 엔진 상세 조회
+ */
+app.get('/api/engines/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const doc = await db.collection('engines').doc(id).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: '엔진을 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      engine: {
+        id: doc.id,
+        ...doc.data()
+      }
+    });
+  } catch (error) {
+    console.error('엔진 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/engines
+ * 새 커스텀 엔진 저장
+ */
+app.post('/api/engines', async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      promptRules,
+      pythonCode,
+      subject,
+      chapter,
+      version = '1.0.0',
+      tags = []
+    } = req.body;
+
+    if (!name || !promptRules) {
+      return res.status(400).json({
+        success: false,
+        error: '엔진 이름과 프롬프트 규칙은 필수입니다.'
+      });
+    }
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const engineData = {
+      name,
+      description: description || '',
+      promptRules,
+      pythonCode: pythonCode || '',
+      subject: subject || '',
+      chapter: chapter || '',
+      version,
+      tags,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      usageCount: 0
+    };
+
+    const docRef = await db.collection('engines').add(engineData);
+
+    console.log(`✅ 새 엔진 저장됨: ${name} (ID: ${docRef.id})`);
+
+    res.json({
+      success: true,
+      engine: {
+        id: docRef.id,
+        ...engineData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      message: '엔진이 성공적으로 저장되었습니다.'
+    });
+  } catch (error) {
+    console.error('엔진 저장 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/engines/:id
+ * 엔진 수정
+ */
+app.put('/api/engines/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      description,
+      promptRules,
+      pythonCode,
+      subject,
+      chapter,
+      version,
+      tags
+    } = req.body;
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const docRef = db.collection('engines').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: '엔진을 찾을 수 없습니다.'
+      });
+    }
+
+    const updateData = {
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      ...(promptRules && { promptRules }),
+      ...(pythonCode !== undefined && { pythonCode }),
+      ...(subject !== undefined && { subject }),
+      ...(chapter !== undefined && { chapter }),
+      ...(version && { version }),
+      ...(tags && { tags }),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await docRef.update(updateData);
+
+    console.log(`✅ 엔진 수정됨: ${id}`);
+
+    res.json({
+      success: true,
+      message: '엔진이 수정되었습니다.'
+    });
+  } catch (error) {
+    console.error('엔진 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/engines/:id
+ * 엔진 삭제
+ */
+app.delete('/api/engines/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const docRef = db.collection('engines').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: '엔진을 찾을 수 없습니다.'
+      });
+    }
+
+    await docRef.delete();
+
+    console.log(`🗑️ 엔진 삭제됨: ${id}`);
+
+    res.json({
+      success: true,
+      message: '엔진이 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('엔진 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/engines/:id/generate
+ * 특정 커스텀 엔진을 사용하여 문제 생성
+ */
+app.post('/api/engines/:id/generate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      referenceImage,
+      referenceProblem,
+      metadata = {},
+      variationCount = 3,
+      additionalInstructions = ''
+    } = req.body;
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    // 엔진 조회
+    const doc = await db.collection('engines').doc(id).get();
+    if (!doc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: '엔진을 찾을 수 없습니다.'
+      });
+    }
+
+    const engine = doc.data();
+    console.log(`⚙️ 커스텀 엔진으로 문제 생성: ${engine.name}`);
+
+    // 사용 횟수 증가
+    await db.collection('engines').doc(id).update({
+      usageCount: admin.firestore.FieldValue.increment(1),
+      lastUsedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Gemini API로 문제 생성
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: { temperature: 0.7, maxOutputTokens: 16384 }
+    });
+
+    const parts = [];
+
+    // 참조 이미지가 있는 경우
+    if (referenceImage) {
+      const base64Data = referenceImage.replace(/^data:image\/\w+;base64,/, '');
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: 'image/png'
+        }
+      });
+    }
+
+    // 엔진 프롬프트 규칙을 적용한 생성 프롬프트 구성
+    const generatePrompt = `# 커스텀 엔진 기반 문제 생성
+
+## 엔진 정보
+- 엔진 이름: ${engine.name}
+- 버전: ${engine.version}
+- 설명: ${engine.description || '없음'}
+
+## 엔진 프롬프트 규칙 (반드시 준수)
+${engine.promptRules}
+
+${engine.pythonCode ? `## 검증 코드 참조 (이 로직을 이해하고 준수)
+\`\`\`python
+${engine.pythonCode}
+\`\`\`` : ''}
+
+## 참조 문제
+${referenceProblem || '(이미지 참조)'}
+
+## 메타데이터
+- 과목: ${metadata.subject || engine.subject || ''}
+- 단원: ${metadata.chapter || engine.chapter || ''}
+- 학년: ${metadata.grade || ''}
+- 시험 유형: ${metadata.examType || ''}
+- 문제 유형: ${metadata.problemType || ''}
+
+## 생성 지시사항
+1. 위 엔진 규칙을 **반드시** 준수하여 ${variationCount}개의 변형 문제를 생성하세요.
+2. 참조 문제와 유사하지만 숫자, 조건, 상황을 적절히 변경하세요.
+3. 수식은 LaTeX 형식($...$)으로 작성하세요.
+${additionalInstructions ? `4. 추가 지시: ${additionalInstructions}` : ''}
+
+## 출력 형식 (JSON)
+\`\`\`json
+{
+  "variations": [
+    {
+      "problemNumber": 1,
+      "text": "문제 텍스트 (LaTeX 수식 포함)",
+      "choices": ["① 선택지1", "② 선택지2", ...],
+      "answer": "정답",
+      "solution": "상세 풀이",
+      "difficulty": "상|중|하",
+      "engineCompliance": {
+        "passed": true,
+        "appliedRules": ["적용된 규칙들"],
+        "notes": "특이사항"
+      }
+    }
+  ],
+  "generationInfo": {
+    "engineId": "${id}",
+    "engineName": "${engine.name}",
+    "engineVersion": "${engine.version}",
+    "referenceAnalysis": "참조 문제 분석 요약"
+  }
+}
+\`\`\``;
+
+    parts.push(generatePrompt);
+
+    const result = await model.generateContent(parts);
+    const response = await result.response;
+    const text = response.text();
+
+    // JSON 파싱
+    let generatedData = { variations: [], generationInfo: {} };
+    try {
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        generatedData = JSON.parse(jsonStr);
+      }
+    } catch (e) {
+      console.warn('생성 결과 파싱 실패:', e);
+      generatedData = {
+        variations: [{ text: text, problemNumber: 1 }],
+        generationInfo: { engineId: id, engineName: engine.name }
+      };
+    }
+
+    console.log(`✅ 커스텀 엔진 문제 생성 완료: ${generatedData.variations?.length || 0}개`);
+
+    res.json({
+      success: true,
+      ...generatedData,
+      engine: {
+        id: id,
+        name: engine.name,
+        version: engine.version
+      },
+      message: `${engine.name} 엔진으로 ${generatedData.variations?.length || 0}개 문제가 생성되었습니다.`
+    });
+  } catch (error) {
+    console.error('커스텀 엔진 문제 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/engines/import
+ * docx 파일에서 엔진 가져오기
+ */
+app.post('/api/engines/import', upload.single('engineFile'), async (req, res) => {
+  let filePath = null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '엔진 파일이 필요합니다.'
+      });
+    }
+
+    filePath = req.file.path;
+    const { name, subject, chapter } = req.body;
+
+    // docx 파일 읽기 (텍스트 추출)
+    const mammoth = require('mammoth');
+    const result = await mammoth.extractRawText({ path: filePath });
+    const content = result.value;
+
+    // 파일 정리
+    await cleanupFile(filePath);
+
+    if (!db) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    // 엔진 저장
+    const engineData = {
+      name: name || req.file.originalname.replace(/\.[^/.]+$/, ''),
+      description: `${req.file.originalname}에서 가져온 엔진`,
+      promptRules: content,
+      pythonCode: '', // docx에서 Python 코드 분리는 별도 처리 필요
+      subject: subject || '',
+      chapter: chapter || '',
+      version: '1.0.0',
+      tags: ['imported'],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      usageCount: 0,
+      sourceFile: req.file.originalname
+    };
+
+    const docRef = await db.collection('engines').add(engineData);
+
+    console.log(`✅ 엔진 가져오기 완료: ${engineData.name} (ID: ${docRef.id})`);
+
+    res.json({
+      success: true,
+      engine: {
+        id: docRef.id,
+        ...engineData
+      },
+      message: '엔진이 성공적으로 가져와졌습니다.'
+    });
+  } catch (error) {
+    if (filePath) await cleanupFile(filePath);
+    console.error('엔진 가져오기 오류:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

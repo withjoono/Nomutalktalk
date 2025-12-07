@@ -2350,6 +2350,10 @@ function handleReferenceFiles(files) {
           <button class="preview-remove" onclick="removeReferenceFile('${fileId}')">×</button>
           <div class="preview-filename">${file.name}</div>
         `;
+        // 첫 번째 이미지를 currentReferenceImage에 저장 (base64)
+        if (referenceFiles.length === 1) {
+          currentReferenceImage = e.target.result.split(',')[1]; // data:image/...;base64, 부분 제거
+        }
       };
       reader.readAsDataURL(file);
     } else {
@@ -2375,6 +2379,10 @@ function removeReferenceFile(fileId) {
   const previewItem = document.getElementById(`preview-${fileId}`);
   if (previewItem) {
     previewItem.remove();
+  }
+  // 모든 파일이 삭제되면 currentReferenceImage도 초기화
+  if (referenceFiles.length === 0) {
+    currentReferenceImage = null;
   }
 }
 
@@ -5153,6 +5161,7 @@ let currentViolations = [];
 // currentReviewResult는 이미 위에서 선언됨 (line 2589)
 let currentReferenceProblemId = null;
 let currentOCRText = '';
+let currentReferenceImage = null; // 현재 업로드된 참조 이미지 (base64)
 // currentVariationSolution는 이미 위에서 선언됨 (line 2918)
 
 // ==================== Phase 4: UI 핸들러 함수들 ====================
@@ -5180,6 +5189,12 @@ function handleGenerateVariation() {
 async function generateWithEngineOptions(ruleSet, useRAG) {
   showAlert('🔧 엔진 규칙 + RAG 기반 문제 생성 중...', 'info');
 
+  // referenceFiles에서 이미지 데이터 가져오기
+  if (referenceFiles.length === 0) {
+    showAlert('⚠️ 참조 문제 이미지를 먼저 업로드해주세요.', 'warning');
+    return;
+  }
+
   const progressBox = document.getElementById('variationProgress');
   const progressText = document.getElementById('variationProgressText');
   const generateBtn = document.getElementById('generateVariationBtn');
@@ -5189,6 +5204,9 @@ async function generateWithEngineOptions(ruleSet, useRAG) {
   if (generateBtn) generateBtn.disabled = true;
 
   try {
+    // 첫 번째 참조 이미지를 base64로 변환
+    const referenceImageBase64 = await fileToBase64(referenceFiles[0].file);
+
     const metadata = collectVariationMetadata();
     const variationCount = parseInt(document.getElementById('variationCountSelect')?.value || 3);
     const instructions = document.getElementById('variationInstructions')?.value || '';
@@ -5198,7 +5216,7 @@ async function generateWithEngineOptions(ruleSet, useRAG) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         referenceProblem: currentOCRText || '',
-        referenceImage: currentReferenceImage,
+        referenceImage: referenceImageBase64,
         metadata,
         variationCount,
         instructions,
@@ -5447,6 +5465,400 @@ window.indexAllAssetsToRAG = indexAllAssetsToRAG;
 window.processAllAssetsComplete = processAllAssetsComplete;
 window.renderAssetGrid = renderAssetGrid;
 window.updateAssetDescription = updateAssetDescription;
+
+// ==================== 커스텀 엔진 관리 ====================
+
+// 엔진 관련 전역 상태
+let customEngines = [];
+let selectedCustomEngine = null;
+let currentEngineTab = 'builtin';
+
+/**
+ * 엔진 탭 전환
+ */
+function switchEngineTab(tabName) {
+  currentEngineTab = tabName;
+
+  // 탭 버튼 활성화 상태 업데이트
+  document.querySelectorAll('.engine-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  event.target.classList.add('active');
+
+  // 패널 표시/숨기기
+  document.getElementById('builtinEnginePanel').style.display = tabName === 'builtin' ? 'block' : 'none';
+  document.getElementById('customEnginePanel').style.display = tabName === 'custom' ? 'block' : 'none';
+  document.getElementById('createEnginePanel').style.display = tabName === 'create' ? 'block' : 'none';
+
+  // 커스텀 엔진 탭이면 목록 로드
+  if (tabName === 'custom') {
+    loadCustomEngines();
+  }
+}
+
+/**
+ * 커스텀 엔진 목록 로드
+ */
+async function loadCustomEngines() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/engines`);
+    const data = await response.json();
+
+    if (data.success) {
+      customEngines = data.engines || [];
+      renderCustomEngineSelect();
+    } else {
+      console.warn('엔진 목록 로드 실패:', data.error);
+    }
+  } catch (error) {
+    console.error('엔진 목록 로드 오류:', error);
+    showAlert('엔진 목록을 불러오는데 실패했습니다.', 'error');
+  }
+}
+
+/**
+ * 커스텀 엔진 선택 드롭다운 렌더링
+ */
+function renderCustomEngineSelect() {
+  const select = document.getElementById('customEngineSelect');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">엔진을 선택하세요...</option>';
+
+  customEngines.forEach(engine => {
+    const option = document.createElement('option');
+    option.value = engine.id;
+    option.textContent = `${engine.name} (v${engine.version || '1.0.0'})`;
+    if (engine.subject) {
+      option.textContent += ` - ${engine.subject}`;
+    }
+    select.appendChild(option);
+  });
+}
+
+/**
+ * 커스텀 엔진 선택 시 상세 정보 표시
+ */
+function onCustomEngineSelect() {
+  const select = document.getElementById('customEngineSelect');
+  const engineId = select.value;
+  const infoCard = document.getElementById('selectedEngineInfo');
+
+  if (!engineId) {
+    selectedCustomEngine = null;
+    infoCard.style.display = 'none';
+    return;
+  }
+
+  selectedCustomEngine = customEngines.find(e => e.id === engineId);
+
+  if (selectedCustomEngine) {
+    document.getElementById('selectedEngineName').textContent = selectedCustomEngine.name;
+    document.getElementById('selectedEngineVersion').textContent = `v${selectedCustomEngine.version || '1.0.0'}`;
+    document.getElementById('selectedEngineDesc').textContent = selectedCustomEngine.description || '설명 없음';
+    document.getElementById('selectedEngineUsage').textContent = selectedCustomEngine.usageCount || 0;
+    document.getElementById('selectedEngineSubject').textContent = selectedCustomEngine.subject || '-';
+    infoCard.style.display = 'block';
+  }
+}
+
+/**
+ * 새 엔진 저장
+ */
+async function saveNewEngine() {
+  const name = document.getElementById('newEngineName').value.trim();
+  const description = document.getElementById('newEngineDesc').value.trim();
+  const subject = document.getElementById('newEngineSubject').value.trim();
+  const chapter = document.getElementById('newEngineChapter').value.trim();
+  const promptRules = document.getElementById('newEnginePrompt').value.trim();
+  const pythonCode = document.getElementById('newEnginePython').value.trim();
+
+  if (!name) {
+    showAlert('엔진 이름을 입력해주세요.', 'warning');
+    return;
+  }
+
+  if (!promptRules) {
+    showAlert('프롬프트 규칙을 입력해주세요.', 'warning');
+    return;
+  }
+
+  try {
+    showAlert('엔진 저장 중...', 'info');
+
+    const response = await fetch(`${API_BASE_URL}/api/engines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        description,
+        subject,
+        chapter,
+        promptRules,
+        pythonCode,
+        version: '1.0.0',
+        tags: []
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 엔진 "${name}"이(가) 저장되었습니다.`, 'success');
+      clearEngineForm();
+
+      // 커스텀 엔진 탭으로 전환
+      switchEngineTab('custom');
+      document.querySelectorAll('.engine-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent.includes('커스텀')) {
+          tab.classList.add('active');
+        }
+      });
+    } else {
+      showAlert(data.error || '엔진 저장 실패', 'error');
+    }
+  } catch (error) {
+    console.error('엔진 저장 오류:', error);
+    showAlert('엔진 저장 중 오류가 발생했습니다.', 'error');
+  }
+}
+
+/**
+ * 엔진 폼 초기화
+ */
+function clearEngineForm() {
+  document.getElementById('newEngineName').value = '';
+  document.getElementById('newEngineDesc').value = '';
+  document.getElementById('newEngineSubject').value = '';
+  document.getElementById('newEngineChapter').value = '';
+  document.getElementById('newEnginePrompt').value = '';
+  document.getElementById('newEnginePython').value = '';
+}
+
+/**
+ * DOCX/TXT 파일에서 엔진 가져오기
+ */
+async function handleEngineFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith('.txt')) {
+    // 텍스트 파일 직접 읽기
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('newEnginePrompt').value = e.target.result;
+      document.getElementById('newEngineName').value = file.name.replace(/\.[^/.]+$/, '');
+      showAlert('파일 내용이 로드되었습니다.', 'success');
+    };
+    reader.readAsText(file);
+  } else if (fileName.endsWith('.docx')) {
+    // DOCX는 서버에서 처리
+    try {
+      showAlert('DOCX 파일 파싱 중...', 'info');
+
+      const formData = new FormData();
+      formData.append('engineFile', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/engines/import`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showAlert(`✅ 엔진 "${data.engine.name}"이(가) 가져와졌습니다.`, 'success');
+        // 커스텀 엔진 탭으로 전환
+        switchEngineTab('custom');
+      } else {
+        showAlert(data.error || '파일 가져오기 실패', 'error');
+      }
+    } catch (error) {
+      console.error('파일 가져오기 오류:', error);
+      showAlert('파일 가져오기 중 오류가 발생했습니다.', 'error');
+    }
+  } else {
+    showAlert('지원되지 않는 파일 형식입니다. (.docx, .txt만 지원)', 'warning');
+  }
+
+  // 입력 초기화
+  event.target.value = '';
+}
+
+/**
+ * handleGenerateVariation 수정 - 커스텀 엔진 지원
+ */
+const originalHandleGenerateVariation = handleGenerateVariation;
+window.handleGenerateVariation = function() {
+  const mode = document.querySelector('input[name="generationMode"]:checked')?.value || 'standard';
+
+  if (mode === 'engine') {
+    // 엔진 모드일 때 탭에 따라 처리
+    if (currentEngineTab === 'custom' && selectedCustomEngine) {
+      // 커스텀 엔진으로 생성
+      generateWithCustomEngine(selectedCustomEngine.id);
+    } else if (currentEngineTab === 'builtin') {
+      // 내장 엔진으로 생성 (기존 로직)
+      const ruleSet = document.getElementById('engineRuleSet')?.value || 'default';
+      const useRAG = document.getElementById('useRAGContext')?.checked ?? true;
+      generateWithEngineOptions(ruleSet, useRAG);
+    } else {
+      showAlert('엔진을 선택해주세요.', 'warning');
+    }
+  } else {
+    // 일반 생성
+    generateVariation();
+  }
+};
+
+/**
+ * 커스텀 엔진으로 변형 문제 생성
+ */
+async function generateWithCustomEngine(engineId) {
+  if (!referenceImageData) {
+    showAlert('먼저 참조 문제 이미지를 업로드해주세요.', 'warning');
+    return;
+  }
+
+  const variationCount = parseInt(document.getElementById('variationCount')?.value || '3');
+  const additionalInstructions = document.getElementById('variationInstructions')?.value || '';
+
+  // 메타데이터 수집
+  const metadata = {
+    examType: document.getElementById('examType')?.value || '',
+    problemType: document.getElementById('problemType')?.value || '',
+    year: document.getElementById('problemYear')?.value || '',
+    grade: document.getElementById('gradeLevel')?.value || '',
+    subject: document.getElementById('subjectInput')?.value || '',
+    chapter: document.getElementById('chapterName')?.value || ''
+  };
+
+  try {
+    // 진행 상태 표시
+    document.getElementById('variationProgress').style.display = 'block';
+    document.getElementById('variationProgressText').textContent = '커스텀 엔진으로 문제 생성 중...';
+    document.getElementById('generateVariationBtn').disabled = true;
+
+    const response = await fetch(`${API_BASE_URL}/api/engines/${engineId}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceImage: referenceImageData,
+        referenceProblem: extractedProblemText || '',
+        metadata,
+        variationCount,
+        additionalInstructions
+      })
+    });
+
+    const data = await response.json();
+
+    document.getElementById('variationProgress').style.display = 'none';
+    document.getElementById('generateVariationBtn').disabled = false;
+
+    if (data.success) {
+      // 결과 표시
+      displayVariationResults(data.variations, data.engine);
+      showAlert(`✅ ${data.engine.name} 엔진으로 ${data.variations?.length || 0}개 문제가 생성되었습니다.`, 'success');
+
+      // 전역 변수에 저장
+      if (typeof window.currentVariations !== 'undefined') {
+        window.currentVariations = data.variations;
+      }
+    } else {
+      showAlert(data.error || '문제 생성 실패', 'error');
+    }
+  } catch (error) {
+    document.getElementById('variationProgress').style.display = 'none';
+    document.getElementById('generateVariationBtn').disabled = false;
+    console.error('커스텀 엔진 문제 생성 오류:', error);
+    showAlert('문제 생성 중 오류가 발생했습니다.', 'error');
+  }
+}
+
+/**
+ * 변형 문제 결과 표시
+ */
+function displayVariationResults(variations, engine) {
+  const resultBox = document.getElementById('variationResultBox');
+  const contentDiv = document.getElementById('variationContent');
+
+  if (!variations || variations.length === 0) {
+    contentDiv.innerHTML = '<p>생성된 문제가 없습니다.</p>';
+    resultBox.style.display = 'block';
+    return;
+  }
+
+  let html = '';
+
+  // 엔진 정보 표시
+  if (engine) {
+    html += `<div class="engine-badge">
+      <span>⚙️ ${engine.name}</span>
+      <span class="engine-version">v${engine.version || '1.0.0'}</span>
+    </div>`;
+  }
+
+  variations.forEach((v, index) => {
+    html += `<div class="variation-item">
+      <h4>문제 ${v.problemNumber || index + 1}</h4>
+      <div class="problem-text">${formatMathText(v.text || v.problem || '')}</div>`;
+
+    if (v.choices && v.choices.length > 0) {
+      html += '<div class="choices">';
+      v.choices.forEach(choice => {
+        html += `<div class="choice-item">${formatMathText(choice)}</div>`;
+      });
+      html += '</div>';
+    }
+
+    if (v.answer) {
+      html += `<div class="answer"><strong>정답:</strong> ${formatMathText(v.answer)}</div>`;
+    }
+
+    if (v.solution) {
+      html += `<div class="solution"><strong>풀이:</strong> ${formatMathText(v.solution)}</div>`;
+    }
+
+    if (v.engineCompliance) {
+      const status = v.engineCompliance.passed ? '✅ 통과' : '⚠️ 검토 필요';
+      html += `<div class="engine-compliance"><strong>엔진 규칙:</strong> ${status}</div>`;
+    }
+
+    html += '</div>';
+  });
+
+  contentDiv.innerHTML = html;
+  resultBox.style.display = 'block';
+
+  // MathJax 렌더링
+  if (typeof MathJax !== 'undefined') {
+    MathJax.typesetPromise([contentDiv]).catch(err => console.warn('MathJax error:', err));
+  }
+}
+
+/**
+ * 수학 텍스트 포맷팅 (LaTeX 지원)
+ */
+function formatMathText(text) {
+  if (!text) return '';
+  // 기본 이스케이프 및 줄바꿈 처리
+  return text
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+}
+
+// 엔진 관련 함수들 전역 노출
+window.switchEngineTab = switchEngineTab;
+window.loadCustomEngines = loadCustomEngines;
+window.onCustomEngineSelect = onCustomEngineSelect;
+window.saveNewEngine = saveNewEngine;
+window.clearEngineForm = clearEngineForm;
+window.handleEngineFileImport = handleEngineFileImport;
+window.generateWithCustomEngine = generateWithCustomEngine;
 
 // ==================== Phase 5: 관리 기능 ====================
 
