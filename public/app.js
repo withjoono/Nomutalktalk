@@ -5168,20 +5168,8 @@ let currentReferenceImage = null; // 현재 업로드된 참조 이미지 (base6
 
 /**
  * 생성 모드에 따라 적절한 생성 함수 호출
+ * 주의: window.handleGenerateVariation (아래 정의)가 실제 사용됨
  */
-function handleGenerateVariation() {
-  const mode = document.querySelector('input[name="generationMode"]:checked')?.value || 'standard';
-
-  if (mode === 'engine') {
-    // 엔진 기반 생성
-    const ruleSet = document.getElementById('engineRuleSet')?.value || 'default';
-    const useRAG = document.getElementById('useRAGContext')?.checked ?? true;
-    generateWithEngineOptions(ruleSet, useRAG);
-  } else {
-    // 기존 일반 생성
-    generateVariation();
-  }
-}
 
 /**
  * 옵션을 포함한 엔진 기반 생성
@@ -5458,7 +5446,7 @@ window.labelAsset = labelAsset;
 window.indexAssetsToRAG = indexAssetsToRAG;
 
 // 새 UI 핸들러 함수 노출
-window.handleGenerateVariation = handleGenerateVariation;
+// handleGenerateVariation은 아래 커스텀 엔진 섹션에서 window에 직접 정의됨
 window.generateWithEngineOptions = generateWithEngineOptions;
 window.labelAllAssetsAI = labelAllAssetsAI;
 window.indexAllAssetsToRAG = indexAllAssetsToRAG;
@@ -5476,14 +5464,19 @@ let currentEngineTab = 'builtin';
 /**
  * 엔진 탭 전환
  */
-function switchEngineTab(tabName) {
+function switchEngineTab(tabName, event) {
   currentEngineTab = tabName;
 
   // 탭 버튼 활성화 상태 업데이트
   document.querySelectorAll('.engine-tab').forEach(tab => {
     tab.classList.remove('active');
+    if (tab.dataset.tab === tabName || tab.textContent.includes(tabName === 'builtin' ? '기본' : tabName === 'custom' ? '커스텀' : '생성')) {
+      tab.classList.add('active');
+    }
   });
-  event.target.classList.add('active');
+  if (event && event.target) {
+    event.target.classList.add('active');
+  }
 
   // 패널 표시/숨기기
   document.getElementById('builtinEnginePanel').style.display = tabName === 'builtin' ? 'block' : 'none';
@@ -5689,9 +5682,8 @@ async function handleEngineFileImport(event) {
 }
 
 /**
- * handleGenerateVariation 수정 - 커스텀 엔진 지원
+ * handleGenerateVariation - 커스텀 엔진 지원
  */
-const originalHandleGenerateVariation = handleGenerateVariation;
 window.handleGenerateVariation = function() {
   const mode = document.querySelector('input[name="generationMode"]:checked')?.value || 'standard';
 
@@ -5718,7 +5710,7 @@ window.handleGenerateVariation = function() {
  * 커스텀 엔진으로 변형 문제 생성
  */
 async function generateWithCustomEngine(engineId) {
-  if (!referenceImageData) {
+  if (!referenceFiles || referenceFiles.length === 0) {
     showAlert('먼저 참조 문제 이미지를 업로드해주세요.', 'warning');
     return;
   }
@@ -5742,12 +5734,15 @@ async function generateWithCustomEngine(engineId) {
     document.getElementById('variationProgressText').textContent = '커스텀 엔진으로 문제 생성 중...';
     document.getElementById('generateVariationBtn').disabled = true;
 
+    // 참조 이미지를 base64로 변환
+    const referenceImageBase64 = await fileToBase64(referenceFiles[0].file);
+
     const response = await fetch(`/api/engines/${engineId}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        referenceImage: referenceImageData,
-        referenceProblem: extractedProblemText || '',
+        referenceImage: referenceImageBase64,
+        referenceProblem: currentOCRText || '',
         metadata,
         variationCount,
         additionalInstructions
