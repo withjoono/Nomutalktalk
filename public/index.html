@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hizen AI 문제 은행</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
 
   <!-- KaTeX CSS for LaTeX rendering -->
@@ -91,8 +92,18 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.111.0/Build/Cesium/Widgets/widgets.css">
 
   <!-- 🔬 General Science Libraries -->
-  <!-- Three.js for 3D visualization -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
+  <!-- Three.js for 3D visualization (ES Module) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    window.THREE = THREE;
+  </script>
 </head>
 <body>
   <div class="container">
@@ -116,6 +127,20 @@
         >
           <option value="">교과를 선택하세요</option>
         </select>
+      </div>
+
+      <div class="form-group" id="curriculumGroup" style="display: none;">
+        <label>교육과정 선택:</label>
+        <div class="radio-group curriculum-toggle">
+          <label class="radio-option curriculum-btn" data-curriculum="2022">
+            <input type="radio" name="curriculum" value="2022" checked onchange="onCurriculumChange()">
+            <span class="curriculum-label">2022 교육과정</span>
+          </label>
+          <label class="radio-option curriculum-btn" data-curriculum="2015">
+            <input type="radio" name="curriculum" value="2015" onchange="onCurriculumChange()">
+            <span class="curriculum-label">2015 교육과정</span>
+          </label>
+        </div>
       </div>
 
       <div class="form-group">
@@ -312,16 +337,28 @@
       <!-- LLM 선택 -->
       <div class="form-group">
         <label>AI 모델 선택:</label>
-        <div class="radio-group llm-selector">
-          <label class="llm-option">
-            <input type="radio" name="llmSelect" value="gemini" checked>
-            <span class="llm-badge gemini">🔷 Gemini Vision</span>
-          </label>
-          <label class="llm-option">
-            <input type="radio" name="llmSelect" value="gpt4">
-            <span class="llm-badge gpt">🟢 GPT-4 Vision</span>
-          </label>
+        <div class="llm-model-selector">
+          <div class="model-group">
+            <span class="model-group-label">🔷 Google</span>
+            <select id="geminiModelSelect" class="model-select">
+              <option value="gemini-2.0-flash-exp" selected>Gemini 2.0 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            </select>
+          </div>
+          <div class="model-group">
+            <span class="model-group-label">🟢 OpenAI</span>
+            <select id="openaiModelSelect" class="model-select">
+              <option value="">사용 안함</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-4.1">GPT-4.1 (Preview)</option>
+              <option value="o3">o3 (Reasoning)</option>
+              <option value="o3-mini">o3 Mini</option>
+            </select>
+          </div>
         </div>
+        <small class="form-hint">💡 Gemini는 필수, OpenAI는 추가 검증용으로 선택 가능</small>
       </div>
 
       <!-- 참조 문제 업로드 -->
@@ -763,6 +800,142 @@
       </div>
     </section>
 
+    <!-- ==================== 관리 섹션들 (Phase 5) ==================== -->
+
+    <!-- 5-1. 라벨 관리 섹션 -->
+    <section class="card management-section">
+      <div class="section-header-toggle" onclick="toggleManagementSection('labelManagement')">
+        <h2>🏷️ 라벨 관리</h2>
+        <span class="toggle-icon" id="labelManagementToggle">▼</span>
+      </div>
+      <div id="labelManagementContent" class="management-content" style="display: none;">
+        <div class="management-toolbar">
+          <button onclick="loadLabels()" class="btn btn-secondary">
+            🔄 새로고침
+          </button>
+          <button onclick="openAddLabelModal()" class="btn btn-primary">
+            ➕ 라벨 추가
+          </button>
+          <button onclick="resetLabelsToDefault()" class="btn btn-outline">
+            🔄 기본값 복원
+          </button>
+        </div>
+
+        <!-- 라벨 카테고리 탭 -->
+        <div class="label-tabs">
+          <button class="label-tab active" data-category="all" onclick="filterLabels('all')">전체</button>
+          <button class="label-tab" data-category="subject" onclick="filterLabels('subject')">교과</button>
+          <button class="label-tab" data-category="grade" onclick="filterLabels('grade')">학년</button>
+          <button class="label-tab" data-category="difficulty" onclick="filterLabels('difficulty')">난이도</button>
+          <button class="label-tab" data-category="problemType" onclick="filterLabels('problemType')">문제유형</button>
+          <button class="label-tab" data-category="concept" onclick="filterLabels('concept')">개념</button>
+        </div>
+
+        <!-- 라벨 목록 -->
+        <div id="labelsList" class="labels-grid">
+          <p class="info-message">🔄 라벨을 불러오는 중...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5-2. RAG 정보 관리 섹션 -->
+    <section class="card management-section">
+      <div class="section-header-toggle" onclick="toggleManagementSection('ragManagement')">
+        <h2>📚 RAG 문서 관리</h2>
+        <span class="toggle-icon" id="ragManagementToggle">▼</span>
+      </div>
+      <div id="ragManagementContent" class="management-content" style="display: none;">
+        <div class="management-toolbar">
+          <button onclick="loadRAGDocuments()" class="btn btn-secondary">
+            🔄 새로고침
+          </button>
+          <div class="rag-stats" id="ragStats">
+            <span class="stat-item">📄 문서: <strong id="ragDocCount">0</strong></span>
+            <span class="stat-item">💾 스토어: <strong id="ragStoreName">-</strong></span>
+          </div>
+        </div>
+
+        <!-- RAG 문서 필터 -->
+        <div class="rag-filter">
+          <input type="text" id="ragSearchInput" class="input-field" placeholder="문서 검색..." onkeyup="filterRAGDocuments()">
+          <select id="ragTypeFilter" class="input-field" onchange="filterRAGDocuments()">
+            <option value="all">전체 유형</option>
+            <option value="variation">변형 문제</option>
+            <option value="asset">자료</option>
+            <option value="document">일반 문서</option>
+          </select>
+        </div>
+
+        <!-- RAG 문서 목록 -->
+        <div id="ragDocumentsList" class="rag-documents-list">
+          <p class="info-message">📚 문서를 불러오려면 새로고침을 클릭하세요.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5-3. 승인 대기 문제 관리 섹션 -->
+    <section class="card management-section">
+      <div class="section-header-toggle" onclick="toggleManagementSection('approvalManagement')">
+        <h2>✅ 문제 검수/승인 대시보드</h2>
+        <span class="toggle-icon" id="approvalManagementToggle">▼</span>
+      </div>
+      <div id="approvalManagementContent" class="management-content" style="display: none;">
+        <!-- 통계 대시보드 -->
+        <div class="approval-stats-dashboard">
+          <div class="stat-card pending">
+            <span class="stat-number" id="statPending">0</span>
+            <span class="stat-label">승인 대기</span>
+          </div>
+          <div class="stat-card approved">
+            <span class="stat-number" id="statApproved">0</span>
+            <span class="stat-label">승인됨</span>
+          </div>
+          <div class="stat-card rejected">
+            <span class="stat-number" id="statRejected">0</span>
+            <span class="stat-label">거절됨</span>
+          </div>
+          <div class="stat-card rag-indexed">
+            <span class="stat-number" id="statRagIndexed">0</span>
+            <span class="stat-label">RAG 인덱싱</span>
+          </div>
+        </div>
+
+        <div class="management-toolbar">
+          <button onclick="loadPendingProblems()" class="btn btn-secondary">
+            🔄 새로고침
+          </button>
+          <button onclick="batchApproveSelected()" class="btn btn-success" id="batchApproveBtn" disabled>
+            ✅ 선택 승인
+          </button>
+          <button onclick="batchRejectSelected()" class="btn btn-danger" id="batchRejectBtn" disabled>
+            ❌ 선택 거절
+          </button>
+          <label class="select-all-label">
+            <input type="checkbox" id="selectAllPending" onchange="toggleSelectAllPending()">
+            전체 선택
+          </label>
+        </div>
+
+        <!-- 상태 필터 탭 -->
+        <div class="status-tabs">
+          <button class="status-tab active" data-status="pending" onclick="filterByStatus('pending')">
+            ⏳ 대기중 (<span id="tabPendingCount">0</span>)
+          </button>
+          <button class="status-tab" data-status="approved" onclick="filterByStatus('approved')">
+            ✅ 승인됨 (<span id="tabApprovedCount">0</span>)
+          </button>
+          <button class="status-tab" data-status="rejected" onclick="filterByStatus('rejected')">
+            ❌ 거절됨 (<span id="tabRejectedCount">0</span>)
+          </button>
+        </div>
+
+        <!-- 문제 목록 -->
+        <div id="pendingProblemsList" class="pending-problems-list">
+          <p class="info-message">📋 문제를 불러오려면 새로고침을 클릭하세요.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 푸터 -->
     <footer class="footer">
       <p>Powered by Google Gemini API | Built with ❤️</p>
@@ -999,6 +1172,96 @@
       <button class="btn btn-primary" onclick="processAllAssetsComplete()" title="라벨링 → 저장 → RAG 인덱싱 자동 수행">
         🚀 완전 처리
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 라벨 추가/수정 모달 ==================== -->
+<div id="addLabelModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="labelModalTitle">➕ 라벨 추가</h3>
+      <button class="modal-close" onclick="closeAddLabelModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="labelCategory">카테고리:</label>
+        <select id="labelCategory" class="input-field">
+          <option value="subject">교과 (subject)</option>
+          <option value="course">과목 (course)</option>
+          <option value="grade">학년 (grade)</option>
+          <option value="difficulty">난이도 (difficulty)</option>
+          <option value="problemType">문제유형 (problemType)</option>
+          <option value="concept">개념 (concept)</option>
+          <option value="chapter">단원 (chapter)</option>
+          <option value="skill">역량 (skill)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="labelName">라벨 이름:</label>
+        <input type="text" id="labelName" class="input-field" placeholder="예: 수학I, 다항식">
+      </div>
+      <div class="form-group">
+        <label for="labelParent">상위 라벨 (선택):</label>
+        <select id="labelParent" class="input-field">
+          <option value="">없음</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="labelMetadata">메타데이터 (JSON):</label>
+        <textarea id="labelMetadata" class="textarea-field" rows="2" placeholder='{"score": 3}'>{}</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAddLabelModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveLabel()" id="saveLabelBtn">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 문제 상세보기 모달 ==================== -->
+<div id="problemDetailModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>📝 문제 상세</h3>
+      <button class="modal-close" onclick="closeProblemDetailModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="problem-detail-layout">
+        <!-- 문제 내용 -->
+        <div class="problem-detail-main">
+          <div class="detail-section">
+            <h4>📋 문제</h4>
+            <div id="detailProblemText" class="problem-text-display"></div>
+          </div>
+          <div class="detail-section">
+            <h4>💡 풀이</h4>
+            <div id="detailSolutionText" class="solution-text-display"></div>
+          </div>
+        </div>
+
+        <!-- 메타데이터 사이드바 -->
+        <div class="problem-detail-sidebar">
+          <div class="detail-section">
+            <h4>🏷️ 라벨 정보</h4>
+            <div id="detailLabels" class="detail-labels"></div>
+          </div>
+          <div class="detail-section">
+            <h4>📊 AI 검토 결과</h4>
+            <div id="detailReview" class="detail-review"></div>
+          </div>
+          <div class="detail-section">
+            <h4>📅 생성 정보</h4>
+            <div id="detailMeta" class="detail-meta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeProblemDetailModal()">닫기</button>
+      <button class="btn btn-danger" onclick="rejectCurrentProblem()" id="detailRejectBtn">❌ 거절</button>
+      <button class="btn btn-info" onclick="reindexCurrentProblem()" id="detailReindexBtn">🔄 재인덱싱</button>
+      <button class="btn btn-success" onclick="approveCurrentProblem()" id="detailApproveBtn">✅ 승인</button>
     </div>
   </div>
 </div>

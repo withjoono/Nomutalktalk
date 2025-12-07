@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local config
+.env
+.env.local
+
+# Playwright
+.playwright-mcp/
+
+# Temp files
+nul
+*.tmp
+
+# Firebase credentials (will use Cloud Run secret)
+firebase-service-account.json

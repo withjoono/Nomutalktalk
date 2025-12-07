@@ -4,7 +4,19 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const RAGAgent = require('./RAGAgent');
+const OpenAI = require('openai');
 require('dotenv').config();
+
+// OpenAI 클라이언트 초기화
+let openaiClient = null;
+if (process.env.OPENAI_API_KEY) {
+  openaiClient = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+  console.log('✅ OpenAI API 연결 준비 완료');
+} else {
+  console.warn('⚠️  OPENAI_API_KEY가 설정되지 않았습니다. OpenAI 모델은 사용할 수 없습니다.');
+}
 
 // Firebase Admin SDK
 const admin = require('firebase-admin');
@@ -939,7 +951,13 @@ app.delete('/api/records/:id', async (req, res) => {
  */
 app.post('/api/generate-variation', async (req, res) => {
   try {
-    const { images, metadata, llmType, variationCount, instructions } = req.body;
+    const { images, metadata, geminiModel, openaiModel, variationCount, instructions,
+            llmType // 하위 호환성
+    } = req.body;
+
+    // 하위 호환성: 기존 llmType 파라미터 지원
+    const selectedGeminiModel = geminiModel || 'gemini-2.0-flash-exp';
+    const selectedOpenaiModel = openaiModel || (llmType === 'gpt4' ? 'gpt-4o' : '');
 
     if (!images || images.length === 0) {
       return res.status(400).json({
@@ -955,15 +973,15 @@ app.post('/api/generate-variation', async (req, res) => {
       });
     }
 
-    console.log(`🔄 변형 문제 생성 시작 - LLM: ${llmType}, 이미지: ${images.length}개, 문제 수: ${variationCount}`);
+    console.log(`🔄 변형 문제 생성 시작 - Gemini: ${selectedGeminiModel}, OpenAI: ${selectedOpenaiModel || '없음'}, 이미지: ${images.length}개, 문제 수: ${variationCount}`);
 
     // Gemini Vision API로 이미지 분석 및 변형 문제 생성
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    // 모델 선택 (gemini-1.5-pro-vision 또는 gemini-1.5-flash)
+    // 선택된 Gemini 모델 사용
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: selectedGeminiModel,
       generationConfig: {
         temperature: 0.7,
         topK: 40,
@@ -1030,20 +1048,61 @@ ${instructions ? `- 추가 지시사항: ${instructions}` : ''}
 
 이제 이미지를 분석하고 변형 문제를 생성해주세요.`;
 
-    // Vision API 호출
+    // Gemini Vision API 호출
     const result = await model.generateContent([variationPrompt, ...imageParts]);
     const response = await result.response;
-    const variationText = response.text();
+    const geminiVariation = response.text();
 
-    console.log('✅ 변형 문제 생성 완료');
+    console.log('✅ Gemini 변형 문제 생성 완료');
+
+    // OpenAI 추가 검증 (선택된 경우)
+    let openaiReview = null;
+    if (selectedOpenaiModel && openaiClient) {
+      try {
+        console.log(`🔄 OpenAI ${selectedOpenaiModel} 검증 시작...`);
+
+        // OpenAI 모델별 설정
+        const openaiConfig = {
+          model: selectedOpenaiModel,
+          messages: [
+            {
+              role: 'system',
+              content: '당신은 수학/과학 교육 전문가입니다. 제공된 변형 문제를 검토하고 개선점을 제안하세요. 수학 수식은 LaTeX 형식으로 작성하세요.'
+            },
+            {
+              role: 'user',
+              content: `다음 변형 문제를 검토해주세요:\n\n${geminiVariation}\n\n검토 관점:\n1. 문제의 정확성\n2. 난이도 적절성\n3. 수식 표기 검토\n4. 개선 제안 (있는 경우)`
+            }
+          ],
+          max_tokens: 2048,
+          temperature: 0.5
+        };
+
+        // o3, o3-mini 모델은 reasoning 모델이므로 다른 설정 사용
+        if (selectedOpenaiModel.startsWith('o3')) {
+          openaiConfig.max_completion_tokens = 4096;
+          delete openaiConfig.max_tokens;
+          delete openaiConfig.temperature; // o3는 temperature 지원 안함
+        }
+
+        const openaiResponse = await openaiClient.chat.completions.create(openaiConfig);
+        openaiReview = openaiResponse.choices[0].message.content;
+        console.log(`✅ OpenAI ${selectedOpenaiModel} 검증 완료`);
+      } catch (openaiError) {
+        console.error('OpenAI 검증 오류:', openaiError.message);
+        openaiReview = `OpenAI 검증 실패: ${openaiError.message}`;
+      }
+    }
 
     res.json({
       success: true,
       variation: {
-        problem: variationText,
+        problem: geminiVariation,
         metadata: metadata,
         originalImages: images.length,
-        llmType: llmType
+        geminiModel: selectedGeminiModel,
+        openaiModel: selectedOpenaiModel || null,
+        openaiReview: openaiReview
       }
     });
   } catch (error) {
@@ -1061,7 +1120,11 @@ ${instructions ? `- 추가 지시사항: ${instructions}` : ''}
  */
 app.post('/api/variation-solution', async (req, res) => {
   try {
-    const { problem, metadata, llmType } = req.body;
+    const { problem, metadata, geminiModel, openaiModel, llmType } = req.body;
+
+    // 하위 호환성
+    const selectedGeminiModel = geminiModel || 'gemini-2.0-flash-exp';
+    const selectedOpenaiModel = openaiModel || (llmType === 'gpt4' ? 'gpt-4o' : '');
 
     if (!problem) {
       return res.status(400).json({
@@ -1077,13 +1140,13 @@ app.post('/api/variation-solution', async (req, res) => {
       });
     }
 
-    console.log('💡 변형 문제 풀이 생성 시작');
+    console.log(`💡 변형 문제 풀이 생성 시작 - Gemini: ${selectedGeminiModel}, OpenAI: ${selectedOpenaiModel || '없음'}`);
 
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: selectedGeminiModel,
       generationConfig: {
         temperature: 0.3,
         topK: 40,
@@ -1123,13 +1186,54 @@ ${problem}
 
     const result = await model.generateContent(solutionPrompt);
     const response = await result.response;
-    const solutionText = response.text();
+    const geminiSolution = response.text();
 
-    console.log('✅ 변형 문제 풀이 생성 완료');
+    console.log('✅ Gemini 풀이 생성 완료');
+
+    // OpenAI 추가 풀이 (선택된 경우)
+    let openaiSolution = null;
+    if (selectedOpenaiModel && openaiClient) {
+      try {
+        console.log(`🔄 OpenAI ${selectedOpenaiModel} 풀이 생성 시작...`);
+
+        const openaiConfig = {
+          model: selectedOpenaiModel,
+          messages: [
+            {
+              role: 'system',
+              content: `당신은 ${metadata?.subject || '수학'} 전문 교사입니다. 문제에 대한 상세한 풀이를 작성하세요. 수학 수식은 LaTeX 형식으로 작성하세요.`
+            },
+            {
+              role: 'user',
+              content: `다음 문제를 풀이해주세요:\n\n${problem}\n\n단계별로 명확하게 풀이하고, 핵심 개념과 주의점도 설명해주세요.`
+            }
+          ],
+          max_tokens: 4096,
+          temperature: 0.3
+        };
+
+        // o3 모델 설정
+        if (selectedOpenaiModel.startsWith('o3')) {
+          openaiConfig.max_completion_tokens = 8192;
+          delete openaiConfig.max_tokens;
+          delete openaiConfig.temperature;
+        }
+
+        const openaiResponse = await openaiClient.chat.completions.create(openaiConfig);
+        openaiSolution = openaiResponse.choices[0].message.content;
+        console.log(`✅ OpenAI ${selectedOpenaiModel} 풀이 생성 완료`);
+      } catch (openaiError) {
+        console.error('OpenAI 풀이 생성 오류:', openaiError.message);
+        openaiSolution = `OpenAI 풀이 생성 실패: ${openaiError.message}`;
+      }
+    }
 
     res.json({
       success: true,
-      solution: solutionText
+      solution: geminiSolution,
+      geminiModel: selectedGeminiModel,
+      openaiModel: selectedOpenaiModel || null,
+      openaiSolution: openaiSolution
     });
   } catch (error) {
     console.error('변형 문제 풀이 생성 오류:', error);
@@ -3485,6 +3589,548 @@ ${varData.solution || ''}
     });
   } catch (error) {
     console.error('변형 문제 승인 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== Phase 5: 관리 기능 API ====================
+
+/**
+ * GET /api/labels
+ * 라벨 마스터 데이터 목록 조회
+ */
+app.get('/api/labels', async (req, res) => {
+  try {
+    if (!db) {
+      // Firebase 없으면 기본 라벨 반환
+      return res.json({
+        success: true,
+        labels: getDefaultLabels()
+      });
+    }
+
+    const snapshot = await db.collection('labels').orderBy('category').get();
+    const labels = [];
+
+    snapshot.forEach(doc => {
+      labels.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    // 라벨이 없으면 기본 라벨 초기화
+    if (labels.length === 0) {
+      const defaultLabels = getDefaultLabels();
+      for (const label of defaultLabels) {
+        const docRef = await db.collection('labels').add(label);
+        labels.push({ id: docRef.id, ...label });
+      }
+    }
+
+    res.json({
+      success: true,
+      labels,
+      count: labels.length
+    });
+  } catch (error) {
+    console.error('라벨 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/labels
+ * 새 라벨 추가
+ */
+app.post('/api/labels', async (req, res) => {
+  try {
+    const { category, name, parent, metadata } = req.body;
+
+    if (!category || !name) {
+      return res.status(400).json({
+        success: false,
+        error: 'category와 name이 필요합니다.'
+      });
+    }
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const labelData = {
+      category,
+      name,
+      parent: parent || null,
+      metadata: metadata || {},
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await db.collection('labels').add(labelData);
+
+    res.json({
+      success: true,
+      id: docRef.id,
+      label: { id: docRef.id, ...labelData },
+      message: '라벨이 추가되었습니다.'
+    });
+  } catch (error) {
+    console.error('라벨 추가 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/labels/:id
+ * 라벨 수정
+ */
+app.put('/api/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, parent, metadata } = req.body;
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (name) updateData.name = name;
+    if (parent !== undefined) updateData.parent = parent;
+    if (metadata) updateData.metadata = metadata;
+
+    await db.collection('labels').doc(id).update(updateData);
+
+    res.json({
+      success: true,
+      message: '라벨이 수정되었습니다.'
+    });
+  } catch (error) {
+    console.error('라벨 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/labels/:id
+ * 라벨 삭제
+ */
+app.delete('/api/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    await db.collection('labels').doc(id).delete();
+
+    res.json({
+      success: true,
+      message: '라벨이 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('라벨 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 기본 라벨 데이터 생성
+ */
+function getDefaultLabels() {
+  return [
+    // 교과
+    { category: 'subject', name: '국어', parent: null, metadata: {} },
+    { category: 'subject', name: '영어', parent: null, metadata: {} },
+    { category: 'subject', name: '수학', parent: null, metadata: {} },
+    { category: 'subject', name: '과학', parent: null, metadata: {} },
+    { category: 'subject', name: '사회', parent: null, metadata: {} },
+    // 난이도
+    { category: 'difficulty', name: '상', parent: null, metadata: { score: 3 } },
+    { category: 'difficulty', name: '중', parent: null, metadata: { score: 2 } },
+    { category: 'difficulty', name: '하', parent: null, metadata: { score: 1 } },
+    // 문제 유형
+    { category: 'problemType', name: '객관식', parent: null, metadata: {} },
+    { category: 'problemType', name: '주관식', parent: null, metadata: {} },
+    { category: 'problemType', name: '서술형', parent: null, metadata: {} },
+    // 학년
+    { category: 'grade', name: '고등학교 1학년', parent: null, metadata: { level: 10 } },
+    { category: 'grade', name: '고등학교 2학년', parent: null, metadata: { level: 11 } },
+    { category: 'grade', name: '고등학교 3학년', parent: null, metadata: { level: 12 } },
+    { category: 'grade', name: '중학교 1학년', parent: null, metadata: { level: 7 } },
+    { category: 'grade', name: '중학교 2학년', parent: null, metadata: { level: 8 } },
+    { category: 'grade', name: '중학교 3학년', parent: null, metadata: { level: 9 } }
+  ];
+}
+
+// ==================== RAG 관리 API ====================
+
+/**
+ * GET /api/rag/documents
+ * RAG에 인덱싱된 문서 목록 조회
+ */
+app.get('/api/rag/documents', async (req, res) => {
+  try {
+    if (!agentInstance) {
+      return res.status(400).json({
+        success: false,
+        error: '먼저 스토어를 초기화하세요.',
+        documents: []
+      });
+    }
+
+    // RAG Agent에서 문서 목록 조회
+    const documents = await agentInstance.listDocuments();
+
+    // DB에서 추가 메타데이터 조회
+    let enrichedDocs = documents;
+    if (db) {
+      const ragDocsSnapshot = await db.collection('ragDocuments').get();
+      const dbDocs = {};
+      ragDocsSnapshot.forEach(doc => {
+        dbDocs[doc.id] = doc.data();
+      });
+
+      enrichedDocs = documents.map(doc => ({
+        ...doc,
+        dbMetadata: dbDocs[doc.name] || null
+      }));
+    }
+
+    res.json({
+      success: true,
+      documents: enrichedDocs,
+      count: enrichedDocs.length,
+      storeName: currentStoreName
+    });
+  } catch (error) {
+    console.error('RAG 문서 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/rag/documents/:documentName
+ * RAG에서 문서 삭제
+ */
+app.delete('/api/rag/documents/:documentName', async (req, res) => {
+  try {
+    const { documentName } = req.params;
+
+    if (!agentInstance) {
+      return res.status(400).json({
+        success: false,
+        error: '먼저 스토어를 초기화하세요.'
+      });
+    }
+
+    // RAG에서 문서 삭제
+    await agentInstance.deleteDocument(documentName);
+
+    // DB에서도 삭제
+    if (db) {
+      try {
+        await db.collection('ragDocuments').doc(documentName).delete();
+      } catch (e) {
+        // DB 삭제 실패는 무시
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'RAG에서 문서가 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('RAG 문서 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/rag/reindex/:variationId
+ * 특정 변형 문제 재인덱싱
+ */
+app.post('/api/rag/reindex/:variationId', async (req, res) => {
+  try {
+    const { variationId } = req.params;
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    if (!agentInstance) {
+      return res.status(400).json({
+        success: false,
+        error: '먼저 스토어를 초기화하세요.'
+      });
+    }
+
+    const varDoc = await db.collection('variations').doc(variationId).get();
+    if (!varDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: '변형 문제를 찾을 수 없습니다.'
+      });
+    }
+
+    const varData = varDoc.data();
+
+    // RAG 인덱싱
+    const ragContent = `
+[변형 문제]
+ID: ${variationId}
+과목: ${varData.metadata?.subject || varData.autoLabels?.subject || ''}
+단원: ${varData.metadata?.chapter || varData.autoLabels?.chapter || ''}
+개념: ${varData.autoLabels?.concepts?.join(', ') || ''}
+상태: ${varData.status}
+
+[문제]
+${varData.text}
+
+[풀이]
+${varData.solution || ''}
+`;
+
+    const tempPath = path.join(UPLOAD_DIR, `reindex_${variationId}.txt`);
+    await fs.promises.writeFile(tempPath, ragContent);
+    await agentInstance.uploadAndAddToStore(tempPath, `variation_${variationId}`);
+    await cleanupFile(tempPath);
+
+    await db.collection('variations').doc(variationId).update({
+      ragIndexed: true,
+      ragIndexedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({
+      success: true,
+      message: '문제가 RAG에 재인덱싱되었습니다.'
+    });
+  } catch (error) {
+    console.error('RAG 재인덱싱 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 승인 대기 관리 API (확장) ====================
+
+/**
+ * GET /api/variations/pending
+ * 승인 대기 중인 문제 목록 (상세)
+ */
+app.get('/api/variations/pending', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const { limit = 50, orderBy = 'createdAt' } = req.query;
+
+    const snapshot = await db.collection('variations')
+      .where('status', '==', 'pending')
+      .orderBy(orderBy, 'desc')
+      .limit(parseInt(limit))
+      .get();
+
+    const pendingProblems = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      pendingProblems.push({
+        id: doc.id,
+        text: data.text,
+        textPreview: data.text?.substring(0, 200) + (data.text?.length > 200 ? '...' : ''),
+        solution: data.solution,
+        metadata: data.metadata,
+        autoLabels: data.autoLabels,
+        reviewResult: data.reviewResult,
+        originalProblemId: data.originalProblemId,
+        createdAt: data.createdAt?.toDate?.() || null,
+        updatedAt: data.updatedAt?.toDate?.() || null
+      });
+    });
+
+    res.json({
+      success: true,
+      problems: pendingProblems,
+      count: pendingProblems.length
+    });
+  } catch (error) {
+    console.error('승인 대기 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/variations/batch-approve
+ * 여러 문제 일괄 승인
+ */
+app.post('/api/variations/batch-approve', async (req, res) => {
+  try {
+    const { variationIds, reviewNote } = req.body;
+
+    if (!variationIds || !Array.isArray(variationIds) || variationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '승인할 문제 ID 목록이 필요합니다.'
+      });
+    }
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const results = [];
+    const batch = db.batch();
+
+    for (const variationId of variationIds) {
+      const varRef = db.collection('variations').doc(variationId);
+      batch.update(varRef, {
+        status: 'approved',
+        reviewNote: reviewNote || '일괄 승인',
+        approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      results.push({ id: variationId, approved: true });
+    }
+
+    await batch.commit();
+
+    // RAG 인덱싱 (비동기)
+    if (agentInstance) {
+      for (const variationId of variationIds) {
+        try {
+          const varDoc = await db.collection('variations').doc(variationId).get();
+          if (varDoc.exists) {
+            const varData = varDoc.data();
+            const ragContent = `[승인된 문제] ID: ${variationId}\n${varData.text}\n[풀이] ${varData.solution || ''}`;
+            const tempPath = path.join(UPLOAD_DIR, `batch_${variationId}.txt`);
+            await fs.promises.writeFile(tempPath, ragContent);
+            await agentInstance.uploadAndAddToStore(tempPath, `variation_${variationId}`);
+            await cleanupFile(tempPath);
+            await db.collection('variations').doc(variationId).update({ ragIndexed: true });
+          }
+        } catch (e) {
+          console.warn(`RAG 인덱싱 실패 (${variationId}):`, e);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      results,
+      approvedCount: results.length,
+      message: `${results.length}개 문제가 승인되었습니다.`
+    });
+  } catch (error) {
+    console.error('일괄 승인 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/variations/batch-reject
+ * 여러 문제 일괄 거절
+ */
+app.post('/api/variations/batch-reject', async (req, res) => {
+  try {
+    const { variationIds, reviewNote } = req.body;
+
+    if (!variationIds || !Array.isArray(variationIds) || variationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '거절할 문제 ID 목록이 필요합니다.'
+      });
+    }
+
+    if (!db) {
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase가 설정되지 않았습니다.'
+      });
+    }
+
+    const batch = db.batch();
+
+    for (const variationId of variationIds) {
+      const varRef = db.collection('variations').doc(variationId);
+      batch.update(varRef, {
+        status: 'rejected',
+        reviewNote: reviewNote || '일괄 거절',
+        rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    await batch.commit();
+
+    res.json({
+      success: true,
+      rejectedCount: variationIds.length,
+      message: `${variationIds.length}개 문제가 거절되었습니다.`
+    });
+  } catch (error) {
+    console.error('일괄 거절 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/variations/stats
+ * 문제 통계 조회
+ */
+app.get('/api/variations/stats', async (req, res) => {
+  try {
+    if (!db) {
+      return res.json({
+        success: true,
+        stats: { pending: 0, approved: 0, rejected: 0, total: 0, ragIndexed: 0 }
+      });
+    }
+
+    const collection = db.collection('variations');
+
+    const [pendingSnap, approvedSnap, rejectedSnap, ragIndexedSnap] = await Promise.all([
+      collection.where('status', '==', 'pending').count().get(),
+      collection.where('status', '==', 'approved').count().get(),
+      collection.where('status', '==', 'rejected').count().get(),
+      collection.where('ragIndexed', '==', true).count().get()
+    ]);
+
+    const stats = {
+      pending: pendingSnap.data().count,
+      approved: approvedSnap.data().count,
+      rejected: rejectedSnap.data().count,
+      ragIndexed: ragIndexedSnap.data().count,
+      total: pendingSnap.data().count + approvedSnap.data().count + rejectedSnap.data().count
+    };
+
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('통계 조회 오류:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

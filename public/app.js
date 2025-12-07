@@ -2,7 +2,10 @@
 let currentStore = null;
 let metadataCounter = 0;
 let subjectsData = null;
+let subjectsData2015 = null; // 2015 교육과정 데이터
+let subjectsData2022 = null; // 2022 교육과정 데이터
 let selectedSubject = null;
+let selectedCurriculum = '2022'; // 기본값: 2022 교육과정
 let selectedCourse = null;
 let selectedPublisher = null;
 let selectedChapter = null;
@@ -101,26 +104,60 @@ async function checkServerHealth() {
  */
 async function loadSubjectsData() {
   try {
-    const response = await fetch('/subjects.json');
-    const data = await response.json();
-    subjectsData = data.subjects;
+    // 2015 교육과정 데이터 로드
+    const response2015 = await fetch('/subjects.json');
+    const data2015 = await response2015.json();
+    subjectsData2015 = data2015.subjects;
+
+    // 2022 교육과정 데이터 로드
+    const response2022 = await fetch('/subjects-2022.json');
+    const data2022 = await response2022.json();
+    subjectsData2022 = data2022.subjects;
+
+    // 기본값으로 2022 교육과정 사용
+    subjectsData = subjectsData2022;
 
     // 교과 드롭다운 초기화
-    const subjectSelect = document.getElementById('subjectSelect');
-    subjectSelect.innerHTML = '<option value="">교과를 선택하세요</option>';
+    updateSubjectDropdown();
 
+    console.log('✅ 과목 데이터 로드 완료 - 2015:', subjectsData2015.length, '개 교과, 2022:', subjectsData2022.length, '개 교과');
+  } catch (error) {
+    console.error('❌ 과목 데이터 로드 실패:', error);
+    showAlert('과목 데이터를 불러오는데 실패했습니다.', 'error');
+  }
+}
+
+/**
+ * 교과 드롭다운 업데이트
+ */
+function updateSubjectDropdown() {
+  const subjectSelect = document.getElementById('subjectSelect');
+  const courseSelect = document.getElementById('courseSelect');
+  const curriculumGroup = document.getElementById('curriculumGroup');
+
+  subjectSelect.innerHTML = '<option value="">교과를 선택하세요</option>';
+
+  if (subjectsData) {
     subjectsData.forEach((subject, index) => {
       const option = document.createElement('option');
       option.value = index;
       option.textContent = subject.subject;
       subjectSelect.appendChild(option);
     });
-
-    console.log('✅ 과목 데이터 로드 완료:', subjectsData.length, '개 교과');
-  } catch (error) {
-    console.error('❌ 과목 데이터 로드 실패:', error);
-    showAlert('과목 데이터를 불러오는데 실패했습니다.', 'error');
   }
+
+  // 과목 선택 초기화
+  courseSelect.innerHTML = '<option value="">먼저 교과를 선택하세요</option>';
+  courseSelect.disabled = true;
+
+  // 교육과정 선택 숨김
+  if (curriculumGroup) {
+    curriculumGroup.style.display = 'none';
+  }
+
+  // 선택 상태 초기화
+  selectedSubject = null;
+  selectedCourse = null;
 }
 
 /**
@@ -130,11 +167,13 @@ function onSubjectChange() {
   const subjectSelect = document.getElementById('subjectSelect');
   const courseSelect = document.getElementById('courseSelect');
   const selectedCourseInfo = document.getElementById('selectedCourseInfo');
+  const curriculumGroup = document.getElementById('curriculumGroup');
 
   const selectedIndex = subjectSelect.value;
 
   if (!selectedIndex) {
     // 교과 선택 해제
+    curriculumGroup.style.display = 'none';
     courseSelect.disabled = true;
     courseSelect.innerHTML = '<option value="">먼저 교과를 선택하세요</option>';
     selectedCourseInfo.style.display = 'none';
@@ -146,20 +185,73 @@ function onSubjectChange() {
   // 선택된 교과 저장
   selectedSubject = subjectsData[selectedIndex];
 
+  // 교육과정 선택 그룹 표시
+  curriculumGroup.style.display = 'block';
+
   // 과목 드롭다운 직접 업데이트
-  courseSelect.innerHTML = '<option value="">과목을 선택하세요</option>';
-  selectedSubject.courses.forEach((course, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = course.name;
-    courseSelect.appendChild(option);
-  });
+  updateCourseList();
 
   courseSelect.disabled = false;
   selectedCourseInfo.style.display = 'none';
   selectedCourse = null;
 
   console.log('✅ 교과 선택:', selectedSubject.subject, '(과목 수:', selectedSubject.courses.length + ')');
+}
+
+/**
+ * 교육과정 선택 변경 이벤트
+ */
+function onCurriculumChange() {
+  const curriculumRadio = document.querySelector('input[name="curriculum"]:checked');
+  const newCurriculum = curriculumRadio ? curriculumRadio.value : '2022';
+
+  // 교육과정이 변경된 경우에만 처리
+  if (selectedCurriculum !== newCurriculum) {
+    selectedCurriculum = newCurriculum;
+
+    // 교육과정에 따라 데이터 전환
+    subjectsData = selectedCurriculum === '2022' ? subjectsData2022 : subjectsData2015;
+
+    console.log('✅ 교육과정 변경:', selectedCurriculum, '- 교과 수:', subjectsData ? subjectsData.length : 0);
+
+    // 현재 선택된 교과가 새 교육과정에도 있는지 확인
+    const subjectSelect = document.getElementById('subjectSelect');
+    const currentSubjectName = selectedSubject ? selectedSubject.subject : null;
+
+    // 교과 드롭다운 재초기화
+    updateSubjectDropdown();
+
+    // 이전에 선택한 교과가 새 교육과정에도 있으면 자동 선택
+    if (currentSubjectName && subjectsData) {
+      const matchingIndex = subjectsData.findIndex(s => s.subject === currentSubjectName);
+      if (matchingIndex !== -1) {
+        subjectSelect.value = matchingIndex;
+        onSubjectChange();
+      }
+    }
+  } else {
+    console.log('✅ 교육과정 유지:', selectedCurriculum);
+  }
+}
+
+/**
+ * 과목 목록 업데이트
+ */
+function updateCourseList() {
+  const courseSelect = document.getElementById('courseSelect');
+
+  courseSelect.innerHTML = '<option value="">과목을 선택하세요</option>';
+
+  if (selectedSubject && selectedSubject.courses) {
+    selectedSubject.courses.forEach((course, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      // 카테고리가 있으면 함께 표시
+      const categoryBadge = course.category ? ` [${course.category}]` : '';
+      option.textContent = course.name + categoryBadge;
+      courseSelect.appendChild(option);
+    });
+  }
 }
 
 /**
@@ -2311,7 +2403,8 @@ async function generateVariation() {
   const metadata = collectVariationMetadata();
   if (!metadata) return;
 
-  const llmType = document.querySelector('input[name="llmSelect"]:checked').value;
+  const geminiModel = document.getElementById('geminiModelSelect')?.value || 'gemini-2.0-flash-exp';
+  const openaiModel = document.getElementById('openaiModelSelect')?.value || '';
   const variationCount = parseInt(document.getElementById('variationCountSelect').value);
   const instructions = document.getElementById('variationInstructions').value;
 
@@ -2348,7 +2441,8 @@ async function generateVariation() {
       body: JSON.stringify({
         images: imageDataList,
         metadata,
-        llmType,
+        geminiModel,
+        openaiModel,
         variationCount,
         instructions
       })
@@ -2431,7 +2525,24 @@ function displayVariationResult(variation) {
   const resultBox = document.getElementById('variationResultBox');
   const content = document.getElementById('variationContent');
 
-  content.innerHTML = formatAnswer(variation.problem);
+  // 모델 정보 표시
+  const modelInfo = `<div class="model-info-badge">
+    <span class="badge gemini">🔷 ${variation.geminiModel || 'Gemini'}</span>
+    ${variation.openaiModel ? `<span class="badge openai">🟢 ${variation.openaiModel}</span>` : ''}
+  </div>`;
+
+  let resultHTML = modelInfo + formatAnswer(variation.problem);
+
+  // OpenAI 검토 결과가 있으면 표시
+  if (variation.openaiReview && !variation.openaiReview.startsWith('OpenAI 검증 실패')) {
+    resultHTML += `
+      <div class="openai-review-box" style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 8px;">
+        <h4 style="margin: 0 0 10px 0; color: #2e7d32;">🟢 OpenAI 검토 의견</h4>
+        <div id="openaiReviewContent">${formatAnswer(variation.openaiReview)}</div>
+      </div>`;
+  }
+
+  content.innerHTML = resultHTML;
   resultBox.style.display = 'block';
 
   // 수식 렌더링
@@ -2473,7 +2584,8 @@ async function requestVariationSolution() {
   progressText.textContent = '풀이 생성 중...';
 
   try {
-    const llmType = document.querySelector('input[name="llmSelect"]:checked').value;
+    const geminiModel = document.getElementById('geminiModelSelect')?.value || 'gemini-2.0-flash-exp';
+    const openaiModel = document.getElementById('openaiModelSelect')?.value || '';
 
     const response = await fetch('/api/variation-solution', {
       method: 'POST',
@@ -2483,7 +2595,8 @@ async function requestVariationSolution() {
       body: JSON.stringify({
         problem: currentVariationProblem.problem,
         metadata: currentVariationProblem.metadata,
-        llmType
+        geminiModel,
+        openaiModel
       })
     });
 
@@ -2494,30 +2607,50 @@ async function requestVariationSolution() {
 
       // 풀이를 결과 박스에 추가
       const content = document.getElementById('variationContent');
-      content.innerHTML += `
+
+      // 모델 정보와 Gemini 풀이
+      let solutionHTML = `
         <div class="solution-box" style="margin-top: 20px;">
-          <h3>💡 풀이:</h3>
+          <h3>💡 풀이 <span class="badge gemini" style="font-size: 12px;">🔷 ${data.geminiModel || 'Gemini'}</span></h3>
           <div id="variationSolutionContent">${formatAnswer(data.solution)}</div>
         </div>
       `;
 
+      // OpenAI 풀이가 있으면 추가
+      if (data.openaiSolution && !data.openaiSolution.startsWith('OpenAI 풀이 생성 실패')) {
+        solutionHTML += `
+          <div class="solution-box openai-solution" style="margin-top: 20px; background: #e3f2fd; border-left: 4px solid #2196f3;">
+            <h3>💡 OpenAI 풀이 <span class="badge openai" style="font-size: 12px;">🟢 ${data.openaiModel}</span></h3>
+            <div id="openaiSolutionContent">${formatAnswer(data.openaiSolution)}</div>
+          </div>
+        `;
+      }
+
+      content.innerHTML += solutionHTML;
+
       // 수식 렌더링
       setTimeout(() => {
         const solutionContent = document.getElementById('variationSolutionContent');
-        if (typeof renderMathInElement !== 'undefined' && solutionContent) {
-          renderMathInElement(solutionContent, {
-            delimiters: [
-              {left: '$$', right: '$$', display: true},
-              {left: '$', right: '$', display: false},
-              {left: '\\[', right: '\\]', display: true},
-              {left: '\\(', right: '\\)', display: false}
-            ],
-            throwOnError: false,
-            trust: true,
-            strict: false
-          });
+        const openaiContent = document.getElementById('openaiSolutionContent');
+
+        const renderOptions = {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false,
+          trust: true,
+          strict: false
+        };
+
+        if (typeof renderMathInElement !== 'undefined') {
+          if (solutionContent) renderMathInElement(solutionContent, renderOptions);
+          if (openaiContent) renderMathInElement(openaiContent, renderOptions);
         }
         if (solutionContent) renderAllGraphs(solutionContent);
+        if (openaiContent) renderAllGraphs(openaiContent);
       }, 100);
 
       showAlert('✅ 풀이가 생성되었습니다!', 'success');
@@ -5017,10 +5150,10 @@ async function indexAssetsToRAG(assetIds) {
 
 // 전역 변수 추가
 let currentViolations = [];
-let currentReviewResult = null;
+// currentReviewResult는 이미 위에서 선언됨 (line 2589)
 let currentReferenceProblemId = null;
 let currentOCRText = '';
-let currentVariationSolution = '';
+// currentVariationSolution는 이미 위에서 선언됨 (line 2918)
 
 // ==================== Phase 4: UI 핸들러 함수들 ====================
 
@@ -5314,3 +5447,863 @@ window.indexAllAssetsToRAG = indexAllAssetsToRAG;
 window.processAllAssetsComplete = processAllAssetsComplete;
 window.renderAssetGrid = renderAssetGrid;
 window.updateAssetDescription = updateAssetDescription;
+
+// ==================== Phase 5: 관리 기능 ====================
+
+// 전역 상태
+let allLabels = [];
+let allRAGDocuments = [];
+let allPendingProblems = [];
+let currentLabelFilter = 'all';
+let currentStatusFilter = 'pending';
+let currentProblemDetail = null;
+let editingLabelId = null;
+
+/**
+ * 관리 섹션 토글
+ */
+function toggleManagementSection(sectionId) {
+  const content = document.getElementById(sectionId + 'Content');
+  const toggle = document.getElementById(sectionId + 'Toggle');
+
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    toggle.textContent = '▲';
+
+    // 섹션 열릴 때 데이터 로드
+    if (sectionId === 'labelManagement') loadLabels();
+    else if (sectionId === 'ragManagement') loadRAGDocuments();
+    else if (sectionId === 'approvalManagement') {
+      loadVariationStats();
+      loadPendingProblems();
+    }
+  } else {
+    content.style.display = 'none';
+    toggle.textContent = '▼';
+  }
+}
+
+// ==================== 라벨 관리 함수들 ====================
+
+/**
+ * 라벨 목록 로드
+ */
+async function loadLabels() {
+  const container = document.getElementById('labelsList');
+  container.innerHTML = '<p class="info-message">🔄 라벨을 불러오는 중...</p>';
+
+  try {
+    const response = await fetch('/api/labels');
+    const data = await response.json();
+
+    if (data.success) {
+      allLabels = data.labels || [];
+      renderLabels();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('라벨 로드 오류:', error);
+    container.innerHTML = `<p class="error-message">❌ 라벨 로드 실패: ${error.message}</p>`;
+  }
+}
+
+/**
+ * 라벨 필터링
+ */
+function filterLabels(category) {
+  currentLabelFilter = category;
+
+  // 탭 활성화 상태 변경
+  document.querySelectorAll('.label-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.category === category);
+  });
+
+  renderLabels();
+}
+
+/**
+ * 라벨 렌더링
+ */
+function renderLabels() {
+  const container = document.getElementById('labelsList');
+
+  let filtered = allLabels;
+  if (currentLabelFilter !== 'all') {
+    filtered = allLabels.filter(l => l.category === currentLabelFilter);
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<p class="info-message">ℹ️ 해당 카테고리에 라벨이 없습니다.</p>';
+    return;
+  }
+
+  // 카테고리별 그룹화
+  const grouped = {};
+  filtered.forEach(label => {
+    if (!grouped[label.category]) grouped[label.category] = [];
+    grouped[label.category].push(label);
+  });
+
+  let html = '';
+  for (const [category, labels] of Object.entries(grouped)) {
+    html += `
+      <div class="label-category-group">
+        <h4 class="category-title">${getCategoryDisplayName(category)}</h4>
+        <div class="labels-row">
+          ${labels.map(label => `
+            <div class="label-item" data-id="${label.id}">
+              <span class="label-name">${label.name}</span>
+              ${label.parent ? `<span class="label-parent">← ${label.parent}</span>` : ''}
+              <div class="label-actions">
+                <button class="btn btn-sm btn-outline" onclick="editLabel('${label.id}')" title="수정">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteLabel('${label.id}')" title="삭제">🗑️</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+/**
+ * 카테고리 표시명
+ */
+function getCategoryDisplayName(category) {
+  const names = {
+    subject: '📚 교과',
+    course: '📖 과목',
+    grade: '🎓 학년',
+    difficulty: '📊 난이도',
+    problemType: '❓ 문제유형',
+    concept: '💡 개념',
+    chapter: '📑 단원',
+    skill: '🔧 역량'
+  };
+  return names[category] || category;
+}
+
+/**
+ * 라벨 추가 모달 열기
+ */
+function openAddLabelModal() {
+  editingLabelId = null;
+  document.getElementById('labelModalTitle').textContent = '➕ 라벨 추가';
+  document.getElementById('labelCategory').value = 'subject';
+  document.getElementById('labelName').value = '';
+  document.getElementById('labelMetadata').value = '{}';
+
+  // 상위 라벨 옵션 업데이트
+  updateParentLabelOptions();
+
+  document.getElementById('addLabelModal').style.display = 'flex';
+}
+
+/**
+ * 라벨 수정
+ */
+function editLabel(labelId) {
+  const label = allLabels.find(l => l.id === labelId);
+  if (!label) return;
+
+  editingLabelId = labelId;
+  document.getElementById('labelModalTitle').textContent = '✏️ 라벨 수정';
+  document.getElementById('labelCategory').value = label.category;
+  document.getElementById('labelName').value = label.name;
+  document.getElementById('labelMetadata').value = JSON.stringify(label.metadata || {}, null, 2);
+
+  updateParentLabelOptions(label.parent);
+
+  document.getElementById('addLabelModal').style.display = 'flex';
+}
+
+/**
+ * 상위 라벨 옵션 업데이트
+ */
+function updateParentLabelOptions(selectedParent = '') {
+  const select = document.getElementById('labelParent');
+  select.innerHTML = '<option value="">없음</option>';
+
+  allLabels.forEach(label => {
+    if (label.id !== editingLabelId) {
+      select.innerHTML += `<option value="${label.name}" ${label.name === selectedParent ? 'selected' : ''}>${label.category}: ${label.name}</option>`;
+    }
+  });
+}
+
+/**
+ * 라벨 저장
+ */
+async function saveLabel() {
+  const category = document.getElementById('labelCategory').value;
+  const name = document.getElementById('labelName').value.trim();
+  const parent = document.getElementById('labelParent').value;
+  let metadata = {};
+
+  try {
+    metadata = JSON.parse(document.getElementById('labelMetadata').value || '{}');
+  } catch (e) {
+    showAlert('⚠️ 메타데이터 JSON 형식이 올바르지 않습니다.', 'error');
+    return;
+  }
+
+  if (!name) {
+    showAlert('⚠️ 라벨 이름을 입력해주세요.', 'error');
+    return;
+  }
+
+  try {
+    let response;
+    if (editingLabelId) {
+      // 수정
+      response = await fetch(`/api/labels/${editingLabelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, parent, metadata })
+      });
+    } else {
+      // 추가
+      response = await fetch('/api/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, name, parent, metadata })
+      });
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 라벨이 ${editingLabelId ? '수정' : '추가'}되었습니다.`, 'success');
+      closeAddLabelModal();
+      loadLabels();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('라벨 저장 오류:', error);
+    showAlert(`❌ 라벨 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 라벨 삭제
+ */
+async function deleteLabel(labelId) {
+  if (!confirm('정말 이 라벨을 삭제하시겠습니까?')) return;
+
+  try {
+    const response = await fetch(`/api/labels/${labelId}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 라벨이 삭제되었습니다.', 'success');
+      loadLabels();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('라벨 삭제 오류:', error);
+    showAlert(`❌ 라벨 삭제 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 라벨 추가 모달 닫기
+ */
+function closeAddLabelModal() {
+  document.getElementById('addLabelModal').style.display = 'none';
+  editingLabelId = null;
+}
+
+/**
+ * 기본 라벨로 복원
+ */
+async function resetLabelsToDefault() {
+  if (!confirm('모든 라벨을 기본값으로 복원하시겠습니까? 기존 라벨은 유지됩니다.')) return;
+
+  showAlert('🔄 기본 라벨 복원 중...', 'info');
+  await loadLabels();
+  showAlert('✅ 라벨 목록이 새로고침되었습니다.', 'success');
+}
+
+// ==================== RAG 관리 함수들 ====================
+
+/**
+ * RAG 문서 목록 로드
+ */
+async function loadRAGDocuments() {
+  const container = document.getElementById('ragDocumentsList');
+  container.innerHTML = '<p class="info-message">🔄 문서를 불러오는 중...</p>';
+
+  try {
+    const response = await fetch('/api/rag/documents');
+    const data = await response.json();
+
+    if (data.success) {
+      allRAGDocuments = data.documents || [];
+      document.getElementById('ragDocCount').textContent = allRAGDocuments.length;
+      document.getElementById('ragStoreName').textContent = data.storeName || '-';
+      renderRAGDocuments();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('RAG 문서 로드 오류:', error);
+    container.innerHTML = `<p class="error-message">❌ 문서 로드 실패: ${error.message}</p>`;
+  }
+}
+
+/**
+ * RAG 문서 필터링
+ */
+function filterRAGDocuments() {
+  renderRAGDocuments();
+}
+
+/**
+ * RAG 문서 렌더링
+ */
+function renderRAGDocuments() {
+  const container = document.getElementById('ragDocumentsList');
+  const searchTerm = document.getElementById('ragSearchInput').value.toLowerCase();
+  const typeFilter = document.getElementById('ragTypeFilter').value;
+
+  let filtered = allRAGDocuments;
+
+  // 검색 필터
+  if (searchTerm) {
+    filtered = filtered.filter(doc =>
+      (doc.displayName || doc.name || '').toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // 타입 필터
+  if (typeFilter !== 'all') {
+    filtered = filtered.filter(doc => {
+      const name = (doc.displayName || doc.name || '').toLowerCase();
+      if (typeFilter === 'variation') return name.includes('variation') || name.includes('var_');
+      if (typeFilter === 'asset') return name.includes('asset');
+      return !name.includes('variation') && !name.includes('asset');
+    });
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<p class="info-message">ℹ️ 검색 결과가 없습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(doc => `
+    <div class="rag-document-item">
+      <div class="doc-info">
+        <span class="doc-icon">${getDocTypeIcon(doc.displayName || doc.name)}</span>
+        <div class="doc-details">
+          <span class="doc-name">${doc.displayName || doc.name}</span>
+          <span class="doc-meta">
+            ${doc.createTime ? new Date(doc.createTime).toLocaleDateString('ko-KR') : ''}
+            ${doc.sizeBytes ? `| ${formatBytes(doc.sizeBytes)}` : ''}
+          </span>
+        </div>
+      </div>
+      <div class="doc-actions">
+        <button class="btn btn-sm btn-danger" onclick="deleteRAGDocument('${encodeURIComponent(doc.name)}')" title="삭제">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/**
+ * 문서 타입 아이콘
+ */
+function getDocTypeIcon(name) {
+  if (!name) return '📄';
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes('variation') || lowerName.includes('var_')) return '📝';
+  if (lowerName.includes('asset')) return '🖼️';
+  if (lowerName.includes('approved')) return '✅';
+  return '📄';
+}
+
+/**
+ * 바이트 포맷
+ */
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+/**
+ * RAG 문서 삭제
+ */
+async function deleteRAGDocument(documentName) {
+  if (!confirm('정말 이 문서를 RAG에서 삭제하시겠습니까?')) return;
+
+  try {
+    const response = await fetch(`/api/rag/documents/${documentName}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 문서가 RAG에서 삭제되었습니다.', 'success');
+      loadRAGDocuments();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('RAG 문서 삭제 오류:', error);
+    showAlert(`❌ 삭제 실패: ${error.message}`, 'error');
+  }
+}
+
+// ==================== 승인 대기 관리 함수들 ====================
+
+/**
+ * 변형 문제 통계 로드
+ */
+async function loadVariationStats() {
+  try {
+    const response = await fetch('/api/variations/stats');
+    const data = await response.json();
+
+    if (data.success && data.stats) {
+      const stats = data.stats;
+      document.getElementById('statPending').textContent = stats.pending || 0;
+      document.getElementById('statApproved').textContent = stats.approved || 0;
+      document.getElementById('statRejected').textContent = stats.rejected || 0;
+      document.getElementById('statRagIndexed').textContent = stats.ragIndexed || 0;
+
+      document.getElementById('tabPendingCount').textContent = stats.pending || 0;
+      document.getElementById('tabApprovedCount').textContent = stats.approved || 0;
+      document.getElementById('tabRejectedCount').textContent = stats.rejected || 0;
+    }
+  } catch (error) {
+    console.error('통계 로드 오류:', error);
+  }
+}
+
+/**
+ * 승인 대기 문제 로드
+ */
+async function loadPendingProblems() {
+  const container = document.getElementById('pendingProblemsList');
+  container.innerHTML = '<p class="info-message">🔄 문제를 불러오는 중...</p>';
+
+  try {
+    const endpoint = currentStatusFilter === 'pending'
+      ? '/api/variations/pending'
+      : `/api/variations?status=${currentStatusFilter}`;
+
+    const response = await fetch(endpoint);
+    const data = await response.json();
+
+    if (data.success) {
+      allPendingProblems = data.problems || data.variations || [];
+      renderPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('문제 로드 오류:', error);
+    container.innerHTML = `<p class="error-message">❌ 문제 로드 실패: ${error.message}</p>`;
+  }
+}
+
+/**
+ * 상태별 필터
+ */
+function filterByStatus(status) {
+  currentStatusFilter = status;
+
+  document.querySelectorAll('.status-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.status === status);
+  });
+
+  // 승인/거절 버튼 표시 제어
+  const batchButtons = document.querySelectorAll('#batchApproveBtn, #batchRejectBtn, .select-all-label');
+  batchButtons.forEach(btn => {
+    btn.style.display = status === 'pending' ? '' : 'none';
+  });
+
+  loadPendingProblems();
+}
+
+/**
+ * 승인 대기 문제 렌더링
+ */
+function renderPendingProblems() {
+  const container = document.getElementById('pendingProblemsList');
+
+  if (allPendingProblems.length === 0) {
+    container.innerHTML = `<p class="info-message">ℹ️ ${currentStatusFilter === 'pending' ? '승인 대기 중인' : currentStatusFilter === 'approved' ? '승인된' : '거절된'} 문제가 없습니다.</p>`;
+    return;
+  }
+
+  const showCheckbox = currentStatusFilter === 'pending';
+
+  container.innerHTML = allPendingProblems.map(problem => `
+    <div class="pending-problem-item" data-id="${problem.id}">
+      ${showCheckbox ? `
+        <label class="problem-checkbox">
+          <input type="checkbox" class="problem-select" value="${problem.id}" onchange="updateBatchButtons()">
+        </label>
+      ` : ''}
+      <div class="problem-preview" onclick="openProblemDetail('${problem.id}')">
+        <div class="problem-text-preview">${escapeHtml(problem.textPreview || problem.text?.substring(0, 200) || '')}</div>
+        <div class="problem-labels">
+          ${problem.autoLabels?.subject ? `<span class="label-tag subject">${problem.autoLabels.subject}</span>` : ''}
+          ${problem.autoLabels?.chapter ? `<span class="label-tag chapter">${problem.autoLabels.chapter}</span>` : ''}
+          ${problem.autoLabels?.difficulty ? `<span class="label-tag difficulty">${problem.autoLabels.difficulty}</span>` : ''}
+          ${problem.reviewResult?.overallScore ? `<span class="label-tag score">점수: ${problem.reviewResult.overallScore}</span>` : ''}
+        </div>
+        <div class="problem-meta">
+          <span class="meta-item">📅 ${problem.createdAt ? new Date(problem.createdAt).toLocaleDateString('ko-KR') : '-'}</span>
+          ${problem.ragIndexed ? '<span class="meta-item indexed">✅ RAG</span>' : '<span class="meta-item not-indexed">⏳ RAG 대기</span>'}
+        </div>
+      </div>
+      <div class="problem-actions">
+        ${currentStatusFilter === 'pending' ? `
+          <button class="btn btn-sm btn-success" onclick="approveProblem('${problem.id}')" title="승인">✅</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectProblem('${problem.id}')" title="거절">❌</button>
+        ` : `
+          <button class="btn btn-sm btn-info" onclick="reindexProblem('${problem.id}')" title="재인덱싱">🔄</button>
+        `}
+      </div>
+    </div>
+  `).join('');
+}
+
+/**
+ * HTML 이스케이프
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * 전체 선택 토글
+ */
+function toggleSelectAllPending() {
+  const selectAll = document.getElementById('selectAllPending');
+  const checkboxes = document.querySelectorAll('.problem-select');
+
+  checkboxes.forEach(cb => {
+    cb.checked = selectAll.checked;
+  });
+
+  updateBatchButtons();
+}
+
+/**
+ * 일괄 버튼 업데이트
+ */
+function updateBatchButtons() {
+  const selected = document.querySelectorAll('.problem-select:checked');
+  const hasSelection = selected.length > 0;
+
+  document.getElementById('batchApproveBtn').disabled = !hasSelection;
+  document.getElementById('batchRejectBtn').disabled = !hasSelection;
+}
+
+/**
+ * 선택된 문제 일괄 승인
+ */
+async function batchApproveSelected() {
+  const selected = Array.from(document.querySelectorAll('.problem-select:checked')).map(cb => cb.value);
+
+  if (selected.length === 0) {
+    showAlert('⚠️ 승인할 문제를 선택해주세요.', 'error');
+    return;
+  }
+
+  if (!confirm(`${selected.length}개 문제를 승인하시겠습니까?`)) return;
+
+  try {
+    const response = await fetch('/api/variations/batch-approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationIds: selected })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ ${data.approvedCount}개 문제가 승인되었습니다.`, 'success');
+      loadVariationStats();
+      loadPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('일괄 승인 오류:', error);
+    showAlert(`❌ 일괄 승인 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 선택된 문제 일괄 거절
+ */
+async function batchRejectSelected() {
+  const selected = Array.from(document.querySelectorAll('.problem-select:checked')).map(cb => cb.value);
+
+  if (selected.length === 0) {
+    showAlert('⚠️ 거절할 문제를 선택해주세요.', 'error');
+    return;
+  }
+
+  const note = prompt('거절 사유를 입력해주세요 (선택):');
+  if (!confirm(`${selected.length}개 문제를 거절하시겠습니까?`)) return;
+
+  try {
+    const response = await fetch('/api/variations/batch-reject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationIds: selected, reviewNote: note || '' })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ ${data.rejectedCount}개 문제가 거절되었습니다.`, 'success');
+      loadVariationStats();
+      loadPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('일괄 거절 오류:', error);
+    showAlert(`❌ 일괄 거절 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 개별 문제 승인
+ */
+async function approveProblem(problemId) {
+  try {
+    const response = await fetch('/api/variation/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationId: problemId })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 문제가 승인되었습니다.', 'success');
+      loadVariationStats();
+      loadPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('승인 오류:', error);
+    showAlert(`❌ 승인 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 개별 문제 거절
+ */
+async function rejectProblem(problemId) {
+  const note = prompt('거절 사유를 입력해주세요 (선택):');
+
+  try {
+    const response = await fetch(`/api/variations/${problemId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'rejected', reviewNote: note || '' })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 문제가 거절되었습니다.', 'success');
+      loadVariationStats();
+      loadPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('거절 오류:', error);
+    showAlert(`❌ 거절 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 문제 재인덱싱
+ */
+async function reindexProblem(problemId) {
+  try {
+    const response = await fetch(`/api/rag/reindex/${problemId}`, {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 문제가 RAG에 재인덱싱되었습니다.', 'success');
+      loadPendingProblems();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('재인덱싱 오류:', error);
+    showAlert(`❌ 재인덱싱 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 문제 상세 보기 모달 열기
+ */
+function openProblemDetail(problemId) {
+  const problem = allPendingProblems.find(p => p.id === problemId);
+  if (!problem) return;
+
+  currentProblemDetail = problem;
+
+  // 문제 텍스트
+  document.getElementById('detailProblemText').innerHTML = renderMathContent(problem.text || '');
+
+  // 풀이
+  document.getElementById('detailSolutionText').innerHTML = renderMathContent(problem.solution || '(풀이 없음)');
+
+  // 라벨 정보
+  const labels = problem.autoLabels || problem.metadata || {};
+  document.getElementById('detailLabels').innerHTML = `
+    <div class="label-row"><strong>교과:</strong> ${labels.subject || '-'}</div>
+    <div class="label-row"><strong>과목:</strong> ${labels.course || '-'}</div>
+    <div class="label-row"><strong>단원:</strong> ${labels.chapter || '-'}</div>
+    <div class="label-row"><strong>난이도:</strong> ${labels.difficulty || '-'}</div>
+    <div class="label-row"><strong>개념:</strong> ${(labels.concepts || []).join(', ') || '-'}</div>
+  `;
+
+  // 검토 결과
+  const review = problem.reviewResult || {};
+  document.getElementById('detailReview').innerHTML = review.overallScore
+    ? `<div class="review-score-display">${review.overallScore}점</div>
+       <div class="review-recommendation">${review.recommendation || ''}</div>`
+    : '<p class="info-message">검토 결과 없음</p>';
+
+  // 생성 정보
+  document.getElementById('detailMeta').innerHTML = `
+    <div class="meta-row"><strong>ID:</strong> ${problem.id}</div>
+    <div class="meta-row"><strong>생성일:</strong> ${problem.createdAt ? new Date(problem.createdAt).toLocaleString('ko-KR') : '-'}</div>
+    <div class="meta-row"><strong>상태:</strong> ${problem.status || 'pending'}</div>
+    <div class="meta-row"><strong>RAG:</strong> ${problem.ragIndexed ? '✅ 인덱싱됨' : '⏳ 대기중'}</div>
+  `;
+
+  // 버튼 상태 설정
+  const isPending = (problem.status || 'pending') === 'pending';
+  document.getElementById('detailApproveBtn').style.display = isPending ? '' : 'none';
+  document.getElementById('detailRejectBtn').style.display = isPending ? '' : 'none';
+
+  document.getElementById('problemDetailModal').style.display = 'flex';
+
+  // LaTeX 렌더링
+  if (window.renderMathInElement) {
+    renderMathInElement(document.getElementById('detailProblemText'), {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ]
+    });
+    renderMathInElement(document.getElementById('detailSolutionText'), {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '\\(', right: '\\)', display: false }
+      ]
+    });
+  }
+}
+
+/**
+ * 수학 콘텐츠 렌더링 헬퍼
+ */
+function renderMathContent(text) {
+  if (!text) return '';
+  // 줄바꿈을 <br>로 변환
+  return text.replace(/\n/g, '<br>');
+}
+
+/**
+ * 문제 상세 모달 닫기
+ */
+function closeProblemDetailModal() {
+  document.getElementById('problemDetailModal').style.display = 'none';
+  currentProblemDetail = null;
+}
+
+/**
+ * 현재 문제 승인 (모달에서)
+ */
+async function approveCurrentProblem() {
+  if (!currentProblemDetail) return;
+  await approveProblem(currentProblemDetail.id);
+  closeProblemDetailModal();
+}
+
+/**
+ * 현재 문제 거절 (모달에서)
+ */
+async function rejectCurrentProblem() {
+  if (!currentProblemDetail) return;
+  await rejectProblem(currentProblemDetail.id);
+  closeProblemDetailModal();
+}
+
+/**
+ * 현재 문제 재인덱싱 (모달에서)
+ */
+async function reindexCurrentProblem() {
+  if (!currentProblemDetail) return;
+  await reindexProblem(currentProblemDetail.id);
+  closeProblemDetailModal();
+}
+
+// Phase 5 함수들 전역 노출
+window.toggleManagementSection = toggleManagementSection;
+window.loadLabels = loadLabels;
+window.filterLabels = filterLabels;
+window.openAddLabelModal = openAddLabelModal;
+window.editLabel = editLabel;
+window.saveLabel = saveLabel;
+window.deleteLabel = deleteLabel;
+window.closeAddLabelModal = closeAddLabelModal;
+window.resetLabelsToDefault = resetLabelsToDefault;
+window.loadRAGDocuments = loadRAGDocuments;
+window.filterRAGDocuments = filterRAGDocuments;
+window.deleteRAGDocument = deleteRAGDocument;
+window.loadVariationStats = loadVariationStats;
+window.loadPendingProblems = loadPendingProblems;
+window.filterByStatus = filterByStatus;
+window.toggleSelectAllPending = toggleSelectAllPending;
+window.updateBatchButtons = updateBatchButtons;
+window.batchApproveSelected = batchApproveSelected;
+window.batchRejectSelected = batchRejectSelected;
+window.approveProblem = approveProblem;
+window.rejectProblem = rejectProblem;
+window.reindexProblem = reindexProblem;
+window.openProblemDetail = openProblemDetail;
+window.closeProblemDetailModal = closeProblemDetailModal;
+window.approveCurrentProblem = approveCurrentProblem;
+window.rejectCurrentProblem = rejectCurrentProblem;
+window.reindexCurrentProblem = reindexCurrentProblem;

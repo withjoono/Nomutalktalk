@@ -1,0 +1,930 @@
+{
+  "curriculum": "2022",
+  "subjects": [
+    {
+      "subject": "수학",
+      "subjectCode": "2022_수학",
+      "courses": [
+        {
+          "id": "2022_수학_공통수학1",
+          "name": "공통수학1",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (홍진곤)",
+              "author": "홍진곤",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (김원경)",
+              "author": "김원경",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_공통수학2",
+          "name": "공통수학2",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            },
+            {
+              "name": "마타에듀㈜ (정두섭)",
+              "author": "정두섭",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (홍진곤)",
+              "author": "홍진곤",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (김원경)",
+              "author": "김원경",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_대수",
+          "name": "대수",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (김원경)",
+              "author": "김원경",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_미적분Ⅰ",
+          "name": "미적분Ⅰ",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (홍진곤)",
+              "author": "홍진곤",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (김원경)",
+              "author": "김원경",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_확률과 통계",
+          "name": "확률과 통계",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (김원경)",
+              "author": "김원경",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_경제 수학",
+          "name": "경제 수학",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜천재교육 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "㈜씨마스 (김서령)",
+              "author": "김서령",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_기하",
+          "name": "기하",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (전인태)",
+              "author": "전인태",
+              "chapters": []
+            },
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "동아출판(주) (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_미적분Ⅱ",
+          "name": "미적분Ⅱ",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜지학사 (장경윤)",
+              "author": "장경윤",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (홍진곤)",
+              "author": "홍진곤",
+              "chapters": []
+            },
+            {
+              "name": "㈜미래엔 (황선욱)",
+              "author": "황선욱",
+              "chapters": []
+            },
+            {
+              "name": "동아출판(주) (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜와이비엠 (류희찬)",
+              "author": "류희찬",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_인공지능 수학",
+          "name": "인공지능 수학",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜천재교육 (강은주)",
+              "author": "강은주",
+              "chapters": []
+            },
+            {
+              "name": "㈜씨마스 (윤상운)",
+              "author": "윤상운",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_직무 수학",
+          "name": "직무 수학",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜천재교육 (김동재)",
+              "author": "김동재",
+              "chapters": []
+            },
+            {
+              "name": "우리교과서 (이장주)",
+              "author": "이장주",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (고호경)",
+              "author": "고호경",
+              "chapters": []
+            },
+            {
+              "name": "㈜이오북스 (손진아)",
+              "author": "손진아",
+              "chapters": []
+            },
+            {
+              "name": "웅보출판사 (이도원)",
+              "author": "이도원",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_고급 기하",
+          "name": "고급 기하",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "전북특별자치도교육청 (정기룡)",
+              "author": "정기룡",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_고급 대수",
+          "name": "고급 대수",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "전북특별자치도교육청 (이대현)",
+              "author": "이대현",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_고급 미적분",
+          "name": "고급 미적분",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "전북특별자치도교육청 (이대현)",
+              "author": "이대현",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_이산 수학",
+          "name": "이산 수학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "우리교과서 (이준열)",
+              "author": "이준열",
+              "chapters": []
+            },
+            {
+              "name": "충청남도교육청 (최지훈)",
+              "author": "최지훈",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_수학_전문 수학",
+          "name": "전문 수학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜천재교육 (홍진곤)",
+              "author": "홍진곤",
+              "chapters": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": "과학",
+      "subjectCode": "2022_과학",
+      "courses": [
+        {
+          "id": "2022_과학_통합과학1",
+          "name": "통합과학1",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (전상학)",
+              "author": "전상학",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (신영준)",
+              "author": "신영준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (김호련)",
+              "author": "김호련",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_통합과학2",
+          "name": "통합과학2",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (전상학)",
+              "author": "전상학",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (신영준)",
+              "author": "신영준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (김호련)",
+              "author": "김호련",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_과학탐구실험1",
+          "name": "과학탐구실험1",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (전상학)",
+              "author": "전상학",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (신영준)",
+              "author": "신영준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (김호련)",
+              "author": "김호련",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_과학탐구실험2",
+          "name": "과학탐구실험2",
+          "category": "공통",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜지학사 (전상학)",
+              "author": "전상학",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (신영준)",
+              "author": "신영준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (김호련)",
+              "author": "김호련",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_물리학",
+          "name": "물리학",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (권경필)",
+              "author": "권경필",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (최혁준)",
+              "author": "최혁준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (손정우)",
+              "author": "손정우",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (남경식)",
+              "author": "남경식",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_화학",
+          "name": "화학",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (정대홍)",
+              "author": "정대홍",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (임희준)",
+              "author": "임희준",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (최원호)",
+              "author": "최원호",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (오정숙)",
+              "author": "오정숙",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_생명과학",
+          "name": "생명과학",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (이준규)",
+              "author": "이준규",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (임혁)",
+              "author": "임혁",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_지구과학",
+          "name": "지구과학",
+          "category": "일반선택",
+          "publishers": [
+            {
+              "name": "(주)미래엔 (김연귀)",
+              "author": "김연귀",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (이기영)",
+              "author": "이기영",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (오필석)",
+              "author": "오필석",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (권오성)",
+              "author": "권오성",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_물질과 에너지",
+          "name": "물질과 에너지",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (정대홍)",
+              "author": "정대홍",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (오정숙)",
+              "author": "오정숙",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (최원호)",
+              "author": "최원호",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (임희준)",
+              "author": "임희준",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_생물의 유전",
+          "name": "생물의 유전",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "동아출판㈜ (임혁)",
+              "author": "임혁",
+              "chapters": []
+            },
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (이준규)",
+              "author": "이준규",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_세포와 물질대사",
+          "name": "세포와 물질대사",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "동아출판㈜ (임혁)",
+              "author": "임혁",
+              "chapters": []
+            },
+            {
+              "name": "(주)미래엔 (오현선)",
+              "author": "오현선",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (심규철)",
+              "author": "심규철",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (이준규)",
+              "author": "이준규",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_역학과 에너지",
+          "name": "역학과 에너지",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "동아출판㈜ (남경식)",
+              "author": "남경식",
+              "chapters": []
+            },
+            {
+              "name": "(주)미래엔 (권경필)",
+              "author": "권경필",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (손정우)",
+              "author": "손정우",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (최혁준)",
+              "author": "최혁준",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_전자기와 양자",
+          "name": "전자기와 양자",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "동아출판㈜ (남경식)",
+              "author": "남경식",
+              "chapters": []
+            },
+            {
+              "name": "(주)미래엔 (권경필)",
+              "author": "권경필",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (손정우)",
+              "author": "손정우",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (최혁준)",
+              "author": "최혁준",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_지구시스템과학",
+          "name": "지구시스템과학",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (김연귀)",
+              "author": "김연귀",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (권오성)",
+              "author": "권오성",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (이기영)",
+              "author": "이기영",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (오필석)",
+              "author": "오필석",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_행성우주과학",
+          "name": "행성우주과학",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (김연귀)",
+              "author": "김연귀",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (권오성)",
+              "author": "권오성",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (이기영)",
+              "author": "이기영",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (오필석)",
+              "author": "오필석",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_화학반응의 세계",
+          "name": "화학반응의 세계",
+          "category": "진로선택",
+          "publishers": [
+            {
+              "name": "㈜미래엔 (정대홍)",
+              "author": "정대홍",
+              "chapters": []
+            },
+            {
+              "name": "동아출판㈜ (오정숙)",
+              "author": "오정숙",
+              "chapters": []
+            },
+            {
+              "name": "㈜비상교육 (최원호)",
+              "author": "최원호",
+              "chapters": []
+            },
+            {
+              "name": "㈜천재교과서 (임희준)",
+              "author": "임희준",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_고급 물리학",
+          "name": "고급 물리학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜선두 (조영원)",
+              "author": "조영원",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_고급 생명과학",
+          "name": "고급 생명과학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜선두 (홍준의)",
+              "author": "홍준의",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_고급 지구과학",
+          "name": "고급 지구과학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜선두 (박기현)",
+              "author": "박기현",
+              "chapters": []
+            }
+          ]
+        },
+        {
+          "id": "2022_과학_고급화학",
+          "name": "고급화학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜ 선두 (박국태)",
+              "author": "박국태",
+              "chapters": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": "정보",
+      "subjectCode": "2022_정보",
+      "courses": [
+        {
+          "id": "2022_정보_정보과학",
+          "name": "정보과학",
+          "category": "과학계열진로선택",
+          "publishers": [
+            {
+              "name": "㈜삼양미디어 (정종광)",
+              "author": "정종광",
+              "chapters": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
