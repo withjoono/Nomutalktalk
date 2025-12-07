@@ -5501,7 +5501,7 @@ function switchEngineTab(tabName) {
  */
 async function loadCustomEngines() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/engines`);
+    const response = await fetch('/api/engines');
     const data = await response.json();
 
     if (data.success) {
@@ -5586,7 +5586,7 @@ async function saveNewEngine() {
   try {
     showAlert('엔진 저장 중...', 'info');
 
-    const response = await fetch(`${API_BASE_URL}/api/engines`, {
+    const response = await fetch('/api/engines', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -5662,7 +5662,7 @@ async function handleEngineFileImport(event) {
       const formData = new FormData();
       formData.append('engineFile', file);
 
-      const response = await fetch(`${API_BASE_URL}/api/engines/import`, {
+      const response = await fetch('/api/engines/import', {
         method: 'POST',
         body: formData
       });
@@ -5742,7 +5742,7 @@ async function generateWithCustomEngine(engineId) {
     document.getElementById('variationProgressText').textContent = '커스텀 엔진으로 문제 생성 중...';
     document.getElementById('generateVariationBtn').disabled = true;
 
-    const response = await fetch(`${API_BASE_URL}/api/engines/${engineId}/generate`, {
+    const response = await fetch(`/api/engines/${engineId}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
