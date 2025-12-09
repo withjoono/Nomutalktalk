@@ -1337,7 +1337,13 @@ async function previewEmbedding() {
 
 function displayEmbeddingPreview(preview) {
   // 기본 정보 표시
-  document.getElementById('previewFileName').textContent = preview.fileName;
+  const fileNameEl = document.getElementById('previewFileName');
+  fileNameEl.textContent = preview.fileName;
+
+  // OCR 수행 여부 표시
+  if (preview.isOCR) {
+    fileNameEl.innerHTML += ' <span class="ocr-badge">🔍 OCR</span>';
+  }
   document.getElementById('previewFileSize').textContent = formatFileSize(preview.fileSize);
   document.getElementById('previewTextLength').textContent = `${preview.totalTextLength.toLocaleString()}자`;
   document.getElementById('previewChunkCount').textContent = `${preview.totalChunks}개 청크`;
@@ -1837,6 +1843,274 @@ async function requestSolution() {
     showAlert(`❌ 오류: ${error.message}`, 'error');
   }
 }
+
+
+
+// ===== 문제 텍스트+그림/표 분리 표시 함수 =====
+
+/**
+ * 문제를 텍스트와 시각 자료(그림, 표, 그래프)로 분리하여 표시
+ * @param {string} problem - 원본 문제 텍스트
+ * @returns {object} - { textPart, visualPart } 분리된 HTML
+ */
+function separateProblemContent(problem) {
+  if (!problem) return { textPart: '', visualPart: '' };
+
+  let textPart = problem;
+  const visualElements = [];
+
+  // 1. 그래프 코드 블록 추출 (mermaid, plotly, chartjs, jsxgraph 등)
+  const graphTypes = ['mermaid', 'plotly', 'chartjs', 'jsxgraph', 'mol3d', 'matter', 'p5', 'cytoscape', 'leaflet', 'cesium', 'threejs'];
+
+  graphTypes.forEach(type => {
+    const regex = new RegExp(`\`\`\`${type}\n([\s\S]*?)\`\`\``, 'g');
+    let match;
+    while ((match = regex.exec(problem)) !== null) {
+      visualElements.push({
+        type: 'graph',
+        subtype: type,
+        content: match[1].trim(),
+        original: match[0]
+      });
+      textPart = textPart.replace(match[0], `[📊 ${type.toUpperCase()} 그래프]`);
+    }
+  });
+
+  // 2. 마크다운 이미지 추출 ![alt](url)
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let imgMatch;
+  while ((imgMatch = imageRegex.exec(problem)) !== null) {
+    visualElements.push({
+      type: 'image',
+      alt: imgMatch[1],
+      url: imgMatch[2],
+      original: imgMatch[0]
+    });
+    textPart = textPart.replace(imgMatch[0], '[🖼️ 이미지]');
+  }
+
+  // 3. Base64 이미지 추출 (data:image/...)
+  const base64Regex = /<img[^>]+src=["']?(data:image\/[^"'\s>]+)["']?[^>]*>/gi;
+  let b64Match;
+  while ((b64Match = base64Regex.exec(problem)) !== null) {
+    visualElements.push({
+      type: 'base64-image',
+      src: b64Match[1],
+      original: b64Match[0]
+    });
+    textPart = textPart.replace(b64Match[0], '[🖼️ 이미지]');
+  }
+
+  // 4. HTML 테이블 추출
+  const tableRegex = /<table[^>]*>[\s\S]*?<\/table>/gi;
+  let tableMatch;
+  while ((tableMatch = tableRegex.exec(problem)) !== null) {
+    visualElements.push({
+      type: 'html-table',
+      content: tableMatch[0],
+      original: tableMatch[0]
+    });
+    textPart = textPart.replace(tableMatch[0], '[📋 표]');
+  }
+
+  // 5. 마크다운 테이블 추출 (| 로 시작하는 여러 줄)
+  const mdTableRegex = /((?:\|[^\n]+\|\n?)+)/g;
+  let mdTableMatch;
+  while ((mdTableMatch = mdTableRegex.exec(problem)) !== null) {
+    // 최소 2줄 이상이고 | 가 포함된 경우만 테이블로 인식
+    const lines = mdTableMatch[0].trim().split('\n');
+    if (lines.length >= 2 && lines[0].includes('|')) {
+      visualElements.push({
+        type: 'markdown-table',
+        content: mdTableMatch[0],
+        original: mdTableMatch[0]
+      });
+      textPart = textPart.replace(mdTableMatch[0], '[📋 표]');
+    }
+  }
+
+  // 6. SVG 추출
+  const svgRegex = /<svg[^>]*>[\s\S]*?<\/svg>/gi;
+  let svgMatch;
+  while ((svgMatch = svgRegex.exec(problem)) !== null) {
+    visualElements.push({
+      type: 'svg',
+      content: svgMatch[0],
+      original: svgMatch[0]
+    });
+    textPart = textPart.replace(svgMatch[0], '[📐 도형]');
+  }
+
+  return {
+    textPart: textPart.trim(),
+    visualElements: visualElements
+  };
+}
+
+/**
+ * 분리된 문제를 HTML로 렌더링
+ * @param {string} problem - 원본 문제 텍스트
+ * @returns {string} - 분리된 레이아웃 HTML
+ */
+function formatProblemSeparated(problem) {
+  const { textPart, visualElements } = separateProblemContent(problem);
+
+  // 시각 자료가 없으면 기존 방식 사용
+  if (visualElements.length === 0) {
+    return `<div class="problem-display problem-text-only">
+      <div class="problem-text-section">
+        ${formatAnswer(problem)}
+      </div>
+    </div>`;
+  }
+
+  // 시각 자료 HTML 생성
+  let visualHTML = '';
+  visualElements.forEach((elem, idx) => {
+    let elemHTML = '';
+
+    switch(elem.type) {
+      case 'graph':
+        // 그래프 타입별 처리
+        const graphTypeMap = {
+          'mermaid': 'mermaid-diagram',
+          'plotly': 'plotly-graph-data',
+          'chartjs': 'chartjs-graph-data',
+          'jsxgraph': 'jsxgraph-data',
+          'mol3d': 'mol3d-data',
+          'matter': 'matter-data',
+          'p5': 'p5-data',
+          'cytoscape': 'cytoscape-data',
+          'leaflet': 'leaflet-data',
+          'cesium': 'cesium-data',
+          'threejs': 'threejs-data'
+        };
+        const graphClass = graphTypeMap[elem.subtype] || 'graph-container';
+        elemHTML = `<div class="visual-item graph-item">
+          <div class="visual-label">📊 ${elem.subtype.toUpperCase()} 그래프</div>
+          <div class="${graphClass}">${elem.content}</div>
+        </div>`;
+        break;
+
+      case 'image':
+        elemHTML = `<div class="visual-item image-item">
+          <div class="visual-label">🖼️ 이미지</div>
+          <img src="${elem.url}" alt="${elem.alt || '문제 이미지'}" class="problem-image" loading="lazy" />
+        </div>`;
+        break;
+
+      case 'base64-image':
+        elemHTML = `<div class="visual-item image-item">
+          <div class="visual-label">🖼️ 이미지</div>
+          <img src="${elem.src}" alt="문제 이미지" class="problem-image" />
+        </div>`;
+        break;
+
+      case 'html-table':
+        elemHTML = `<div class="visual-item table-item">
+          <div class="visual-label">📋 표</div>
+          <div class="problem-table">${elem.content}</div>
+        </div>`;
+        break;
+
+      case 'markdown-table':
+        elemHTML = `<div class="visual-item table-item">
+          <div class="visual-label">📋 표</div>
+          <div class="problem-table markdown-table">${convertMarkdownTable(elem.content)}</div>
+        </div>`;
+        break;
+
+      case 'svg':
+        elemHTML = `<div class="visual-item svg-item">
+          <div class="visual-label">📐 도형</div>
+          <div class="problem-svg">${elem.content}</div>
+        </div>`;
+        break;
+    }
+
+    visualHTML += elemHTML;
+  });
+
+  // 분리된 레이아웃 반환
+  return `<div class="problem-display problem-separated">
+    <div class="problem-layout-toggle">
+      <button class="toggle-btn active" onclick="toggleProblemLayout(this, 'separated')" title="분리 보기">
+        <span>📐</span> 분리 보기
+      </button>
+      <button class="toggle-btn" onclick="toggleProblemLayout(this, 'combined')" title="통합 보기">
+        <span>📄</span> 통합 보기
+      </button>
+    </div>
+
+    <div class="problem-separated-view">
+      <div class="problem-text-section">
+        <div class="section-header">📝 문제 텍스트</div>
+        <div class="section-content">${formatAnswer(textPart)}</div>
+      </div>
+
+      <div class="problem-visual-section">
+        <div class="section-header">🖼️ 시각 자료 (${visualElements.length}개)</div>
+        <div class="section-content visual-gallery">
+          ${visualHTML}
+        </div>
+      </div>
+    </div>
+
+    <div class="problem-combined-view" style="display: none;">
+      ${formatAnswer(problem)}
+    </div>
+  </div>`;
+}
+
+/**
+ * 마크다운 테이블을 HTML 테이블로 변환
+ */
+function convertMarkdownTable(mdTable) {
+  const lines = mdTable.trim().split('\n');
+  if (lines.length < 2) return mdTable;
+
+  let html = '<table class="md-table">';
+
+  lines.forEach((line, idx) => {
+    // 구분선 (---) 건너뛰기
+    if (line.match(/^\|?[\s\-:|]+\|?$/)) return;
+
+    const cells = line.split('|').filter(c => c.trim() !== '');
+    const tag = idx === 0 ? 'th' : 'td';
+    const rowClass = idx === 0 ? 'table-header' : 'table-row';
+
+    html += `<tr class="${rowClass}">`;
+    cells.forEach(cell => {
+      html += `<${tag}>${cell.trim()}</${tag}>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</table>';
+  return html;
+}
+
+/**
+ * 문제 레이아웃 토글 (분리/통합)
+ */
+function toggleProblemLayout(btn, mode) {
+  const container = btn.closest('.problem-display');
+  const separatedView = container.querySelector('.problem-separated-view');
+  const combinedView = container.querySelector('.problem-combined-view');
+  const buttons = container.querySelectorAll('.toggle-btn');
+
+  buttons.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (mode === 'separated') {
+    separatedView.style.display = 'grid';
+    combinedView.style.display = 'none';
+  } else {
+    separatedView.style.display = 'none';
+    combinedView.style.display = 'block';
+  }
+}
+
 
 function formatAnswer(answer) {
   // 1. 그래프 코드 블록을 임시 플레이스홀더로 교체 (이스케이프 보호)
@@ -3512,7 +3786,7 @@ function displayVariationResult(variation) {
     ${variation.openaiModel ? `<span class="badge openai">🟢 ${variation.openaiModel}</span>` : ''}
   </div>`;
 
-  let resultHTML = modelInfo + formatAnswer(variation.problem);
+  let resultHTML = modelInfo + formatProblemSeparated(variation.problem);
 
   // OpenAI 검토 결과가 있으면 표시
   if (variation.openaiReview && !variation.openaiReview.startsWith('OpenAI 검증 실패')) {
@@ -9606,3 +9880,287 @@ window.selectDbProblem = selectDbProblem;
 window.loadDbProblem = loadDbProblem;
 window.previewDbProblem = previewDbProblem;
 window.goToDbPage = goToDbPage;
+
+
+// ===== Python 코드 에디터 함수들 =====
+
+// Python 템플릿 삽입 함수
+function insertPythonTemplate(type) {
+  const editor = document.getElementById('newEnginePython');
+  let template = '';
+
+  switch(type) {
+    case 'validate':
+      template = `def validate_problem(problem_data):
+    """
+    문제 데이터를 검증하는 함수
+
+    Args:
+        problem_data: dict - 문제 데이터
+            - answer: 정답
+            - choices: 선택지 (객관식인 경우)
+            - values: 문제에 사용된 수치들
+
+    Returns:
+        bool - 유효한 문제이면 True, 아니면 False
+    """
+    try:
+        answer = problem_data.get('answer')
+
+        # 정답이 존재하는지 확인
+        if answer is None:
+            return False
+
+        # 정답이 유효한 범위인지 확인
+        # (예: 정수, 양수 등 조건 추가)
+        if not isinstance(answer, (int, float)):
+            return False
+
+        return True
+
+    except Exception as e:
+        print(f"검증 오류: {e}")
+        return False
+`;
+      break;
+
+    case 'generate':
+      template = `import random
+import math
+
+def generate_problem():
+    """
+    새로운 문제를 생성하는 함수
+
+    Returns:
+        dict - 생성된 문제 데이터
+            - answer: 정답
+            - values: 문제에 사용된 수치들
+            - description: 문제 설명 (선택)
+    """
+    # 랜덤 값 생성
+    a = random.randint(1, 10)
+    b = random.randint(1, 10)
+
+    # 정답 계산
+    answer = a + b
+
+    return {
+        'answer': answer,
+        'values': {'a': a, 'b': b},
+        'description': f'{a} + {b} = ?'
+    }
+
+
+def calculate_answer(params):
+    """
+    주어진 파라미터로 정답을 계산하는 함수
+
+    Args:
+        params: dict - 계산에 필요한 파라미터
+
+    Returns:
+        계산된 정답
+    """
+    a = params.get('a', 0)
+    b = params.get('b', 0)
+    return a + b
+`;
+      break;
+
+    case 'full':
+      template = `"""
+문제 생성 엔진: [엔진 이름]
+과목: [과목명]
+단원: [단원명]
+
+이 엔진은 [문제 유형]을 생성합니다.
+"""
+
+import random
+import math
+from itertools import permutations, combinations
+
+# ===== 설정 값 =====
+MIN_VALUE = 1
+MAX_VALUE = 100
+DIFFICULTY_LEVELS = ['easy', 'medium', 'hard']
+
+
+# ===== 문제 생성 함수 =====
+def generate_problem(difficulty='medium'):
+    """
+    난이도에 따른 문제 생성
+    """
+    if difficulty == 'easy':
+        range_max = 10
+    elif difficulty == 'medium':
+        range_max = 50
+    else:
+        range_max = 100
+
+    # 랜덤 값 생성
+    values = [random.randint(MIN_VALUE, range_max) for _ in range(3)]
+
+    # 정답 계산
+    answer = sum(values)
+
+    return {
+        'answer': answer,
+        'values': values,
+        'difficulty': difficulty
+    }
+
+
+# ===== 정답 계산 함수 =====
+def calculate_answer(params):
+    """
+    파라미터 기반 정답 계산
+    """
+    values = params.get('values', [])
+    return sum(values)
+
+
+# ===== 검증 함수 =====
+def validate_problem(problem_data):
+    """
+    생성된 문제의 유효성 검증
+    """
+    answer = problem_data.get('answer')
+    values = problem_data.get('values', [])
+
+    # 정답 일치 확인
+    if sum(values) != answer:
+        return False
+
+    # 값 범위 확인
+    for v in values:
+        if v < MIN_VALUE or v > MAX_VALUE:
+            return False
+
+    return True
+
+
+# ===== 변형 문제 생성 =====
+def create_variation(original_problem):
+    """
+    기존 문제를 기반으로 변형 문제 생성
+    """
+    original_values = original_problem.get('values', [])
+
+    # 값을 약간 변형
+    new_values = [v + random.randint(-2, 2) for v in original_values]
+    new_values = [max(MIN_VALUE, v) for v in new_values]  # 최소값 보장
+
+    return {
+        'answer': sum(new_values),
+        'values': new_values,
+        'is_variation': True
+    }
+`;
+      break;
+  }
+
+  editor.value = template;
+  editor.focus();
+}
+
+// Python 코드 초기화
+function clearPythonCode() {
+  const editor = document.getElementById('newEnginePython');
+  if (confirm('Python 코드를 초기화하시겠습니까?')) {
+    editor.value = '';
+    editor.focus();
+  }
+}
+
+// 대화형 모드에서 Python 코드 편집 모달 열기
+function editPythonFromChat() {
+  const currentCode = generatedEngineFromChat?.pythonCode || '';
+  document.getElementById('chatPythonCode').value = currentCode;
+  document.getElementById('chatPythonModal').style.display = 'flex';
+}
+
+// 대화형 모드 Python 모달 닫기
+function closeChatPythonModal() {
+  document.getElementById('chatPythonModal').style.display = 'none';
+}
+
+// 대화형 모드 Python 코드 저장
+function saveChatPythonCode() {
+  const code = document.getElementById('chatPythonCode').value;
+
+  if (!generatedEngineFromChat) {
+    generatedEngineFromChat = {};
+  }
+  generatedEngineFromChat.pythonCode = code;
+
+  // 미리보기 업데이트
+  const previewEl = document.getElementById('previewEnginePython');
+  if (previewEl) {
+    previewEl.textContent = code || '(Python 코드 없음)';
+  }
+
+  closeChatPythonModal();
+  showAlert('Python 코드가 저장되었습니다.', 'success');
+}
+
+// 대화형 모드용 Python 템플릿 삽입
+function insertChatPythonTemplate(type) {
+  const editor = document.getElementById('chatPythonCode');
+
+  // insertPythonTemplate와 동일한 로직 사용
+  let template = '';
+
+  switch(type) {
+    case 'validate':
+      template = `def validate_problem(problem_data):
+    """문제 데이터 검증 함수"""
+    try:
+        answer = problem_data.get('answer')
+        if answer is None:
+            return False
+        return True
+    except:
+        return False
+`;
+      break;
+
+    case 'generate':
+      template = `import random
+
+def generate_problem():
+    """문제 생성 함수"""
+    a = random.randint(1, 10)
+    b = random.randint(1, 10)
+    return {
+        'answer': a + b,
+        'values': {'a': a, 'b': b}
+    }
+`;
+      break;
+
+    case 'full':
+      template = `import random
+import math
+
+def generate_problem(difficulty='medium'):
+    """난이도별 문제 생성"""
+    range_max = {'easy': 10, 'medium': 50, 'hard': 100}.get(difficulty, 50)
+    values = [random.randint(1, range_max) for _ in range(3)]
+    return {'answer': sum(values), 'values': values}
+
+def validate_problem(data):
+    """문제 검증"""
+    return sum(data.get('values', [])) == data.get('answer')
+
+def calculate_answer(params):
+    """정답 계산"""
+    return sum(params.get('values', []))
+`;
+      break;
+  }
+
+  editor.value = template;
+  editor.focus();
+}

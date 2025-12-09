@@ -474,8 +474,11 @@
           <div class="model-group">
             <span class="model-group-label">🔷 Google</span>
             <select id="geminiModelSelect" class="model-select">
-              <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (최신)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (최신)</option>
+              <option value="">사용 안함</option>
+              <option value="gemini-3-pro-preview">Gemini 3 Pro (Preview) ✨</option>
+              <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (빠른)</option>
               <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
               <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
@@ -495,7 +498,7 @@
             </select>
           </div>
         </div>
-        <small class="form-hint">💡 Gemini는 필수, OpenAI는 추가 검증용으로 선택 가능</small>
+        <small class="form-hint">💡 Gemini 또는 OpenAI 중 하나 이상 선택 (둘 다 선택 시 교차 검증)</small>
       </div>
 
       <!-- 참조 문제 업로드 -->
@@ -1093,6 +1096,33 @@
                   <label>프롬프트 규칙:</label>
                   <pre id="previewEnginePrompt" class="preview-prompt">-</pre>
                 </div>
+                <div class="preview-field python-preview">
+                  <label>🐍 Python 코드:</label>
+                  <pre id="previewEnginePython" class="preview-code">-</pre>
+                  <button class="btn btn-small btn-outline" onclick="editPythonFromChat()">✏️ Python 코드 편집</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Python 코드 편집 모달 (대화형 모드용) -->
+            <div id="chatPythonModal" class="modal" style="display: none;">
+              <div class="modal-content code-modal">
+                <div class="modal-header">
+                  <h3>🐍 Python 코드 편집</h3>
+                  <button class="modal-close" onclick="closeChatPythonModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                  <div class="code-toolbar">
+                    <button type="button" class="code-tool-btn" onclick="insertChatPythonTemplate('validate')">✅ 검증 템플릿</button>
+                    <button type="button" class="code-tool-btn" onclick="insertChatPythonTemplate('generate')">🔢 생성 템플릿</button>
+                    <button type="button" class="code-tool-btn" onclick="insertChatPythonTemplate('full')">📋 전체 구조</button>
+                  </div>
+                  <textarea id="chatPythonCode" class="input-field code-editor python-editor" rows="20"></textarea>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" onclick="closeChatPythonModal()">취소</button>
+                  <button class="btn btn-primary" onclick="saveChatPythonCode()">💾 저장</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1127,12 +1157,53 @@
 3. 사용 가능한 색상 수는 3~5개
 4. 정답은 반드시 자연수여야 함"></textarea>
             </div>
-            <div class="form-group">
-              <label for="newEnginePython">Python 검증 코드 (선택)</label>
-              <textarea id="newEnginePython" class="input-field code-editor" rows="6" placeholder="# 문제 검증을 위한 Python 코드 (선택사항)
-def validate_problem(problem):
-    # 검증 로직
-    return True"></textarea>
+            <div class="form-group python-code-section">
+              <label for="newEnginePython">
+                🐍 Python 검증/생성 코드
+                <span class="label-hint">(문제 검증이나 수치 계산을 위한 Python 코드를 직접 작성하세요)</span>
+              </label>
+              <div class="code-editor-container">
+                <div class="code-toolbar">
+                  <button type="button" class="code-tool-btn" onclick="insertPythonTemplate('validate')" title="검증 함수 템플릿">
+                    ✅ 검증 템플릿
+                  </button>
+                  <button type="button" class="code-tool-btn" onclick="insertPythonTemplate('generate')" title="생성 함수 템플릿">
+                    🔢 생성 템플릿
+                  </button>
+                  <button type="button" class="code-tool-btn" onclick="insertPythonTemplate('full')" title="전체 구조 템플릿">
+                    📋 전체 구조
+                  </button>
+                  <button type="button" class="code-tool-btn" onclick="clearPythonCode()" title="코드 초기화">
+                    🗑️ 초기화
+                  </button>
+                </div>
+                <textarea id="newEnginePython" class="input-field code-editor python-editor" rows="15" placeholder="# 여기에 Python 코드를 직접 작성하세요
+#
+# 템플릿 버튼을 클릭하면 기본 구조가 삽입됩니다.
+#
+# 예시 1: 검증 함수
+# def validate_problem(problem_data):
+#     # problem_data에서 필요한 값을 추출하여 검증
+#     return True  # 유효하면 True
+#
+# 예시 2: 문제 생성 함수
+# def generate_problem():
+#     import random
+#     # 랜덤 값 생성
+#     return {'answer': 42, 'values': [1,2,3]}"></textarea>
+                <div class="code-line-numbers" id="pythonLineNumbers"></div>
+              </div>
+              <div class="code-help">
+                <details>
+                  <summary>💡 Python 코드 작성 도움말</summary>
+                  <div class="help-content">
+                    <p><strong>사용 가능한 라이브러리:</strong> math, random, itertools, functools</p>
+                    <p><strong>검증 함수:</strong> <code>validate_problem(data)</code> - True/False 반환</p>
+                    <p><strong>생성 함수:</strong> <code>generate_problem()</code> - 문제 데이터 딕셔너리 반환</p>
+                    <p><strong>계산 함수:</strong> <code>calculate_answer(params)</code> - 정답 계산</p>
+                  </div>
+                </details>
+              </div>
             </div>
             <div class="form-group">
               <label>또는 파일에서 가져오기:</label>

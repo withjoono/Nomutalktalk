@@ -524,15 +524,57 @@ app.post('/api/upload/preview-embedding', upload.single('file'), async (req, res
     }
     if (req.body.maxOverlapTokens) {
       maxOverlapTokens = parseInt(req.body.maxOverlapTokens) || 25;
-    }
-
-    // 텍스트 추출
+    }    // 텍스트 추출
     let extractedText = '';
+    let isOCR = false;
+
     if (mimeType === 'text/plain' || mimeType === 'text/markdown') {
       extractedText = fs.readFileSync(filePath, 'utf-8');
     } else if (mimeType === 'application/pdf') {
       // PDF는 여기서 간단한 텍스트 추출 시뮬레이션 (실제로는 PDF 파싱 필요)
       extractedText = `[PDF 파일: ${fileName}]\n※ PDF 텍스트 추출은 업로드 시 서버에서 처리됩니다.\n파일 크기: ${(req.file.size / 1024).toFixed(1)}KB`;
+    } else if (mimeType.startsWith('image/')) {
+      // 이미지 파일 - Gemini Vision으로 OCR 수행
+      try {
+        console.log('🔍 이미지 OCR 시작:', fileName);
+        const imageBuffer = fs.readFileSync(filePath);
+        const base64Image = imageBuffer.toString('base64');
+
+        // Gemini Vision API로 OCR
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+        const ocrPrompt = `이 이미지에서 모든 텍스트를 정확하게 추출해주세요.
+
+다음 규칙을 따르세요:
+1. 이미지에 보이는 모든 텍스트를 빠짐없이 추출
+2. 수학 수식은 LaTeX 형식으로 표기 (예: $x^2 + y^2 = r^2$)
+3. 표가 있으면 마크다운 표 형식으로 변환
+4. 그래프나 도형이 있으면 [그래프: 설명] 또는 [도형: 설명] 형식으로 표시
+5. 글자가 없거나 읽을 수 없는 부분은 [읽을 수 없음]으로 표시
+6. 원본 레이아웃을 최대한 유지
+
+추출된 텍스트만 출력하세요:`;
+
+        const result = await model.generateContent([
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Image
+            }
+          },
+          { text: ocrPrompt }
+        ]);
+
+        const response = await result.response;
+        extractedText = response.text();
+        isOCR = true;
+        console.log('✅ OCR 완료:', extractedText.length, '자 추출됨');
+      } catch (ocrError) {
+        console.error('❌ OCR 오류:', ocrError.message);
+        extractedText = `[이미지 OCR 오류]\n파일명: ${fileName}\n오류: ${ocrError.message}\n\n※ Gemini API 키를 확인하거나, 이미지가 손상되지 않았는지 확인하세요.`;
+      }
     } else {
       extractedText = `[${mimeType} 파일]\n파일명: ${fileName}\n파일 크기: ${(req.file.size / 1024).toFixed(1)}KB`;
     }
@@ -557,6 +599,7 @@ app.post('/api/upload/preview-embedding', upload.single('file'), async (req, res
         chunks: chunks.slice(0, 5), // 최대 5개 청크만 미리보기
         totalChunks: chunks.length,
         specialCharacters: specialChars,
+        isOCR: isOCR,
         settings: {
           maxTokensPerChunk,
           maxOverlapTokens

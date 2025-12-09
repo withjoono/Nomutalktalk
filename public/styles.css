@@ -6472,3 +6472,428 @@ kbd {
   font-weight: bold;
   font-size: 1.1rem;
 }
+
+
+/* ===== Python 코드 에디터 스타일 ===== */
+.python-code-section {
+  margin-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 20px;
+}
+
+.python-code-section .label-hint {
+  font-size: 0.85em;
+  color: #666;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.code-editor-container {
+  position: relative;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1e1e1e;
+}
+
+.code-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #444;
+  flex-wrap: wrap;
+}
+
+.code-tool-btn {
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #3d3d3d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all 0.2s;
+}
+
+.code-tool-btn:hover {
+  background: #667eea;
+  border-color: #667eea;
+}
+
+.python-editor {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  padding: 16px !important;
+  min-height: 320px !important;
+  resize: vertical;
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  width: 100%;
+  tab-size: 4;
+}
+
+.python-editor::placeholder {
+  color: #6a6a6a !important;
+}
+
+.python-editor:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(102, 126, 234, 0.5);
+}
+
+.code-help {
+  margin-top: 10px;
+}
+
+.code-help summary {
+  cursor: pointer;
+  color: #667eea;
+  font-size: 0.9em;
+  padding: 6px 0;
+}
+
+.code-help summary:hover {
+  text-decoration: underline;
+}
+
+.code-help .help-content {
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+.code-help .help-content p {
+  margin-bottom: 8px;
+}
+
+.code-help .help-content p:last-child {
+  margin-bottom: 0;
+}
+
+.code-help .help-content code {
+  background: #e8e8e8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
+  font-size: 0.95em;
+}
+
+/* Python 미리보기 스타일 */
+.python-preview .preview-code {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-bottom: 10px;
+}
+
+/* Python 코드 모달 */
+.code-modal {
+  max-width: 900px !important;
+  width: 90% !important;
+}
+
+.code-modal .modal-body {
+  padding: 0;
+  background: #1e1e1e;
+}
+
+.code-modal .modal-body .code-toolbar {
+  border-radius: 0;
+}
+
+.code-modal .python-editor {
+  min-height: 450px !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+/* 코드 에디터 다크 테마 강화 */
+.dark-theme .code-editor-container {
+  border-color: #444;
+}
+
+.dark-theme .code-help .help-content {
+  background: #2d2d2d;
+  color: #ccc;
+}
+
+.dark-theme .code-help .help-content code {
+  background: #3d3d3d;
+  color: #f0f0f0;
+}
+
+
+/* ===== 문제 분리 표시 UI 스타일 ===== */
+
+.problem-display {
+  position: relative;
+}
+
+.problem-layout-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 15px;
+  background: #f5f5f5;
+  padding: 4px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #e8e8e8;
+}
+
+.toggle-btn.active {
+  background: white;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.toggle-btn span {
+  font-size: 16px;
+}
+
+/* 분리 보기 레이아웃 */
+.problem-separated-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .problem-separated-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+.problem-text-section,
+.problem-visual-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.section-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.problem-text-section .section-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.problem-visual-section .section-header {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.section-content {
+  padding: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.problem-text-section .section-content {
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+/* 시각 자료 갤러리 */
+.visual-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.visual-item {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.visual-label {
+  background: #f0f0f0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.visual-item img.problem-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.visual-item .problem-table {
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.visual-item .problem-svg {
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.visual-item .problem-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 마크다운 테이블 스타일 */
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid #ddd;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.md-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.md-table tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.md-table tr:hover {
+  background: #f0f8ff;
+}
+
+/* 그래프 아이템 스타일 */
+.graph-item .section-content {
+  min-height: 200px;
+}
+
+/* 통합 보기 */
+.problem-combined-view {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  line-height: 1.8;
+}
+
+/* 텍스트만 있는 경우 */
+.problem-text-only {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  line-height: 1.8;
+}
+
+/* 이미지 확대 */
+.visual-item img.problem-image {
+  cursor: zoom-in;
+  transition: transform 0.2s;
+}
+
+.visual-item img.problem-image:hover {
+  transform: scale(1.02);
+}
+
+/* 다크 테마 지원 */
+.dark-theme .problem-layout-toggle {
+  background: #2d2d2d;
+}
+
+.dark-theme .toggle-btn {
+  color: #aaa;
+}
+
+.dark-theme .toggle-btn.active {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+.dark-theme .problem-text-section,
+.dark-theme .problem-visual-section,
+.dark-theme .problem-combined-view,
+.dark-theme .problem-text-only {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+.dark-theme .visual-item {
+  background: #252525;
+  border-color: #444;
+}
+
+.dark-theme .visual-label {
+  background: #333;
+  color: #ccc;
+  border-color: #444;
+}
+
+.dark-theme .md-table th,
+.dark-theme .md-table td {
+  border-color: #444;
+}
+
+.dark-theme .md-table th {
+  background: #333;
+}
+
+.dark-theme .md-table tr:nth-child(even) {
+  background: #2a2a2a;
+}
+
+.dark-theme .md-table tr:hover {
+  background: #363636;
+}
+
+
+/* OCR 배지 스타일 */
+.ocr-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  vertical-align: middle;
+}
