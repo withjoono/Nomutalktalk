@@ -67,6 +67,21 @@ class FileSearchManager {
   }
 
   /**
+   * 스토어 이름(displayName) 수정
+   * @param {string} storeName - 스토어 이름 (예: 'fileSearchStores/xxx')
+   * @param {string} newDisplayName - 새로운 표시 이름
+   * @returns {Promise<Object>} 업데이트된 스토어 정보
+   */
+  async renameStore(storeName, newDisplayName) {
+    // Google AI SDK의 update 메서드 사용
+    const updatedStore = await this.ai.fileSearchStores.update({
+      name: storeName,
+      config: { displayName: newDisplayName }
+    });
+    return updatedStore;
+  }
+
+  /**
    * 스토어에 파일 업로드
    * @param {string} filePath - 업로드할 파일 경로
    * @param {string} storeName - 스토어 이름 (예: 'fileSearchStores/xxx')

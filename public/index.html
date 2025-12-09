@@ -111,7 +111,16 @@
     <header class="header">
       <h1>🤖 Hizen AI 문제 은행</h1>
       <p class="subtitle">AI 기반 문서 검색 및 질의응답 시스템</p>
-      <div id="serverStatus" class="status-badge">확인 중...</div>
+      <div class="header-controls">
+        <div class="mode-toggle">
+          <label class="toggle-switch">
+            <input type="checkbox" id="editorModeToggle" onchange="toggleEditorMode()">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="mode-label">편집자 모드</span>
+        </div>
+        <div id="serverStatus" class="status-badge">확인 중...</div>
+      </div>
     </header>
 
     <!-- 과목 선택 섹션 -->
@@ -216,18 +225,87 @@
         <h3>✅ 현재 활성 스토어</h3>
         <p id="currentStoreName" class="store-name-display">-</p>
         <p id="currentStoreDetails" class="store-details">-</p>
+        <div class="store-actions" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="showRenameStoreDialog()" class="btn btn-secondary btn-sm">
+            ✏️ 이름 변경
+          </button>
+          <button onclick="deleteCurrentStore()" class="btn btn-danger btn-sm">
+            🗑️ 스토어 삭제
+          </button>
+        </div>
+      </div>
+
+      <!-- 스토어 이름 변경 다이얼로그 -->
+      <div id="renameStoreDialog" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+          <h3>스토어 이름 변경</h3>
+          <div class="form-group">
+            <label for="newStoreDisplayName">새 스토어 이름:</label>
+            <input
+              type="text"
+              id="newStoreDisplayName"
+              placeholder="새 이름 입력"
+              class="input-field"
+            >
+          </div>
+          <div class="modal-actions">
+            <button onclick="renameStore()" class="btn btn-primary">변경</button>
+            <button onclick="hideRenameStoreDialog()" class="btn btn-secondary">취소</button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- 문서 관리 섹션 -->
+    <!-- 문서 관리 섹션 (요약) -->
     <section class="card">
-      <h2>📚 문서 관리</h2>
+      <h2>📚 문서 현황</h2>
+      <p class="section-description">
+        💡 <strong>문서 현황</strong>: 업로드된 모든 문서의 요약 정보입니다.
+        <span class="description-detail">상세 관리는 하단의 'RAG 문서 관리'에서 청크 단위로 확인할 수 있습니다.</span>
+      </p>
 
-      <button onclick="loadDocuments()" class="btn btn-secondary">
-        🔄 문서 목록 새로고침
-      </button>
+      <div class="doc-summary-grid">
+        <div class="summary-item">
+          <span class="summary-icon">📄</span>
+          <div class="summary-info">
+            <span class="summary-value" id="totalDocCount">0</span>
+            <span class="summary-label">총 문서</span>
+          </div>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🔗</span>
+          <div class="summary-info">
+            <span class="summary-value" id="ragIndexedCount">0</span>
+            <span class="summary-label">RAG 인덱싱</span>
+          </div>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">📝</span>
+          <div class="summary-info">
+            <span class="summary-value" id="problemDocCount">0</span>
+            <span class="summary-label">문제 문서</span>
+          </div>
+        </div>
+        <div class="summary-item">
+          <span class="summary-icon">🖼️</span>
+          <div class="summary-info">
+            <span class="summary-value" id="assetDocCount">0</span>
+            <span class="summary-label">자료 문서</span>
+          </div>
+        </div>
+      </div>
 
-      <div id="documentsList" class="documents-list"></div>
+      <div class="doc-summary-actions">
+        <button onclick="loadDocuments()" class="btn btn-secondary btn-sm">
+          🔄 새로고침
+        </button>
+        <button onclick="scrollToRAGManagement()" class="btn btn-primary btn-sm">
+          📋 상세 관리 →
+        </button>
+      </div>
+
+      <!-- 간략 문서 목록 (최근 5개만) -->
+      <div id="recentDocsList" class="recent-docs-list"></div>
     </section>
 
     <!-- 파일 업로드 섹션 -->
@@ -322,11 +400,66 @@
         </div>
       </div>
 
-      <button onclick="uploadFile()" class="btn btn-primary btn-large">
-        📤 파일 업로드
-      </button>
+      <div class="upload-buttons">
+        <button onclick="previewEmbedding()" class="btn btn-info">
+          🔍 Embedding 미리보기
+        </button>
+        <button onclick="uploadFile()" class="btn btn-primary btn-large">
+          📤 파일 업로드
+        </button>
+      </div>
 
       <div id="uploadProgress" class="progress-box" style="display: none;"></div>
+
+      <!-- Embedding 미리보기 결과 -->
+      <div id="embeddingPreviewSection" class="embedding-preview-section" style="display: none;">
+        <div class="preview-header">
+          <h4>📊 Embedding 미리보기</h4>
+          <button class="btn btn-small btn-outline" onclick="closeEmbeddingPreview()">✕ 닫기</button>
+        </div>
+
+        <div class="preview-summary">
+          <div class="preview-stat">
+            <span class="stat-icon">📄</span>
+            <span class="stat-value" id="previewFileName">-</span>
+          </div>
+          <div class="preview-stat">
+            <span class="stat-icon">💾</span>
+            <span class="stat-value" id="previewFileSize">-</span>
+          </div>
+          <div class="preview-stat">
+            <span class="stat-icon">📝</span>
+            <span class="stat-value" id="previewTextLength">-</span>
+          </div>
+          <div class="preview-stat">
+            <span class="stat-icon">📦</span>
+            <span class="stat-value" id="previewChunkCount">-</span>
+          </div>
+        </div>
+
+        <!-- 추출 텍스트 미리보기 -->
+        <div class="preview-item">
+          <h5>📝 추출된 텍스트</h5>
+          <pre id="extractedTextPreview" class="extracted-text-preview"></pre>
+        </div>
+
+        <!-- 청크 분할 미리보기 -->
+        <div class="preview-item">
+          <h5>📦 청크 분할 미리보기</h5>
+          <div id="chunkPreview" class="chunk-preview-list"></div>
+        </div>
+
+        <!-- 특수 문자/수식 탐지 -->
+        <div class="preview-item">
+          <h5>🔣 특수 문자/수식 탐지</h5>
+          <div id="specialCharPreview" class="special-char-preview"></div>
+        </div>
+
+        <div class="preview-actions">
+          <button onclick="uploadFile()" class="btn btn-primary">✅ 이 설정으로 업로드</button>
+          <button onclick="closeEmbeddingPreview()" class="btn btn-secondary">❌ 취소</button>
+        </div>
+      </div>
     </section>
 
     <!-- 0. 참조 문제 기반 변형 출제 섹션 (Phase 1) -->
@@ -341,7 +474,9 @@
           <div class="model-group">
             <span class="model-group-label">🔷 Google</span>
             <select id="geminiModelSelect" class="model-select">
-              <option value="gemini-2.0-flash-exp" selected>Gemini 2.0 Flash</option>
+              <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (최신)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (최신)</option>
+              <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
               <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
             </select>
@@ -350,11 +485,13 @@
             <span class="model-group-label">🟢 OpenAI</span>
             <select id="openaiModelSelect" class="model-select">
               <option value="">사용 안함</option>
+              <option value="gpt-4.1">GPT-4.1 (Preview)</option>
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-4.1">GPT-4.1 (Preview)</option>
               <option value="o3">o3 (Reasoning)</option>
               <option value="o3-mini">o3 Mini</option>
+              <option value="o1">o1 (Reasoning)</option>
+              <option value="o1-mini">o1 Mini</option>
             </select>
           </div>
         </div>
@@ -364,7 +501,7 @@
       <!-- 참조 문제 업로드 -->
       <div class="form-group">
         <label for="referenceFileInput">📎 참조 문제 업로드:</label>
-        <div class="file-upload-area" id="referenceDropZone">
+        <div class="file-upload-area" id="referenceDropZone" tabindex="0">
           <input
             type="file"
             id="referenceFileInput"
@@ -375,6 +512,7 @@
           <div class="drop-zone-content">
             <span class="drop-icon">📄</span>
             <p>이미지 또는 PDF를 드래그하거나 클릭하여 업로드</p>
+            <p class="paste-hint"><kbd>Ctrl</kbd>+<kbd>V</kbd>로 클립보드 이미지 붙여넣기 가능</p>
             <small>지원 형식: JPG, PNG, PDF (최대 10MB)</small>
           </div>
         </div>
@@ -391,6 +529,10 @@
           <button class="btn btn-secondary" onclick="openAssetManagerModal()">
             🖼️ 자료 관리
           </button>
+          <!-- 6-③ 문제 입력 버튼 -->
+          <button class="btn btn-success problem-input-btn" onclick="inputProblemFromOCR()" title="영역 선택 후 OCR 결과를 문제로 입력">
+            📝 문제 입력
+          </button>
           <!-- Phase 4: 완전 파이프라인 버튼 -->
           <button class="btn btn-info" onclick="processReferenceComplete()" title="OCR → 라벨링 → 저장 → RAG 인덱싱 자동 수행">
             🚀 완전 처리
@@ -399,89 +541,398 @@
             📚 일괄 추출
           </button>
         </div>
+
+        <!-- 문제 입력 결과 표시 영역 -->
+        <div id="problemInputResult" class="problem-input-result" style="display: none;">
+          <div class="result-header">
+            <h4>📝 입력된 문제</h4>
+            <button class="btn btn-small btn-outline" onclick="closeProblemInputResult()">✕</button>
+          </div>
+          <div class="input-result-tabs">
+            <button class="result-tab active" data-tab="text" onclick="switchInputResultTab('text')">📝 텍스트</button>
+            <button class="result-tab" data-tab="images" onclick="switchInputResultTab('images')">🖼️ 이미지</button>
+            <button class="result-tab" data-tab="tables" onclick="switchInputResultTab('tables')">📋 표</button>
+          </div>
+          <div class="input-result-content">
+            <div id="inputResultText" class="result-tab-content active"></div>
+            <div id="inputResultImages" class="result-tab-content" style="display: none;"></div>
+            <div id="inputResultTables" class="result-tab-content" style="display: none;"></div>
+          </div>
+          <div class="input-result-actions">
+            <button class="btn btn-primary" onclick="confirmProblemInput()">✅ 이 문제로 변형 생성</button>
+            <button class="btn btn-secondary" onclick="editProblemInput()">✏️ 수정</button>
+            <!-- 6-⑧ 해설/정답 생성 버튼 -->
+            <button class="btn btn-info" onclick="generateSolutionAndAnswer()" title="입력된 문제의 해설과 정답 생성">
+              📖 해설/정답 생성
+            </button>
+            <!-- 6-⑨ 참조 문제 저장 버튼 -->
+            <button class="btn btn-success" onclick="saveReferenceProblemOnly()" title="변형 생성 없이 참조 문제만 저장">
+              💾 참조 문제 저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6-⑥ DB 문제 불러오기 -->
+      <div class="collapsible">
+        <button onclick="toggleSection('dbProblemSection')" class="collapsible-btn">
+          📂 저장된 문제 불러오기
+        </button>
+        <div id="dbProblemSection" class="collapsible-content" style="display: none;">
+          <div class="db-problem-filters">
+            <div class="form-group">
+              <label for="dbSubjectFilter">과목:</label>
+              <select id="dbSubjectFilter" class="input-field" onchange="onDbSubjectFilterChange()">
+                <option value="">전체</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dbChapterFilter">단원:</label>
+              <select id="dbChapterFilter" class="input-field" disabled>
+                <option value="">전체</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="dbTypeFilter">유형:</label>
+              <select id="dbTypeFilter" class="input-field">
+                <option value="">전체</option>
+                <option value="객관식">객관식</option>
+                <option value="주관식">주관식</option>
+                <option value="서술형">서술형</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="searchDbProblems()">🔍 검색</button>
+          </div>
+          <div id="dbProblemList" class="db-problem-list">
+            <p class="info-message">📂 검색 조건을 선택하고 검색 버튼을 클릭하세요.</p>
+          </div>
+          <div id="dbProblemPagination" class="pagination-controls" style="display: none;"></div>
+        </div>
       </div>
 
       <!-- 문제 메타데이터 입력 -->
       <div class="collapsible">
         <button onclick="toggleSection('problemMetadataSection')" class="collapsible-btn">
-          🏷️ 문제 정보 입력 (필수)
+          🏷️ 참조 문제 정보 입력 (선택)
         </button>
         <div id="problemMetadataSection" class="collapsible-content" style="display: block;">
 
-          <div class="metadata-grid">
-            <!-- 시험 종류 -->
-            <div class="form-group">
-              <label for="examTypeSelect">시험 종류:</label>
-              <select id="examTypeSelect" class="input-field">
-                <option value="">선택하세요</option>
-                <option value="내신">내신</option>
-                <option value="수능">수능/모의고사</option>
-                <option value="논술">논술</option>
-                <option value="심층면접">심층면접</option>
-              </select>
-            </div>
+          <!-- 공통 필드 -->
+          <div class="metadata-section">
+            <div class="metadata-grid">
+              <!-- 시험 종류 -->
+              <div class="form-group">
+                <label for="examTypeSelect">시험 종류:</label>
+                <select id="examTypeSelect" class="input-field" onchange="onExamTypeChange()">
+                  <option value="">선택하세요</option>
+                  <option value="내신">내신</option>
+                  <option value="수능">수능/모의고사</option>
+                  <option value="논술">논술</option>
+                  <option value="심층면접">심층면접</option>
+                </select>
+              </div>
 
-            <!-- 문제 유형 -->
-            <div class="form-group">
-              <label for="problemCategorySelect">문제 유형:</label>
-              <select id="problemCategorySelect" class="input-field">
-                <option value="">선택하세요</option>
-                <option value="기출문제">기출문제</option>
-                <option value="연습문제">연습문제</option>
-                <option value="예상문제">예상문제</option>
-              </select>
-            </div>
+              <!-- 학년 -->
+              <div class="form-group">
+                <label for="gradeSelect">학년:</label>
+                <select id="gradeSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="고1">고등학교 1학년</option>
+                  <option value="고2">고등학교 2학년</option>
+                  <option value="고3">고등학교 3학년</option>
+                  <option value="중1">중학교 1학년</option>
+                  <option value="중2">중학교 2학년</option>
+                  <option value="중3">중학교 3학년</option>
+                </select>
+              </div>
 
-            <!-- 학교명 (내신인 경우) -->
-            <div class="form-group" id="schoolNameGroup" style="display: none;">
-              <label for="schoolNameInput">학교명:</label>
-              <input type="text" id="schoolNameInput" class="input-field" placeholder="예: 서울고등학교">
-            </div>
+              <!-- 과목 (연동) -->
+              <div class="form-group">
+                <label for="refSubjectDisplay">과목:</label>
+                <input type="text" id="refSubjectDisplay" class="input-field" readonly placeholder="위에서 과목을 선택하세요">
+              </div>
 
-            <!-- 출제년도 -->
-            <div class="form-group">
-              <label for="examYearInput">출제년도:</label>
-              <input type="number" id="examYearInput" class="input-field" placeholder="예: 2024" min="2000" max="2030">
-            </div>
-
-            <!-- 학년 -->
-            <div class="form-group">
-              <label for="gradeSelect">학년:</label>
-              <select id="gradeSelect" class="input-field">
-                <option value="">선택하세요</option>
-                <option value="고1">고등학교 1학년</option>
-                <option value="고2">고등학교 2학년</option>
-                <option value="고3">고등학교 3학년</option>
-                <option value="중1">중학교 1학년</option>
-                <option value="중2">중학교 2학년</option>
-                <option value="중3">중학교 3학년</option>
-              </select>
-            </div>
-
-            <!-- 학기/시험 구분 (내신인 경우) -->
-            <div class="form-group" id="semesterGroup" style="display: none;">
-              <label for="semesterSelect">학기/시험:</label>
-              <select id="semesterSelect" class="input-field">
-                <option value="">선택하세요</option>
-                <option value="1학기 중간">1학기 중간고사</option>
-                <option value="1학기 기말">1학기 기말고사</option>
-                <option value="2학기 중간">2학기 중간고사</option>
-                <option value="2학기 기말">2학기 기말고사</option>
-              </select>
-            </div>
-
-            <!-- 과목 (연동) -->
-            <div class="form-group">
-              <label for="refSubjectDisplay">과목:</label>
-              <input type="text" id="refSubjectDisplay" class="input-field" readonly placeholder="위에서 과목을 선택하세요">
-            </div>
-
-            <!-- 단원 -->
-            <div class="form-group">
-              <label for="refChapterInput">단원명:</label>
-              <input type="text" id="refChapterInput" class="input-field" placeholder="예: 1. 다항식">
+              <!-- 출제/출간 년도 -->
+              <div class="form-group">
+                <label for="examYearInput">출제 또는 출간 년도:</label>
+                <input type="number" id="examYearInput" class="input-field" placeholder="예: 2024" min="2000" max="2030">
+              </div>
             </div>
           </div>
+
+          <!-- ==================== 내신 전용 필드 ==================== -->
+          <div id="naesinFields" class="exam-type-fields" style="display: none;">
+            <h4 class="field-section-title">📚 내신 정보</h4>
+            <div class="metadata-grid">
+              <!-- 문제 출처 -->
+              <div class="form-group">
+                <label for="naesinSourceSelect">문제 출처:</label>
+                <select id="naesinSourceSelect" class="input-field" onchange="onNaesinSourceChange()">
+                  <option value="">선택하세요</option>
+                  <option value="기출문제">기출문제</option>
+                  <option value="학교부교재">학교 부교재</option>
+                  <option value="참고서">참고서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              <!-- 학교명 (기출문제 선택 시) -->
+              <div class="form-group" id="naesinSchoolGroup" style="display: none;">
+                <label for="naesinSchoolInput">학교명:</label>
+                <input type="text" id="naesinSchoolInput" class="input-field" placeholder="예: 서울고등학교">
+              </div>
+
+              <!-- 참고서명 (참고서 선택 시) -->
+              <div class="form-group" id="naesinBookGroup" style="display: none;">
+                <label for="naesinBookInput">참고서명:</label>
+                <input type="text" id="naesinBookInput" class="input-field" placeholder="예: 자이스토리">
+              </div>
+
+              <!-- 기타 입력 (기타 선택 시) -->
+              <div class="form-group" id="naesinEtcGroup" style="display: none;">
+                <label for="naesinEtcInput">출처 상세:</label>
+                <input type="text" id="naesinEtcInput" class="input-field" placeholder="출처를 입력하세요">
+              </div>
+
+              <!-- 학기/시험 구분 -->
+              <div class="form-group">
+                <label for="semesterSelect">학기/시험:</label>
+                <select id="semesterSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="1학기 중간">1학기 중간고사</option>
+                  <option value="1학기 기말">1학기 기말고사</option>
+                  <option value="2학기 중간">2학기 중간고사</option>
+                  <option value="2학기 기말">2학기 기말고사</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 단원 정보 (자이스토리 기준) -->
+            <h5 class="field-subsection-title">📖 단원 정보</h5>
+            <div class="chapter-grid">
+              <div class="form-group">
+                <label for="naesinChapterLarge">대단원:</label>
+                <input type="text" id="naesinChapterLarge" class="input-field" placeholder="예: 1. 다항식">
+              </div>
+              <div class="form-group">
+                <label for="naesinChapterMedium">중단원:</label>
+                <input type="text" id="naesinChapterMedium" class="input-field" placeholder="예: A. 다항식의 연산">
+              </div>
+              <div class="form-group">
+                <label for="naesinChapterType">유형:</label>
+                <input type="text" id="naesinChapterType" class="input-field" placeholder="예: 유형 03. 다항식의 전개식에서의 계수 찾기">
+              </div>
+              <div class="form-group">
+                <label for="naesinChapterCode">유형 번호:</label>
+                <input type="text" id="naesinChapterCode" class="input-field" placeholder="예: A07">
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== 수능/모의고사 전용 필드 ==================== -->
+          <div id="suneungFields" class="exam-type-fields" style="display: none;">
+            <h4 class="field-section-title">📝 수능/모의고사 정보</h4>
+            <div class="metadata-grid">
+              <!-- 문제 출처 -->
+              <div class="form-group">
+                <label for="suneungSourceSelect">문제 출처:</label>
+                <select id="suneungSourceSelect" class="input-field" onchange="onSuneungSourceChange()">
+                  <option value="">선택하세요</option>
+                  <option value="수능기출">수능 기출 문제</option>
+                  <option value="평가원">평가원 모의고사</option>
+                  <option value="교육청">교육청 모의고사</option>
+                  <option value="사설모의고사">사설 모의고사</option>
+                  <option value="참고서">참고서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              <!-- 사설 모의고사명 -->
+              <div class="form-group" id="suneungPrivateGroup" style="display: none;">
+                <label for="suneungPrivateInput">모의고사명:</label>
+                <input type="text" id="suneungPrivateInput" class="input-field" placeholder="예: 이투스 모의고사">
+              </div>
+
+              <!-- 참고서명 -->
+              <div class="form-group" id="suneungBookGroup" style="display: none;">
+                <label for="suneungBookInput">참고서명:</label>
+                <input type="text" id="suneungBookInput" class="input-field" placeholder="예: 자이스토리">
+              </div>
+
+              <!-- 기타 입력 -->
+              <div class="form-group" id="suneungEtcGroup" style="display: none;">
+                <label for="suneungEtcInput">출처 상세:</label>
+                <input type="text" id="suneungEtcInput" class="input-field" placeholder="출처를 입력하세요">
+              </div>
+
+              <!-- 시행월 -->
+              <div class="form-group" id="suneungMonthGroup">
+                <label for="suneungMonthSelect">시행월:</label>
+                <select id="suneungMonthSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="3월">3월</option>
+                  <option value="4월">4월</option>
+                  <option value="6월">6월</option>
+                  <option value="7월">7월</option>
+                  <option value="9월">9월</option>
+                  <option value="10월">10월</option>
+                  <option value="11월">11월 (수능)</option>
+                </select>
+              </div>
+
+              <!-- 문항 번호 -->
+              <div class="form-group">
+                <label for="suneungQuestionNum">문항 번호:</label>
+                <input type="text" id="suneungQuestionNum" class="input-field" placeholder="예: 21번">
+              </div>
+            </div>
+
+            <!-- 단원 정보 -->
+            <h5 class="field-subsection-title">📖 단원 정보</h5>
+            <div class="chapter-grid">
+              <div class="form-group">
+                <label for="suneungChapterLarge">대단원:</label>
+                <input type="text" id="suneungChapterLarge" class="input-field" placeholder="예: 1. 다항식">
+              </div>
+              <div class="form-group">
+                <label for="suneungChapterMedium">중단원:</label>
+                <input type="text" id="suneungChapterMedium" class="input-field" placeholder="예: A. 다항식의 연산">
+              </div>
+              <div class="form-group">
+                <label for="suneungChapterType">유형:</label>
+                <input type="text" id="suneungChapterType" class="input-field" placeholder="예: 유형 03. 다항식의 전개식에서의 계수 찾기">
+              </div>
+              <div class="form-group">
+                <label for="suneungChapterCode">유형 번호:</label>
+                <input type="text" id="suneungChapterCode" class="input-field" placeholder="예: A07">
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== 논술 전용 필드 ==================== -->
+          <div id="nonsulFields" class="exam-type-fields" style="display: none;">
+            <h4 class="field-section-title">✍️ 논술 정보</h4>
+            <div class="metadata-grid">
+              <!-- 문제 출처 -->
+              <div class="form-group">
+                <label for="nonsulSourceSelect">문제 출처:</label>
+                <select id="nonsulSourceSelect" class="input-field" onchange="onNonsulSourceChange()">
+                  <option value="">선택하세요</option>
+                  <option value="기출문제">기출문제</option>
+                  <option value="대학별모의고사">대학별 모의고사</option>
+                  <option value="참고서">참고서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              <!-- 대학명 선택 (기출문제/대학별 모의고사 선택 시) -->
+              <div class="form-group" id="nonsulUnivGroup" style="display: none;">
+                <label for="nonsulUnivSelect">대학명:</label>
+                <select id="nonsulUnivSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="서울대">서울대학교</option>
+                  <option value="연세대">연세대학교</option>
+                  <option value="고려대">고려대학교</option>
+                  <option value="서강대">서강대학교</option>
+                  <option value="성균관대">성균관대학교</option>
+                  <option value="한양대">한양대학교</option>
+                  <option value="중앙대">중앙대학교</option>
+                  <option value="경희대">경희대학교</option>
+                  <option value="이화여대">이화여자대학교</option>
+                  <option value="기타">기타 (직접 입력)</option>
+                </select>
+                <input type="text" id="nonsulUnivCustom" class="input-field" style="display: none; margin-top: 8px;" placeholder="대학명 직접 입력">
+              </div>
+
+              <!-- 참고서명 -->
+              <div class="form-group" id="nonsulBookGroup" style="display: none;">
+                <label for="nonsulBookInput">참고서명:</label>
+                <input type="text" id="nonsulBookInput" class="input-field" placeholder="참고서명 입력">
+              </div>
+
+              <!-- 기타 입력 -->
+              <div class="form-group" id="nonsulEtcGroup" style="display: none;">
+                <label for="nonsulEtcInput">출처 상세:</label>
+                <input type="text" id="nonsulEtcInput" class="input-field" placeholder="출처를 입력하세요">
+              </div>
+            </div>
+
+            <!-- 단원명 (수기 입력) -->
+            <div class="form-group">
+              <label for="nonsulChapterInput">단원명:</label>
+              <input type="text" id="nonsulChapterInput" class="input-field" placeholder="단원명 입력 (자유 형식)">
+              <small class="form-hint">* 논술 단원 분류 체계는 선생님들과 논의 중입니다.</small>
+            </div>
+          </div>
+
+          <!-- ==================== 심층면접 전용 필드 ==================== -->
+          <div id="interviewFields" class="exam-type-fields" style="display: none;">
+            <h4 class="field-section-title">🎤 심층면접 정보</h4>
+            <div class="metadata-grid">
+              <!-- 문제 출처 -->
+              <div class="form-group">
+                <label for="interviewSourceSelect">문제 출처:</label>
+                <select id="interviewSourceSelect" class="input-field" onchange="onInterviewSourceChange()">
+                  <option value="">선택하세요</option>
+                  <option value="기출문제">기출문제</option>
+                  <option value="대학별모의고사">대학별 모의고사</option>
+                  <option value="참고서">참고서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+
+              <!-- 대학명 선택 -->
+              <div class="form-group" id="interviewUnivGroup" style="display: none;">
+                <label for="interviewUnivSelect">대학명:</label>
+                <select id="interviewUnivSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="서울대">서울대학교</option>
+                  <option value="연세대">연세대학교</option>
+                  <option value="고려대">고려대학교</option>
+                  <option value="서강대">서강대학교</option>
+                  <option value="성균관대">성균관대학교</option>
+                  <option value="한양대">한양대학교</option>
+                  <option value="중앙대">중앙대학교</option>
+                  <option value="경희대">경희대학교</option>
+                  <option value="이화여대">이화여자대학교</option>
+                  <option value="기타">기타 (직접 입력)</option>
+                </select>
+                <input type="text" id="interviewUnivCustom" class="input-field" style="display: none; margin-top: 8px;" placeholder="대학명 직접 입력">
+              </div>
+
+              <!-- 참고서명 -->
+              <div class="form-group" id="interviewBookGroup" style="display: none;">
+                <label for="interviewBookInput">참고서명:</label>
+                <input type="text" id="interviewBookInput" class="input-field" placeholder="참고서명 입력">
+              </div>
+
+              <!-- 기타 입력 -->
+              <div class="form-group" id="interviewEtcGroup" style="display: none;">
+                <label for="interviewEtcInput">출처 상세:</label>
+                <input type="text" id="interviewEtcInput" class="input-field" placeholder="출처를 입력하세요">
+              </div>
+
+              <!-- 면접 유형 -->
+              <div class="form-group">
+                <label for="interviewTypeSelect">면접 유형:</label>
+                <select id="interviewTypeSelect" class="input-field">
+                  <option value="">선택하세요</option>
+                  <option value="제시문면접">제시문 기반 면접</option>
+                  <option value="서류면접">서류 기반 면접</option>
+                  <option value="구술면접">구술 면접</option>
+                  <option value="MMI">MMI (다중미니면접)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 단원명 (수기 입력) -->
+            <div class="form-group">
+              <label for="interviewChapterInput">관련 단원/주제:</label>
+              <input type="text" id="interviewChapterInput" class="input-field" placeholder="관련 단원 또는 주제 입력 (자유 형식)">
+              <small class="form-hint">* 심층면접 분류 체계는 선생님들과 논의 중입니다.</small>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -566,9 +1017,84 @@
           </div>
         </div>
 
-        <!-- 새 엔진 만들기 -->
+        <!-- 새 엔진 만들기 (LLM 대화형 인터페이스) -->
         <div id="createEnginePanel" class="engine-panel" style="display: none;">
-          <div class="create-engine-form">
+          <!-- 모드 선택 탭 -->
+          <div class="engine-create-mode-tabs">
+            <button class="mode-tab active" data-mode="chat" onclick="switchEngineCreateMode('chat')">
+              💬 대화형 생성
+            </button>
+            <button class="mode-tab" data-mode="form" onclick="switchEngineCreateMode('form')">
+              📝 직접 입력
+            </button>
+          </div>
+
+          <!-- 대화형 엔진 생성 (LLM Chat Style) -->
+          <div id="engineChatMode" class="engine-chat-container">
+            <div class="chat-header">
+              <span class="chat-title">🤖 AI 엔진 생성 도우미</span>
+              <button class="btn btn-small btn-outline" onclick="clearEngineChatHistory()">🗑️ 대화 초기화</button>
+            </div>
+
+            <div id="engineChatMessages" class="chat-messages">
+              <div class="chat-message assistant">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                  <p>안녕하세요! 문제 생성 엔진을 만들어 드릴게요.</p>
+                  <p>어떤 유형의 문제를 생성하는 엔진을 만들고 싶으신가요?</p>
+                  <p class="chat-hint">예: "도형 색칠 문제를 만드는 엔진", "인수분해 문제 생성기", "확률 계산 문제 엔진"</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <div class="chat-input-wrapper">
+                <textarea id="engineChatInput" class="chat-input" rows="2"
+                          placeholder="원하는 엔진 유형을 설명해주세요..."
+                          onkeydown="handleEngineChatKeydown(event)"></textarea>
+                <button class="chat-send-btn" onclick="sendEngineChatMessage()">
+                  <span>전송</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="chat-suggestions">
+                <button class="suggestion-chip" onclick="useEngineSuggestion('도형 색칠 문제')">도형 색칠</button>
+                <button class="suggestion-chip" onclick="useEngineSuggestion('경우의 수 문제')">경우의 수</button>
+                <button class="suggestion-chip" onclick="useEngineSuggestion('함수 그래프 문제')">함수 그래프</button>
+                <button class="suggestion-chip" onclick="useEngineSuggestion('확률 계산 문제')">확률 계산</button>
+              </div>
+            </div>
+
+            <!-- 엔진 미리보기 (대화 중 생성된 엔진) -->
+            <div id="enginePreviewFromChat" class="engine-preview-card" style="display: none;">
+              <div class="preview-header">
+                <span class="preview-title">📋 생성된 엔진 미리보기</span>
+                <div class="preview-actions">
+                  <button class="btn btn-small btn-secondary" onclick="editEngineFromChat()">✏️ 수정</button>
+                  <button class="btn btn-small btn-primary" onclick="saveEngineFromChat()">💾 저장</button>
+                </div>
+              </div>
+              <div class="preview-content">
+                <div class="preview-field">
+                  <label>엔진 이름:</label>
+                  <span id="previewEngineName">-</span>
+                </div>
+                <div class="preview-field">
+                  <label>과목/단원:</label>
+                  <span id="previewEngineSubject">-</span>
+                </div>
+                <div class="preview-field">
+                  <label>프롬프트 규칙:</label>
+                  <pre id="previewEnginePrompt" class="preview-prompt">-</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 직접 입력 폼 -->
+          <div id="engineFormMode" class="create-engine-form" style="display: none;">
             <div class="form-group">
               <label for="newEngineName">엔진 이름 *</label>
               <input type="text" id="newEngineName" class="input-field" placeholder="예: 도형 색칠 v1.0">
@@ -721,12 +1247,112 @@ def validate_problem(problem):
         </button>
       </div>
 
-      <!-- OCR 결과 표시 -->
+      <!-- OCR 결과 표시 (분리형) -->
       <div id="ocrResultBox" class="ocr-result-box" style="display: none;">
-        <h4>📝 OCR 추출 결과</h4>
-        <div id="ocrContent" class="ocr-content"></div>
-        <button onclick="copyOCRText()" class="btn btn-small">📋 복사</button>
-        <button onclick="closeOCRResult()" class="btn btn-small btn-outline">닫기</button>
+        <div class="ocr-result-header">
+          <h4>📝 OCR 추출 결과</h4>
+          <button onclick="closeOCRResult()" class="btn btn-small btn-outline">✕ 닫기</button>
+        </div>
+
+        <!-- OCR 진행 상태 표시 -->
+        <div id="ocrProgressIndicator" class="ocr-progress-indicator" style="display: none;">
+          <div class="progress-steps">
+            <div class="progress-step" data-step="upload">
+              <span class="step-icon">📤</span>
+              <span class="step-label">업로드</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step" data-step="detect">
+              <span class="step-icon">🔍</span>
+              <span class="step-label">영역 감지</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step" data-step="ocr">
+              <span class="step-icon">📝</span>
+              <span class="step-label">OCR 처리</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step" data-step="parse">
+              <span class="step-icon">📊</span>
+              <span class="step-label">구조 분석</span>
+            </div>
+            <div class="progress-connector"></div>
+            <div class="progress-step" data-step="complete">
+              <span class="step-icon">✅</span>
+              <span class="step-label">완료</span>
+            </div>
+          </div>
+          <div class="progress-message" id="ocrProgressMessage">처리 중...</div>
+        </div>
+
+        <!-- 결과 요약 통계 -->
+        <div id="ocrResultSummary" class="ocr-result-summary" style="display: none;">
+          <div class="summary-stat">
+            <span class="stat-icon">📝</span>
+            <span class="stat-value" id="ocrTextCount">0</span>
+            <span class="stat-label">텍스트 블록</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-icon">🖼️</span>
+            <span class="stat-value" id="ocrImageCount">0</span>
+            <span class="stat-label">이미지/그림</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-icon">📋</span>
+            <span class="stat-value" id="ocrTableCount">0</span>
+            <span class="stat-label">표/테이블</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-icon">🔢</span>
+            <span class="stat-value" id="ocrFormulaCount">0</span>
+            <span class="stat-label">수식</span>
+          </div>
+        </div>
+
+        <!-- 분리형 탭 인터페이스 -->
+        <div class="ocr-result-tabs">
+          <button class="ocr-tab active" data-tab="all" onclick="switchOCRTab('all')">📄 전체</button>
+          <button class="ocr-tab" data-tab="text" onclick="switchOCRTab('text')">📝 텍스트</button>
+          <button class="ocr-tab" data-tab="images" onclick="switchOCRTab('images')">🖼️ 이미지</button>
+          <button class="ocr-tab" data-tab="tables" onclick="switchOCRTab('tables')">📋 표</button>
+          <button class="ocr-tab" data-tab="formulas" onclick="switchOCRTab('formulas')">🔢 수식</button>
+        </div>
+
+        <!-- 탭별 콘텐츠 -->
+        <div class="ocr-tab-contents">
+          <!-- 전체 보기 -->
+          <div id="ocrTabAll" class="ocr-tab-content active">
+            <div id="ocrContent" class="ocr-content"></div>
+          </div>
+
+          <!-- 텍스트만 -->
+          <div id="ocrTabText" class="ocr-tab-content" style="display: none;">
+            <div id="ocrTextContent" class="ocr-text-content"></div>
+          </div>
+
+          <!-- 이미지/그림 -->
+          <div id="ocrTabImages" class="ocr-tab-content" style="display: none;">
+            <div id="ocrImagesContent" class="ocr-images-grid"></div>
+          </div>
+
+          <!-- 표/테이블 -->
+          <div id="ocrTabTables" class="ocr-tab-content" style="display: none;">
+            <div id="ocrTablesContent" class="ocr-tables-list"></div>
+          </div>
+
+          <!-- 수식 -->
+          <div id="ocrTabFormulas" class="ocr-tab-content" style="display: none;">
+            <div id="ocrFormulasContent" class="ocr-formulas-list"></div>
+          </div>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div class="ocr-result-actions">
+          <button onclick="copyOCRText()" class="btn btn-small btn-secondary">📋 전체 복사</button>
+          <button onclick="copyOCRSection('text')" class="btn btn-small btn-outline">📝 텍스트 복사</button>
+          <button onclick="copyOCRSection('formulas')" class="btn btn-small btn-outline">🔢 수식 복사</button>
+          <button onclick="exportOCRAsJSON()" class="btn btn-small btn-info">💾 JSON 내보내기</button>
+        </div>
       </div>
     </section>
 
@@ -856,8 +1482,8 @@ def validate_problem(problem):
       </div>
     </section>
 
-    <!-- 4. 저장된 학습 기록 섹션 -->
-    <section class="card">
+    <!-- 4. 저장된 학습 기록 섹션 (편집자 모드에서 숨김) -->
+    <section class="card hide-in-editor-mode">
       <h2>📁 저장된 학습 기록</h2>
 
       <button onclick="loadRecords()" class="btn btn-secondary">
@@ -869,8 +1495,8 @@ def validate_problem(problem):
       </div>
     </section>
 
-    <!-- 질의응답 섹션 (기존 기능 유지) -->
-    <section class="card">
+    <!-- 질의응답 섹션 (기존 기능 유지, 편집자 모드에서 숨김) -->
+    <section class="card hide-in-editor-mode">
       <h2>💬 질의와 응답</h2>
 
       <div class="form-group">
@@ -908,6 +1534,9 @@ def validate_problem(problem):
           </button>
           <button onclick="openAddLabelModal()" class="btn btn-primary">
             ➕ 라벨 추가
+          </button>
+          <button onclick="openAutoKeywordModal()" class="btn btn-info" title="문제 텍스트에서 키워드 자동 추출">
+            🤖 키워드 자동 생성
           </button>
           <button onclick="resetLabelsToDefault()" class="btn btn-outline">
             🔄 기본값 복원
@@ -957,11 +1586,37 @@ def validate_problem(problem):
             <option value="asset">자료</option>
             <option value="document">일반 문서</option>
           </select>
+          <button onclick="openChunkViewer()" class="btn btn-info" title="RAG 청크 상세 확인">
+            🔍 청크 확인
+          </button>
         </div>
 
         <!-- RAG 문서 목록 -->
         <div id="ragDocumentsList" class="rag-documents-list">
           <p class="info-message">📚 문서를 불러오려면 새로고침을 클릭하세요.</p>
+        </div>
+
+        <!-- RAG 청크 뷰어 (#12) -->
+        <div id="chunkViewerSection" class="chunk-viewer-section" style="display: none;">
+          <div class="chunk-viewer-header">
+            <h4>🔍 RAG 청크 상세 보기</h4>
+            <button class="btn btn-small btn-outline" onclick="closeChunkViewer()">✕ 닫기</button>
+          </div>
+          <div class="chunk-viewer-controls">
+            <input type="text" id="chunkSearchQuery" class="input-field"
+                   placeholder="청크 검색 (유사도 기반)..."
+                   onkeydown="if(event.key==='Enter') searchChunks()">
+            <button onclick="searchChunks()" class="btn btn-primary">검색</button>
+            <select id="chunkSortOrder" class="input-field" onchange="sortChunks()">
+              <option value="relevance">관련도순</option>
+              <option value="newest">최신순</option>
+              <option value="oldest">오래된순</option>
+            </select>
+          </div>
+          <div id="chunkViewerList" class="chunk-viewer-list">
+            <p class="info-message">검색어를 입력하여 관련 청크를 찾아보세요.</p>
+          </div>
+          <div id="chunkViewerPagination" class="chunk-pagination"></div>
         </div>
       </div>
     </section>
@@ -1308,6 +1963,70 @@ def validate_problem(problem):
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeAddLabelModal()">취소</button>
       <button class="btn btn-primary" onclick="saveLabel()" id="saveLabelBtn">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 키워드 자동 생성 모달 (#11) ==================== -->
+<div id="autoKeywordModal" class="modal" style="display: none;">
+  <div class="modal-content modal-medium">
+    <div class="modal-header">
+      <h3>🤖 키워드 자동 생성</h3>
+      <button class="modal-close" onclick="closeAutoKeywordModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="keywordSourceText">분석할 텍스트:</label>
+        <textarea id="keywordSourceText" class="textarea-field" rows="6"
+                  placeholder="문제 텍스트를 입력하거나 붙여넣으세요...&#10;예: 다항함수 f(x)가 x=1에서 극댓값 5를 갖고..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>키워드 추출 옵션:</label>
+        <div class="keyword-options">
+          <label class="checkbox-label">
+            <input type="checkbox" id="extractConcepts" checked> 수학 개념
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="extractMethods" checked> 풀이 방법
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="extractFormulas"> 공식/정리
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="extractDifficulty"> 난이도 분석
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="targetCategory">추출할 카테고리:</label>
+        <select id="targetCategory" class="input-field">
+          <option value="concept">개념 (concept)</option>
+          <option value="skill">역량 (skill)</option>
+          <option value="chapter">단원 (chapter)</option>
+          <option value="problemType">문제유형 (problemType)</option>
+        </select>
+      </div>
+      <button onclick="generateKeywordsFromText()" class="btn btn-primary btn-block">
+        🤖 AI로 키워드 추출
+      </button>
+
+      <!-- 추출된 키워드 결과 -->
+      <div id="extractedKeywordsResult" class="extracted-keywords-result" style="display: none;">
+        <div class="result-header">
+          <span>📋 추출된 키워드</span>
+          <button class="btn btn-small btn-outline" onclick="selectAllKeywords()">전체 선택</button>
+        </div>
+        <div id="extractedKeywordsList" class="extracted-keywords-list">
+        </div>
+        <div class="keyword-actions">
+          <button onclick="addSelectedKeywordsAsLabels()" class="btn btn-success">
+            ✅ 선택 항목 라벨로 추가
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAutoKeywordModal()">닫기</button>
     </div>
   </div>
 </div>

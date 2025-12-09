@@ -9,6 +9,7 @@ let selectedCurriculum = '2022'; // 기본값: 2022 교육과정
 let selectedCourse = null;
 let selectedPublisher = null;
 let selectedChapter = null;
+let isEditorMode = false; // 편집자 모드
 
 // ==================== 초기화 ====================
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,7 +17,39 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   loadSubjectsData();
   loadRecords(); // 저장된 학습 기록 로드
+  loadEditorModePreference(); // 편집자 모드 설정 로드
 });
+
+// ==================== 편집자 모드 ====================
+/**
+ * 편집자 모드 설정 로드
+ */
+function loadEditorModePreference() {
+  const savedMode = localStorage.getItem('editorMode');
+  if (savedMode === 'true') {
+    isEditorMode = true;
+    document.getElementById('editorModeToggle').checked = true;
+    document.body.classList.add('editor-mode');
+  }
+}
+
+/**
+ * 편집자 모드 토글
+ */
+function toggleEditorMode() {
+  const toggle = document.getElementById('editorModeToggle');
+  isEditorMode = toggle.checked;
+
+  if (isEditorMode) {
+    document.body.classList.add('editor-mode');
+    localStorage.setItem('editorMode', 'true');
+    showAlert('📝 편집자 모드로 전환되었습니다. 불필요한 섹션이 숨겨집니다.', 'info');
+  } else {
+    document.body.classList.remove('editor-mode');
+    localStorage.setItem('editorMode', 'false');
+    showAlert('🔓 전체 기능 모드로 전환되었습니다.', 'info');
+  }
+}
 
 // ==================== 이벤트 리스너 설정 ====================
 function setupEventListeners() {
@@ -366,6 +399,607 @@ function onChapterChange() {
   console.log('✅ 단원 선택:', selectedChapter.name);
 }
 
+// ==================== 문제 정보 입력 필드 이벤트 핸들러 ====================
+
+/**
+ * 시험 종류 변경 이벤트
+ */
+function onExamTypeChange() {
+  const examTypeSelect = document.getElementById('examTypeSelect');
+  if (!examTypeSelect) {
+    console.warn('⚠️ examTypeSelect 요소를 찾을 수 없습니다.');
+    return;
+  }
+  const examType = examTypeSelect.value;
+
+  // 모든 시험 종류별 필드 숨기기 (null 체크 포함)
+  const naesinFields = document.getElementById('naesinFields');
+  const suneungFields = document.getElementById('suneungFields');
+  const nonsulFields = document.getElementById('nonsulFields');
+  const interviewFields = document.getElementById('interviewFields');
+
+  if (naesinFields) naesinFields.style.display = 'none';
+  if (suneungFields) suneungFields.style.display = 'none';
+  if (nonsulFields) nonsulFields.style.display = 'none';
+  if (interviewFields) interviewFields.style.display = 'none';
+
+  // 선택된 시험 종류에 맞는 필드 표시
+  switch (examType) {
+    case '내신':
+      if (naesinFields) naesinFields.style.display = 'block';
+      break;
+    case '수능':
+      if (suneungFields) suneungFields.style.display = 'block';
+      break;
+    case '논술':
+      if (nonsulFields) nonsulFields.style.display = 'block';
+      break;
+    case '심층면접':
+      if (interviewFields) interviewFields.style.display = 'block';
+      break;
+  }
+
+  console.log('✅ 시험 종류 변경:', examType);
+}
+
+/**
+ * 내신 - 문제 출처 변경 이벤트
+ */
+function onNaesinSourceChange() {
+  const sourceSelect = document.getElementById('naesinSourceSelect');
+  if (!sourceSelect) return;
+  const source = sourceSelect.value;
+
+  // 모든 조건부 필드 숨기기 (null 체크 포함)
+  const schoolGroup = document.getElementById('naesinSchoolGroup');
+  const bookGroup = document.getElementById('naesinBookGroup');
+  const etcGroup = document.getElementById('naesinEtcGroup');
+
+  if (schoolGroup) schoolGroup.style.display = 'none';
+  if (bookGroup) bookGroup.style.display = 'none';
+  if (etcGroup) etcGroup.style.display = 'none';
+
+  // 선택에 따라 해당 필드 표시
+  switch (source) {
+    case '기출문제':
+      if (schoolGroup) schoolGroup.style.display = 'block';
+      break;
+    case '참고서':
+      if (bookGroup) bookGroup.style.display = 'block';
+      break;
+    case '기타':
+      if (etcGroup) etcGroup.style.display = 'block';
+      break;
+  }
+}
+
+/**
+ * 수능/모의고사 - 문제 출처 변경 이벤트
+ */
+function onSuneungSourceChange() {
+  const sourceSelect = document.getElementById('suneungSourceSelect');
+  if (!sourceSelect) return;
+  const source = sourceSelect.value;
+
+  // 모든 조건부 필드 숨기기 (null 체크 포함)
+  const privateGroup = document.getElementById('suneungPrivateGroup');
+  const bookGroup = document.getElementById('suneungBookGroup');
+  const etcGroup = document.getElementById('suneungEtcGroup');
+  const monthGroup = document.getElementById('suneungMonthGroup');
+
+  if (privateGroup) privateGroup.style.display = 'none';
+  if (bookGroup) bookGroup.style.display = 'none';
+  if (etcGroup) etcGroup.style.display = 'none';
+
+  // 시행월 표시 여부
+  const showMonth = ['수능기출', '평가원', '교육청'].includes(source);
+  if (monthGroup) monthGroup.style.display = showMonth ? 'block' : 'none';
+
+  // 선택에 따라 해당 필드 표시
+  switch (source) {
+    case '사설모의고사':
+      if (privateGroup) privateGroup.style.display = 'block';
+      break;
+    case '참고서':
+      if (bookGroup) bookGroup.style.display = 'block';
+      break;
+    case '기타':
+      if (etcGroup) etcGroup.style.display = 'block';
+      break;
+  }
+}
+
+/**
+ * 논술 - 문제 출처 변경 이벤트
+ */
+function onNonsulSourceChange() {
+  const sourceSelect = document.getElementById('nonsulSourceSelect');
+  if (!sourceSelect) return;
+  const source = sourceSelect.value;
+
+  // 모든 조건부 필드 숨기기 (null 체크 포함)
+  const univGroup = document.getElementById('nonsulUnivGroup');
+  const bookGroup = document.getElementById('nonsulBookGroup');
+  const etcGroup = document.getElementById('nonsulEtcGroup');
+
+  if (univGroup) univGroup.style.display = 'none';
+  if (bookGroup) bookGroup.style.display = 'none';
+  if (etcGroup) etcGroup.style.display = 'none';
+
+  // 선택에 따라 해당 필드 표시
+  switch (source) {
+    case '기출문제':
+    case '대학별모의고사':
+      if (univGroup) univGroup.style.display = 'block';
+      break;
+    case '참고서':
+      if (bookGroup) bookGroup.style.display = 'block';
+      break;
+    case '기타':
+      if (etcGroup) etcGroup.style.display = 'block';
+      break;
+  }
+
+  // 대학 선택 이벤트 핸들러 설정
+  setupUnivSelectHandler('nonsulUnivSelect', 'nonsulUnivCustom');
+}
+
+/**
+ * 심층면접 - 문제 출처 변경 이벤트
+ */
+function onInterviewSourceChange() {
+  const sourceSelect = document.getElementById('interviewSourceSelect');
+  if (!sourceSelect) return;
+  const source = sourceSelect.value;
+
+  // 모든 조건부 필드 숨기기 (null 체크 포함)
+  const univGroup = document.getElementById('interviewUnivGroup');
+  const bookGroup = document.getElementById('interviewBookGroup');
+  const etcGroup = document.getElementById('interviewEtcGroup');
+
+  if (univGroup) univGroup.style.display = 'none';
+  if (bookGroup) bookGroup.style.display = 'none';
+  if (etcGroup) etcGroup.style.display = 'none';
+
+  // 선택에 따라 해당 필드 표시
+  switch (source) {
+    case '기출문제':
+    case '대학별모의고사':
+      if (univGroup) univGroup.style.display = 'block';
+      break;
+    case '참고서':
+      if (bookGroup) bookGroup.style.display = 'block';
+      break;
+    case '기타':
+      if (etcGroup) etcGroup.style.display = 'block';
+      break;
+  }
+
+  // 대학 선택 이벤트 핸들러 설정
+  setupUnivSelectHandler('interviewUnivSelect', 'interviewUnivCustom');
+}
+
+/**
+ * 대학명 선택 이벤트 핸들러 설정 (기타 선택 시 직접 입력 표시)
+ */
+function setupUnivSelectHandler(selectId, customInputId) {
+  const select = document.getElementById(selectId);
+  const customInput = document.getElementById(customInputId);
+
+  if (!select || !customInput) return;
+
+  // 기존 이벤트 제거 후 재등록
+  const handler = () => {
+    if (select.value === '기타') {
+      customInput.style.display = 'block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+      customInput.value = '';
+    }
+  };
+
+  select.removeEventListener('change', handler);
+  select.addEventListener('change', handler);
+
+  // 현재 값에 따라 초기 상태 설정
+  handler();
+}
+
+/**
+ * 문제 정보 메타데이터 수집
+ */
+function collectProblemMetadata() {
+  const examType = document.getElementById('examTypeSelect').value;
+  const metadata = {
+    examType,
+    grade: document.getElementById('gradeSelect').value,
+    subject: document.getElementById('refSubjectDisplay').value,
+    year: document.getElementById('examYearInput').value
+  };
+
+  switch (examType) {
+    case '내신':
+      metadata.source = document.getElementById('naesinSourceSelect').value;
+      metadata.school = document.getElementById('naesinSchoolInput')?.value || '';
+      metadata.book = document.getElementById('naesinBookInput')?.value || '';
+      metadata.etcSource = document.getElementById('naesinEtcInput')?.value || '';
+      metadata.semester = document.getElementById('semesterSelect').value;
+      metadata.chapter = {
+        large: document.getElementById('naesinChapterLarge')?.value || '',
+        medium: document.getElementById('naesinChapterMedium')?.value || '',
+        type: document.getElementById('naesinChapterType')?.value || '',
+        code: document.getElementById('naesinChapterCode')?.value || ''
+      };
+      break;
+
+    case '수능':
+      metadata.source = document.getElementById('suneungSourceSelect').value;
+      metadata.privateMock = document.getElementById('suneungPrivateInput')?.value || '';
+      metadata.book = document.getElementById('suneungBookInput')?.value || '';
+      metadata.etcSource = document.getElementById('suneungEtcInput')?.value || '';
+      metadata.month = document.getElementById('suneungMonthSelect')?.value || '';
+      metadata.questionNum = document.getElementById('suneungQuestionNum')?.value || '';
+      metadata.chapter = {
+        large: document.getElementById('suneungChapterLarge')?.value || '',
+        medium: document.getElementById('suneungChapterMedium')?.value || '',
+        type: document.getElementById('suneungChapterType')?.value || '',
+        code: document.getElementById('suneungChapterCode')?.value || ''
+      };
+      break;
+
+    case '논술':
+      metadata.source = document.getElementById('nonsulSourceSelect').value;
+      const nonsulUniv = document.getElementById('nonsulUnivSelect')?.value;
+      metadata.university = nonsulUniv === '기타'
+        ? document.getElementById('nonsulUnivCustom')?.value || ''
+        : nonsulUniv || '';
+      metadata.book = document.getElementById('nonsulBookInput')?.value || '';
+      metadata.etcSource = document.getElementById('nonsulEtcInput')?.value || '';
+      metadata.chapter = document.getElementById('nonsulChapterInput')?.value || '';
+      break;
+
+    case '심층면접':
+      metadata.source = document.getElementById('interviewSourceSelect').value;
+      const interviewUniv = document.getElementById('interviewUnivSelect')?.value;
+      metadata.university = interviewUniv === '기타'
+        ? document.getElementById('interviewUnivCustom')?.value || ''
+        : interviewUniv || '';
+      metadata.book = document.getElementById('interviewBookInput')?.value || '';
+      metadata.etcSource = document.getElementById('interviewEtcInput')?.value || '';
+      metadata.interviewType = document.getElementById('interviewTypeSelect')?.value || '';
+      metadata.chapter = document.getElementById('interviewChapterInput')?.value || '';
+      break;
+  }
+
+  return metadata;
+}
+
+// ==================== 문제 입력 기능 (6-③) ====================
+
+// 현재 입력된 문제 데이터 저장
+let currentProblemInputData = null;
+
+/**
+ * OCR 결과를 문제로 입력
+ */
+async function inputProblemFromOCR() {
+  // OCR 결과 확인
+  const ocrTextArea = document.getElementById('ocrResultText');
+  const ocrText = ocrTextArea?.value?.trim();
+
+  // 분리된 OCR 결과 확인 (5-③ 기능에서 추가된 것)
+  const separatedResult = document.getElementById('separatedOcrResult');
+  const hasSeparatedResult = separatedResult && separatedResult.style.display !== 'none';
+
+  if (!ocrText && !hasSeparatedResult) {
+    showAlert('먼저 OCR을 수행하거나 영역을 선택하세요.', 'warning');
+    return;
+  }
+
+  try {
+    // 문제 입력 데이터 구성
+    currentProblemInputData = {
+      text: '',
+      images: [],
+      tables: [],
+      metadata: collectProblemMetadata()
+    };
+
+    // 분리된 결과가 있으면 그것을 사용
+    if (hasSeparatedResult) {
+      // 텍스트 수집
+      const textContent = document.getElementById('separatedTextContent');
+      if (textContent) {
+        currentProblemInputData.text = textContent.innerText || textContent.textContent || '';
+      }
+
+      // 이미지 수집
+      const imageContainer = document.getElementById('separatedImagesContent');
+      if (imageContainer) {
+        const images = imageContainer.querySelectorAll('img');
+        images.forEach((img, idx) => {
+          currentProblemInputData.images.push({
+            src: img.src,
+            alt: img.alt || `이미지 ${idx + 1}`,
+            index: idx
+          });
+        });
+      }
+
+      // 표 수집
+      const tableContainer = document.getElementById('separatedTablesContent');
+      if (tableContainer) {
+        const tables = tableContainer.querySelectorAll('table');
+        tables.forEach((table, idx) => {
+          currentProblemInputData.tables.push({
+            html: table.outerHTML,
+            index: idx
+          });
+        });
+      }
+    } else {
+      // 일반 OCR 텍스트만 있는 경우
+      currentProblemInputData.text = ocrText;
+    }
+
+    // 결과 표시
+    displayProblemInputResult();
+
+    showAlert('📝 문제가 입력되었습니다. 내용을 확인하세요.', 'success');
+
+  } catch (error) {
+    console.error('문제 입력 오류:', error);
+    showAlert(`❌ 문제 입력 오류: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 문제 입력 결과 표시
+ */
+function displayProblemInputResult() {
+  const resultContainer = document.getElementById('problemInputResult');
+  if (!resultContainer || !currentProblemInputData) return;
+
+  // 텍스트 탭 내용
+  const textContent = document.getElementById('inputResultText');
+  if (textContent) {
+    if (currentProblemInputData.text) {
+      textContent.innerHTML = `<div class="text-content">${escapeHtml(currentProblemInputData.text)}</div>`;
+    } else {
+      textContent.innerHTML = '<div class="empty-result">텍스트 없음</div>';
+    }
+  }
+
+  // 이미지 탭 내용
+  const imagesContent = document.getElementById('inputResultImages');
+  if (imagesContent) {
+    if (currentProblemInputData.images.length > 0) {
+      imagesContent.innerHTML = `
+        <div class="image-grid">
+          ${currentProblemInputData.images.map((img, idx) => `
+            <div class="image-item" onclick="viewInputImage(${idx})">
+              <img src="${img.src}" alt="${img.alt}" title="클릭하여 확대">
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      imagesContent.innerHTML = '<div class="empty-result">이미지 없음</div>';
+    }
+  }
+
+  // 표 탭 내용
+  const tablesContent = document.getElementById('inputResultTables');
+  if (tablesContent) {
+    if (currentProblemInputData.tables.length > 0) {
+      tablesContent.innerHTML = currentProblemInputData.tables.map((table, idx) => `
+        <div class="table-result">
+          <div class="table-label">표 ${idx + 1}</div>
+          ${table.html}
+        </div>
+      `).join('');
+    } else {
+      tablesContent.innerHTML = '<div class="empty-result">표 없음</div>';
+    }
+  }
+
+  // 결과 영역 표시
+  resultContainer.style.display = 'block';
+
+  // 첫 번째 탭 활성화
+  switchInputResultTab('text');
+
+  // 결과 영역으로 스크롤
+  resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * 입력 결과 탭 전환
+ */
+function switchInputResultTab(tabName) {
+  // 모든 탭 버튼 비활성화
+  document.querySelectorAll('.input-result-tabs .result-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+
+  // 모든 탭 내용 숨기기
+  document.querySelectorAll('.input-result-content .result-tab-content').forEach(content => {
+    content.style.display = 'none';
+    content.classList.remove('active');
+  });
+
+  // 선택된 탭 활성화
+  const selectedTab = document.querySelector(`.input-result-tabs .result-tab[data-tab="${tabName}"]`);
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+
+  // 선택된 내용 표시
+  const contentMap = {
+    'text': 'inputResultText',
+    'images': 'inputResultImages',
+    'tables': 'inputResultTables'
+  };
+
+  const selectedContent = document.getElementById(contentMap[tabName]);
+  if (selectedContent) {
+    selectedContent.style.display = 'block';
+    selectedContent.classList.add('active');
+  }
+}
+
+/**
+ * 문제 입력 결과 닫기
+ */
+function closeProblemInputResult() {
+  const resultContainer = document.getElementById('problemInputResult');
+  if (resultContainer) {
+    resultContainer.style.display = 'none';
+  }
+  currentProblemInputData = null;
+}
+
+/**
+ * 입력된 문제로 변형 생성
+ */
+async function confirmProblemInput() {
+  if (!currentProblemInputData) {
+    showAlert('입력된 문제가 없습니다.', 'warning');
+    return;
+  }
+
+  try {
+    // 메타데이터 수집
+    const metadata = collectProblemMetadata();
+
+    // 문제 텍스트를 변형 생성 입력란에 설정
+    const problemInput = document.getElementById('problemInput') || document.getElementById('originalProblem');
+    if (problemInput && currentProblemInputData.text) {
+      problemInput.value = currentProblemInputData.text;
+    }
+
+    // 메타데이터 정보 표시
+    let metaInfo = '';
+    if (metadata.examType) metaInfo += `시험: ${metadata.examType}`;
+    if (metadata.grade) metaInfo += ` | 학년: ${metadata.grade}`;
+    if (metadata.subject) metaInfo += ` | 과목: ${metadata.subject}`;
+    if (metadata.year) metaInfo += ` | 년도: ${metadata.year}`;
+
+    // 결과 영역 닫기
+    closeProblemInputResult();
+
+    // 변형 생성 섹션으로 스크롤
+    const variationSection = document.getElementById('variationSection') || document.getElementById('generateVariationSection');
+    if (variationSection) {
+      variationSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    showAlert(`✅ 문제가 입력되었습니다. ${metaInfo ? '(' + metaInfo + ')' : ''} 변형 생성을 진행하세요.`, 'success');
+
+  } catch (error) {
+    console.error('문제 확정 오류:', error);
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 입력된 문제 수정
+ */
+function editProblemInput() {
+  if (!currentProblemInputData) {
+    showAlert('수정할 문제가 없습니다.', 'warning');
+    return;
+  }
+
+  // 텍스트를 수정 가능한 텍스트 영역으로 변경
+  const textContent = document.getElementById('inputResultText');
+  if (textContent && currentProblemInputData.text) {
+    const currentText = currentProblemInputData.text;
+    textContent.innerHTML = `
+      <textarea id="editProblemTextArea" class="input-field"
+                style="width: 100%; min-height: 200px; font-size: 0.95rem; line-height: 1.8;"
+                placeholder="문제 텍스트를 수정하세요...">${escapeHtml(currentText)}</textarea>
+      <div style="margin-top: 10px; text-align: right;">
+        <button class="btn btn-primary btn-small" onclick="saveEditedProblem()">💾 저장</button>
+        <button class="btn btn-secondary btn-small" onclick="cancelEditProblem()">취소</button>
+      </div>
+    `;
+  }
+
+  // 텍스트 탭으로 전환
+  switchInputResultTab('text');
+
+  showAlert('📝 텍스트를 수정하고 저장 버튼을 클릭하세요.', 'info');
+}
+
+/**
+ * 수정된 문제 저장
+ */
+function saveEditedProblem() {
+  const textArea = document.getElementById('editProblemTextArea');
+  if (textArea && currentProblemInputData) {
+    currentProblemInputData.text = textArea.value;
+    displayProblemInputResult();
+    showAlert('✅ 수정 사항이 저장되었습니다.', 'success');
+  }
+}
+
+/**
+ * 문제 수정 취소
+ */
+function cancelEditProblem() {
+  displayProblemInputResult();
+}
+
+/**
+ * 입력 이미지 확대 보기
+ */
+function viewInputImage(index) {
+  if (!currentProblemInputData || !currentProblemInputData.images[index]) return;
+
+  const img = currentProblemInputData.images[index];
+
+  // 이미지 모달 표시 (기존 모달 재사용)
+  const modal = document.getElementById('imagePreviewModal') || createImagePreviewModal();
+  const modalImg = modal.querySelector('img') || modal.querySelector('.modal-image');
+
+  if (modalImg) {
+    modalImg.src = img.src;
+    modalImg.alt = img.alt;
+  }
+
+  modal.style.display = 'flex';
+}
+
+/**
+ * HTML 이스케이프 함수
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * 이미지 프리뷰 모달 생성
+ */
+function createImagePreviewModal() {
+  const modal = document.createElement('div');
+  modal.id = 'imagePreviewModal';
+  modal.className = 'modal';
+  modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center;';
+  modal.innerHTML = `
+    <span class="modal-close" onclick="this.parentElement.style.display='none'" style="position: absolute; top: 20px; right: 30px; color: white; font-size: 30px; cursor: pointer;">&times;</span>
+    <img class="modal-image" style="max-width: 90%; max-height: 90%; object-fit: contain;">
+  `;
+  modal.onclick = function(e) {
+    if (e.target === modal) modal.style.display = 'none';
+  };
+  document.body.appendChild(modal);
+  return modal;
+}
+
 // ==================== 스토어 관리 ====================
 async function initializeStore() {
   const displayName = document.getElementById('storeDisplayName').value.trim();
@@ -577,6 +1211,208 @@ async function deleteStore(storeName) {
   } catch (error) {
     showAlert(`❌ 오류: ${error.message}`, 'error');
   }
+}
+
+/**
+ * 현재 활성 스토어 삭제
+ */
+function deleteCurrentStore() {
+  if (currentStore) {
+    deleteStore(currentStore);
+  } else {
+    showAlert('삭제할 스토어가 없습니다.', 'error');
+  }
+}
+
+/**
+ * 스토어 이름 변경 다이얼로그 표시
+ */
+function showRenameStoreDialog() {
+  if (!currentStore) {
+    showAlert('이름을 변경할 스토어가 없습니다.', 'error');
+    return;
+  }
+
+  // 현재 스토어 이름으로 입력 필드 초기화
+  const currentName = document.getElementById('currentStoreName').textContent;
+  document.getElementById('newStoreDisplayName').value = currentName;
+  document.getElementById('renameStoreDialog').style.display = 'flex';
+}
+
+/**
+ * 스토어 이름 변경 다이얼로그 숨김
+ */
+function hideRenameStoreDialog() {
+  document.getElementById('renameStoreDialog').style.display = 'none';
+  document.getElementById('newStoreDisplayName').value = '';
+}
+
+/**
+ * 스토어 이름 변경 실행
+ */
+async function renameStore() {
+  const newName = document.getElementById('newStoreDisplayName').value.trim();
+
+  if (!newName) {
+    showAlert('새 스토어 이름을 입력하세요.', 'error');
+    return;
+  }
+
+  if (!currentStore) {
+    showAlert('이름을 변경할 스토어가 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    showProgress('스토어 이름 변경 중...');
+
+    const response = await fetch(`/api/store/${encodeURIComponent(currentStore)}/rename`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newDisplayName: newName })
+    });
+
+    const data = await response.json();
+
+    hideProgress();
+    hideRenameStoreDialog();
+
+    if (data.success) {
+      showAlert(`✅ ${data.message}`, 'success');
+
+      // 스토어 이름 표시 업데이트
+      document.getElementById('currentStoreName').textContent = newName;
+
+      // 드롭다운 목록 새로고침
+      const existingStoreRadio = document.querySelector('input[name="storeType"][value="existing"]');
+      if (existingStoreRadio && existingStoreRadio.checked) {
+        loadStoresForDropdown();
+      }
+    } else {
+      showAlert(`❌ ${data.error}`, 'error');
+    }
+  } catch (error) {
+    hideProgress();
+    hideRenameStoreDialog();
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+// ==================== Embedding 미리보기 ====================
+async function previewEmbedding() {
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+
+  if (!file) {
+    showAlert('파일을 먼저 선택하세요.', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('maxTokensPerChunk', document.getElementById('maxTokensPerChunk').value);
+  formData.append('maxOverlapTokens', document.getElementById('maxOverlapTokens').value);
+
+  try {
+    showProgress('Embedding 분석 중...');
+
+    const response = await fetch('/api/upload/preview-embedding', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    hideProgress();
+
+    if (data.success) {
+      displayEmbeddingPreview(data.preview);
+    } else {
+      showAlert(`❌ ${data.error}`, 'error');
+    }
+  } catch (error) {
+    hideProgress();
+    showAlert(`❌ 오류: ${error.message}`, 'error');
+  }
+}
+
+function displayEmbeddingPreview(preview) {
+  // 기본 정보 표시
+  document.getElementById('previewFileName').textContent = preview.fileName;
+  document.getElementById('previewFileSize').textContent = formatFileSize(preview.fileSize);
+  document.getElementById('previewTextLength').textContent = `${preview.totalTextLength.toLocaleString()}자`;
+  document.getElementById('previewChunkCount').textContent = `${preview.totalChunks}개 청크`;
+
+  // 추출 텍스트 표시
+  document.getElementById('extractedTextPreview').textContent = preview.extractedText;
+
+  // 청크 미리보기 표시
+  const chunkContainer = document.getElementById('chunkPreview');
+  if (preview.chunks.length > 0) {
+    chunkContainer.innerHTML = preview.chunks.map(chunk => `
+      <div class="chunk-preview-item">
+        <div class="chunk-header">
+          <span class="chunk-number">청크 #${chunk.index}</span>
+          <span class="chunk-meta">~${chunk.estimatedTokens} 토큰 (${chunk.fullLength}자)</span>
+        </div>
+        <div class="chunk-content">${escapeHtml(chunk.content)}</div>
+      </div>
+    `).join('');
+
+    if (preview.totalChunks > preview.chunks.length) {
+      chunkContainer.innerHTML += `
+        <div class="chunk-preview-item" style="text-align: center; color: #888;">
+          ... 외 ${preview.totalChunks - preview.chunks.length}개 청크 더 있음
+        </div>
+      `;
+    }
+  } else {
+    chunkContainer.innerHTML = '<p class="info-message">청크가 생성되지 않았습니다.</p>';
+  }
+
+  // 특수 문자 탐지 결과 표시
+  const specialCharContainer = document.getElementById('specialCharPreview');
+  const sc = preview.specialCharacters;
+
+  let badges = [];
+  if (sc.hasLatex) badges.push('<span class="special-char-badge latex">✓ LaTeX 수식</span>');
+  if (sc.hasGreekLetters) badges.push('<span class="special-char-badge greek">✓ 그리스 문자</span>');
+  if (sc.hasMathSymbols) badges.push('<span class="special-char-badge math">✓ 수학 기호</span>');
+  if (sc.hasChemical) badges.push('<span class="special-char-badge chemical">✓ 화학식</span>');
+
+  if (badges.length === 0) {
+    badges.push('<span class="special-char-badge none">특수 문자 없음</span>');
+  }
+
+  let html = '<div class="badge-container">' + badges.join('') + '</div>';
+
+  // 샘플 표시
+  if (sc.samples && sc.samples.length > 0) {
+    html += '<div class="special-char-sample">';
+    html += '<strong>감지된 샘플:</strong> ';
+    html += sc.samples.map(s => `<span class="sample-item" title="${s.type}">${escapeHtml(s.content)}</span>`).join('');
+    html += '</div>';
+  }
+
+  specialCharContainer.innerHTML = html;
+
+  // 섹션 표시
+  document.getElementById('embeddingPreviewSection').style.display = 'block';
+}
+
+function closeEmbeddingPreview() {
+  document.getElementById('embeddingPreviewSection').style.display = 'none';
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ==================== 파일 업로드 ====================
@@ -1162,7 +1998,10 @@ async function loadDocuments() {
     const data = await response.json();
 
     if (data.success) {
-      displayDocumentsList(data.documents);
+      // 요약 정보 업데이트
+      updateDocumentSummary(data.documents);
+      // 최근 문서 목록 표시
+      displayRecentDocuments(data.documents);
     } else {
       showAlert(`❌ ${data.error}`, 'error');
     }
@@ -1171,32 +2010,115 @@ async function loadDocuments() {
   }
 }
 
-function displayDocumentsList(documents) {
-  const container = document.getElementById('documentsList');
+// 문서 요약 정보 업데이트
+function updateDocumentSummary(documents) {
+  const totalCount = documents.length;
+
+  // 문서 유형별 분류
+  let ragIndexedCount = 0;
+  let problemDocCount = 0;
+  let assetDocCount = 0;
+
+  documents.forEach(doc => {
+    const name = (doc.displayName || doc.name || '').toLowerCase();
+
+    // RAG 인덱싱된 문서 체크 (metadata가 있거나 특정 패턴)
+    if (doc.metadata || doc.indexed) {
+      ragIndexedCount++;
+    }
+
+    // 문서 유형 분류
+    if (name.includes('variation') || name.includes('문제') || name.includes('problem')) {
+      problemDocCount++;
+    } else if (name.includes('asset') || name.includes('자료') || name.includes('image')) {
+      assetDocCount++;
+    }
+  });
+
+  // UI 업데이트
+  const totalEl = document.getElementById('totalDocCount');
+  const ragEl = document.getElementById('ragIndexedCount');
+  const problemEl = document.getElementById('problemDocCount');
+  const assetEl = document.getElementById('assetDocCount');
+
+  if (totalEl) totalEl.textContent = totalCount;
+  if (ragEl) ragEl.textContent = ragIndexedCount || totalCount; // 기본적으로 모든 문서가 인덱싱됨
+  if (problemEl) problemEl.textContent = problemDocCount;
+  if (assetEl) assetEl.textContent = assetDocCount;
+}
+
+// 최근 문서 목록 표시 (최대 5개)
+function displayRecentDocuments(documents) {
+  const container = document.getElementById('recentDocsList');
+  if (!container) return;
 
   if (documents.length === 0) {
-    container.innerHTML = '<p>업로드된 문서가 없습니다.</p>';
+    container.innerHTML = '<p class="info-message">📄 업로드된 문서가 없습니다.</p>';
     return;
   }
 
-  const html = documents.map(doc => `
-    <div class="document-item">
-      <div class="document-info">
-        <div class="document-name">${doc.displayName || doc.name}</div>
-        <div class="document-meta">
-          ID: ${doc.name}<br>
-          생성일: ${new Date(doc.createTime).toLocaleString('ko-KR')}
-        </div>
+  // 최근 5개만 표시
+  const recentDocs = documents.slice(0, 5);
+
+  const html = recentDocs.map(doc => {
+    const name = doc.displayName || doc.name;
+    const docType = getDocumentType(name);
+
+    return `
+      <div class="recent-doc-item">
+        <span class="recent-doc-name" title="${name}">${name}</span>
+        <span class="recent-doc-type ${docType.class}">${docType.label}</span>
       </div>
-      <div class="document-actions">
-        <button onclick="deleteDocument('${doc.name}')" class="btn btn-danger">
-          삭제
-        </button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   container.innerHTML = html;
+
+  // 더 많은 문서가 있으면 안내 추가
+  if (documents.length > 5) {
+    container.innerHTML += `
+      <div class="recent-doc-item" style="justify-content: center; cursor: pointer;" onclick="scrollToRAGManagement()">
+        <span style="color: #667eea;">+ ${documents.length - 5}개 더 보기 →</span>
+      </div>
+    `;
+  }
+}
+
+// 문서 유형 판별
+function getDocumentType(name) {
+  const lowerName = (name || '').toLowerCase();
+
+  if (lowerName.includes('variation') || lowerName.includes('문제') || lowerName.includes('problem')) {
+    return { class: 'variation', label: '문제' };
+  } else if (lowerName.includes('asset') || lowerName.includes('자료') || lowerName.includes('image')) {
+    return { class: 'asset', label: '자료' };
+  } else {
+    return { class: 'document', label: '문서' };
+  }
+}
+
+// RAG 관리 섹션으로 스크롤
+function scrollToRAGManagement() {
+  const ragSection = document.getElementById('ragManagementContent');
+  const ragToggle = document.getElementById('ragManagementToggle');
+
+  if (ragSection && ragSection.style.display === 'none') {
+    // 섹션이 닫혀있으면 열기
+    toggleManagementSection('ragManagement');
+  }
+
+  // 스크롤
+  const ragCard = ragSection?.closest('.management-section') || ragSection?.parentElement;
+  if (ragCard) {
+    ragCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// 기존 displayDocumentsList 함수 - 호환성 유지
+function displayDocumentsList(documents) {
+  // 요약 정보와 최근 목록 업데이트
+  updateDocumentSummary(documents);
+  displayRecentDocuments(documents);
 }
 
 async function deleteDocument(documentName) {
@@ -2295,10 +3217,58 @@ function setupReferenceUploadListeners() {
   fileInput.addEventListener('change', (e) => {
     handleReferenceFiles(e.target.files);
   });
+
+  // Ctrl+V 붙여넣기 이벤트 (전역)
+  document.addEventListener('paste', handlePasteEvent);
+
+  // 드롭존 클릭으로 포커스 가능하게 만들기
+  dropZone.setAttribute('tabindex', '0');
+  dropZone.addEventListener('paste', handlePasteEvent);
+}
+
+/**
+ * 붙여넣기 이벤트 처리 (Ctrl+V)
+ */
+function handlePasteEvent(e) {
+  // 참조 문제 업로드 섹션이 보이는지 확인
+  const variationSection = document.querySelector('h2')?.closest('section.card');
+  if (!variationSection) return;
+
+  const clipboardData = e.clipboardData || window.clipboardData;
+  if (!clipboardData) return;
+
+  const items = clipboardData.items;
+  if (!items) return;
+
+  const imageFiles = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    // 이미지 파일인 경우
+    if (item.type.indexOf('image') !== -1) {
+      const file = item.getAsFile();
+      if (file) {
+        // 붙여넣기된 파일에 이름 부여
+        const timestamp = Date.now();
+        const newFile = new File([file], `pasted_image_${timestamp}.png`, {
+          type: file.type
+        });
+        imageFiles.push(newFile);
+      }
+    }
+  }
+
+  if (imageFiles.length > 0) {
+    e.preventDefault();
+    handleReferenceFiles(imageFiles);
+    showAlert(`📋 ${imageFiles.length}개의 이미지가 붙여넣기되었습니다.`, 'success');
+  }
 }
 
 /**
  * 시험 종류에 따른 추가 필드 표시/숨김
+ * (참고: 주요 로직은 onExamTypeChange()에서 처리됨)
  */
 function setupExamTypeListener() {
   const examTypeSelect = document.getElementById('examTypeSelect');
@@ -2306,8 +3276,11 @@ function setupExamTypeListener() {
 
   examTypeSelect.addEventListener('change', (e) => {
     const isNaesin = e.target.value === '내신';
-    document.getElementById('schoolNameGroup').style.display = isNaesin ? 'block' : 'none';
-    document.getElementById('semesterGroup').style.display = isNaesin ? 'block' : 'none';
+    // 요소 존재 여부 확인 후 처리 (null 체크)
+    const schoolNameGroup = document.getElementById('schoolNameGroup');
+    const semesterGroup = document.getElementById('semesterGroup');
+    if (schoolNameGroup) schoolNameGroup.style.display = isNaesin ? 'block' : 'none';
+    if (semesterGroup) semesterGroup.style.display = isNaesin ? 'block' : 'none';
   });
 }
 
@@ -2729,9 +3702,90 @@ function regenerateVariation() {
 // 현재 검토 결과 저장
 let currentReviewResult = null;
 let extractedOCRText = '';
+let parsedOCRData = null; // 분리된 OCR 데이터
 
 /**
- * OCR 텍스트 추출
+ * OCR 진행 상태 관리 클래스
+ */
+class OCRProgressIndicator {
+  constructor() {
+    this.steps = ['upload', 'detect', 'ocr', 'parse', 'complete'];
+    this.currentStep = 0;
+    this.container = document.getElementById('ocrProgressIndicator');
+    this.messageEl = document.getElementById('ocrProgressMessage');
+  }
+
+  show() {
+    if (this.container) {
+      this.container.style.display = 'block';
+      this.reset();
+    }
+  }
+
+  hide() {
+    if (this.container) {
+      this.container.style.display = 'none';
+    }
+  }
+
+  reset() {
+    this.currentStep = 0;
+    this.steps.forEach(step => {
+      const stepEl = this.container.querySelector(`[data-step="${step}"]`);
+      if (stepEl) {
+        stepEl.classList.remove('active', 'completed');
+      }
+    });
+    const connectors = this.container.querySelectorAll('.progress-connector');
+    connectors.forEach(c => c.classList.remove('completed'));
+  }
+
+  setStep(stepName, message = '') {
+    const stepIndex = this.steps.indexOf(stepName);
+    if (stepIndex === -1) return;
+
+    // 이전 단계들은 완료로 표시
+    this.steps.forEach((step, idx) => {
+      const stepEl = this.container.querySelector(`[data-step="${step}"]`);
+      const connectors = this.container.querySelectorAll('.progress-connector');
+
+      if (idx < stepIndex) {
+        stepEl?.classList.add('completed');
+        stepEl?.classList.remove('active');
+        if (connectors[idx]) connectors[idx].classList.add('completed');
+      } else if (idx === stepIndex) {
+        stepEl?.classList.add('active');
+        stepEl?.classList.remove('completed');
+      } else {
+        stepEl?.classList.remove('active', 'completed');
+      }
+    });
+
+    if (this.messageEl && message) {
+      this.messageEl.textContent = message;
+    }
+    this.currentStep = stepIndex;
+  }
+
+  complete() {
+    this.setStep('complete', '✅ OCR 처리 완료!');
+    const completeStep = this.container.querySelector('[data-step="complete"]');
+    if (completeStep) {
+      completeStep.classList.add('completed');
+      completeStep.classList.remove('active');
+    }
+    // 마지막 커넥터도 완료
+    const connectors = this.container.querySelectorAll('.progress-connector');
+    if (connectors.length > 0) {
+      connectors[connectors.length - 1].classList.add('completed');
+    }
+  }
+}
+
+const ocrProgress = new OCRProgressIndicator();
+
+/**
+ * OCR 텍스트 추출 (개선된 버전)
  */
 async function extractOCRText() {
   if (referenceFiles.length === 0) {
@@ -2740,8 +3794,15 @@ async function extractOCRText() {
   }
 
   const ocrBtn = document.getElementById('ocrBtn');
+  const ocrBox = document.getElementById('ocrResultBox');
+
   ocrBtn.disabled = true;
   ocrBtn.textContent = '📝 추출 중...';
+  ocrBox.style.display = 'block';
+
+  // 진행 상태 표시 시작
+  ocrProgress.show();
+  ocrProgress.setStep('upload', '이미지 업로드 중...');
 
   try {
     // 이미지를 base64로 변환
@@ -2753,26 +3814,45 @@ async function extractOCRText() {
       };
     }));
 
+    ocrProgress.setStep('detect', '텍스트/이미지/표 영역 감지 중...');
+    await delay(300); // UI 업데이트를 위한 짧은 딜레이
+
+    ocrProgress.setStep('ocr', 'OCR 처리 중...');
+
     const response = await fetch('/api/ocr-extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         images,
-        extractType: 'problem'
+        extractType: 'problem',
+        structured: true // 구조화된 결과 요청
       })
     });
 
     const data = await response.json();
 
+    ocrProgress.setStep('parse', '결과 분석 및 구조화 중...');
+    await delay(200);
+
     if (data.success) {
       extractedOCRText = data.extractedText;
-      displayOCRResult(data.extractedText);
+
+      // 구조화된 데이터 파싱
+      parsedOCRData = parseOCRContent(data.extractedText, data.structuredData);
+
+      ocrProgress.complete();
+      await delay(500);
+      ocrProgress.hide();
+
+      // 분리된 결과 표시
+      displayOCRResultSeparated(parsedOCRData);
       showAlert('✅ OCR 추출 완료!', 'success');
     } else {
       throw new Error(data.error || 'OCR 추출 실패');
     }
   } catch (error) {
     console.error('OCR 오류:', error);
+    ocrProgress.hide();
     showAlert(`❌ OCR 오류: ${error.message}`, 'error');
   } finally {
     ocrBtn.disabled = false;
@@ -2781,7 +3861,316 @@ async function extractOCRText() {
 }
 
 /**
- * OCR 결과 표시
+ * OCR 콘텐츠 파싱 - 텍스트/이미지/표/수식 분리
+ */
+function parseOCRContent(rawText, structuredData = null) {
+  const result = {
+    text: [],
+    images: [],
+    tables: [],
+    formulas: [],
+    raw: rawText
+  };
+
+  // 구조화된 데이터가 있으면 사용
+  if (structuredData) {
+    if (structuredData.textBlocks) result.text = structuredData.textBlocks;
+    if (structuredData.images) result.images = structuredData.images;
+    if (structuredData.tables) result.tables = structuredData.tables;
+    if (structuredData.formulas) result.formulas = structuredData.formulas;
+    return result;
+  }
+
+  // 없으면 휴리스틱으로 파싱
+  const lines = rawText.split('\n');
+  let currentBlock = { type: 'paragraph', content: '' };
+  let inTable = false;
+  let tableRows = [];
+
+  // LaTeX 수식 패턴
+  const latexPatterns = [
+    /\$\$(.*?)\$\$/gs,  // display math
+    /\$(.*?)\$/g,        // inline math
+    /\\begin\{equation\}(.*?)\\end\{equation\}/gs,
+    /\\begin\{align\}(.*?)\\end\{align\}/gs,
+    /\\frac\{[^}]+\}\{[^}]+\}/g,
+    /\\sqrt\{[^}]+\}/g,
+    /\\int|\\sum|\\prod|\\lim/g
+  ];
+
+  // 수식 추출
+  let formulaIndex = 0;
+  latexPatterns.forEach(pattern => {
+    const matches = rawText.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        result.formulas.push({
+          index: formulaIndex++,
+          latex: match.replace(/^\$+|\$+$/g, '').trim(),
+          raw: match
+        });
+      });
+    }
+  });
+
+  // 텍스트 블록 분석
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+
+    // 빈 줄 처리
+    if (!trimmed) {
+      if (currentBlock.content) {
+        result.text.push({ ...currentBlock });
+        currentBlock = { type: 'paragraph', content: '' };
+      }
+      return;
+    }
+
+    // 테이블 감지 (|로 구분된 행)
+    if (trimmed.includes('|') && trimmed.split('|').length >= 3) {
+      if (!inTable) {
+        inTable = true;
+        tableRows = [];
+      }
+      tableRows.push(trimmed.split('|').map(c => c.trim()).filter(c => c));
+      return;
+    } else if (inTable && tableRows.length > 0) {
+      // 테이블 종료
+      result.tables.push({
+        index: result.tables.length,
+        rows: [...tableRows],
+        headers: tableRows[0] || []
+      });
+      tableRows = [];
+      inTable = false;
+    }
+
+    // 제목/헤딩 감지
+    if (/^[#]+\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+      if (currentBlock.content) {
+        result.text.push({ ...currentBlock });
+      }
+      currentBlock = { type: 'heading', content: trimmed.replace(/^[#]+\s/, '') };
+    }
+    // 목록 아이템 감지
+    else if (/^[-•*]\s/.test(trimmed) || /^[가-힣]\)|^\([0-9]+\)/.test(trimmed)) {
+      if (currentBlock.type !== 'list-item') {
+        if (currentBlock.content) {
+          result.text.push({ ...currentBlock });
+        }
+        currentBlock = { type: 'list-item', content: trimmed };
+      } else {
+        result.text.push({ ...currentBlock });
+        currentBlock = { type: 'list-item', content: trimmed };
+      }
+    }
+    // 일반 단락
+    else {
+      if (currentBlock.type === 'paragraph') {
+        currentBlock.content += (currentBlock.content ? ' ' : '') + trimmed;
+      } else {
+        if (currentBlock.content) {
+          result.text.push({ ...currentBlock });
+        }
+        currentBlock = { type: 'paragraph', content: trimmed };
+      }
+    }
+  });
+
+  // 마지막 블록 처리
+  if (currentBlock.content) {
+    result.text.push({ ...currentBlock });
+  }
+  if (inTable && tableRows.length > 0) {
+    result.tables.push({
+      index: result.tables.length,
+      rows: tableRows,
+      headers: tableRows[0] || []
+    });
+  }
+
+  return result;
+}
+
+/**
+ * OCR 결과 분리 표시
+ */
+function displayOCRResultSeparated(data) {
+  const ocrBox = document.getElementById('ocrResultBox');
+  const summaryEl = document.getElementById('ocrResultSummary');
+
+  // 전체 텍스트 표시
+  const ocrContent = document.getElementById('ocrContent');
+  ocrContent.textContent = data.raw;
+
+  // 요약 통계 업데이트
+  document.getElementById('ocrTextCount').textContent = data.text.length;
+  document.getElementById('ocrImageCount').textContent = data.images.length;
+  document.getElementById('ocrTableCount').textContent = data.tables.length;
+  document.getElementById('ocrFormulaCount').textContent = data.formulas.length;
+  summaryEl.style.display = 'grid';
+
+  // 텍스트 탭 콘텐츠
+  const textContent = document.getElementById('ocrTextContent');
+  if (data.text.length > 0) {
+    textContent.innerHTML = data.text.map((block, idx) => `
+      <div class="ocr-text-block ${block.type}">
+        <div class="text-block-label">${getBlockTypeLabel(block.type)}</div>
+        <div class="text-block-content">${escapeHtml(block.content)}</div>
+      </div>
+    `).join('');
+  } else {
+    textContent.innerHTML = `
+      <div class="ocr-empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-message">추출된 텍스트가 없습니다.</div>
+      </div>
+    `;
+  }
+
+  // 이미지 탭 콘텐츠
+  const imagesContent = document.getElementById('ocrImagesContent');
+  if (data.images.length > 0) {
+    imagesContent.innerHTML = data.images.map((img, idx) => `
+      <div class="ocr-image-item">
+        <img src="${img.dataUrl || img.src || ''}" class="ocr-image-preview" alt="추출된 이미지 ${idx + 1}">
+        <div class="ocr-image-info">
+          <div class="ocr-image-type">${img.type || '이미지'}</div>
+          <div class="ocr-image-desc">${img.description || `이미지 ${idx + 1}`}</div>
+          <div class="ocr-image-actions">
+            <button class="btn btn-small btn-outline" onclick="copyImageToClipboard(${idx})">📋</button>
+            <button class="btn btn-small btn-outline" onclick="downloadOCRImage(${idx})">💾</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    imagesContent.innerHTML = `
+      <div class="ocr-empty-state">
+        <div class="empty-icon">🖼️</div>
+        <div class="empty-message">추출된 이미지/그림이 없습니다.</div>
+      </div>
+    `;
+  }
+
+  // 표 탭 콘텐츠
+  const tablesContent = document.getElementById('ocrTablesContent');
+  if (data.tables.length > 0) {
+    tablesContent.innerHTML = data.tables.map((table, idx) => {
+      const rows = table.rows || [];
+      const headers = table.headers || (rows.length > 0 ? rows[0] : []);
+      const bodyRows = rows.slice(1);
+
+      return `
+        <div class="ocr-table-item">
+          <div class="ocr-table-header">
+            <span class="ocr-table-title">표 ${idx + 1}</span>
+            <span class="ocr-table-meta">${rows.length}행 × ${headers.length}열</span>
+          </div>
+          <div class="ocr-table-content">
+            <table>
+              <thead>
+                <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+                ${bodyRows.map(row => `
+                  <tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    tablesContent.innerHTML = `
+      <div class="ocr-empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-message">추출된 표가 없습니다.</div>
+      </div>
+    `;
+  }
+
+  // 수식 탭 콘텐츠
+  const formulasContent = document.getElementById('ocrFormulasContent');
+  if (data.formulas.length > 0) {
+    formulasContent.innerHTML = data.formulas.map((formula, idx) => `
+      <div class="ocr-formula-item">
+        <div class="formula-index">${idx + 1}</div>
+        <div class="formula-content">
+          <div class="formula-latex" id="formula-render-${idx}">${escapeHtml(formula.latex)}</div>
+          <div class="formula-raw">${escapeHtml(formula.raw)}</div>
+        </div>
+        <div class="formula-actions">
+          <button class="btn btn-small btn-outline" onclick="copyFormula(${idx})" title="LaTeX 복사">📋</button>
+        </div>
+      </div>
+    `).join('');
+
+    // KaTeX로 수식 렌더링 시도
+    setTimeout(() => {
+      data.formulas.forEach((formula, idx) => {
+        try {
+          const el = document.getElementById(`formula-render-${idx}`);
+          if (el && window.katex) {
+            katex.render(formula.latex, el, { throwOnError: false, displayMode: true });
+          }
+        } catch (e) {
+          console.warn('수식 렌더링 실패:', e);
+        }
+      });
+    }, 100);
+  } else {
+    formulasContent.innerHTML = `
+      <div class="ocr-empty-state">
+        <div class="empty-icon">🔢</div>
+        <div class="empty-message">추출된 수식이 없습니다.</div>
+      </div>
+    `;
+  }
+
+  ocrBox.style.display = 'block';
+  switchOCRTab('all'); // 기본 탭으로 전환
+}
+
+/**
+ * 블록 타입 라벨 변환
+ */
+function getBlockTypeLabel(type) {
+  const labels = {
+    'paragraph': '단락',
+    'heading': '제목',
+    'list-item': '목록'
+  };
+  return labels[type] || type;
+}
+
+/**
+ * OCR 탭 전환
+ */
+function switchOCRTab(tabName) {
+  // 모든 탭 버튼 비활성화
+  document.querySelectorAll('.ocr-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+
+  // 모든 탭 콘텐츠 숨기기
+  document.querySelectorAll('.ocr-tab-content').forEach(content => {
+    content.classList.remove('active');
+    content.style.display = 'none';
+  });
+
+  // 선택된 탭 콘텐츠 표시
+  const tabContentId = `ocrTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`;
+  const activeContent = document.getElementById(tabContentId);
+  if (activeContent) {
+    activeContent.classList.add('active');
+    activeContent.style.display = 'block';
+  }
+}
+
+/**
+ * OCR 결과 표시 (레거시 호환)
  */
 function displayOCRResult(text) {
   const ocrBox = document.getElementById('ocrResultBox');
@@ -2789,6 +4178,9 @@ function displayOCRResult(text) {
 
   ocrContent.textContent = text;
   ocrBox.style.display = 'block';
+
+  // 요약 숨기기 (단순 텍스트 모드)
+  document.getElementById('ocrResultSummary').style.display = 'none';
 }
 
 /**
@@ -2804,10 +4196,113 @@ function copyOCRText() {
 }
 
 /**
+ * OCR 섹션별 복사
+ */
+function copyOCRSection(sectionType) {
+  if (!parsedOCRData) {
+    showAlert('⚠️ OCR 데이터가 없습니다.', 'error');
+    return;
+  }
+
+  let textToCopy = '';
+
+  switch (sectionType) {
+    case 'text':
+      textToCopy = parsedOCRData.text.map(b => b.content).join('\n\n');
+      break;
+    case 'formulas':
+      textToCopy = parsedOCRData.formulas.map(f => f.raw).join('\n');
+      break;
+    case 'tables':
+      textToCopy = parsedOCRData.tables.map(t =>
+        t.rows.map(r => r.join('\t')).join('\n')
+      ).join('\n\n');
+      break;
+    default:
+      textToCopy = extractedOCRText;
+  }
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
+    showAlert('📋 클립보드에 복사되었습니다!', 'success');
+  }).catch(err => {
+    console.error('복사 실패:', err);
+    showAlert('❌ 복사 실패', 'error');
+  });
+}
+
+/**
+ * 수식 복사
+ */
+function copyFormula(index) {
+  if (!parsedOCRData || !parsedOCRData.formulas[index]) return;
+
+  const formula = parsedOCRData.formulas[index];
+  navigator.clipboard.writeText(formula.raw).then(() => {
+    showAlert('📋 수식이 복사되었습니다!', 'success');
+  }).catch(err => {
+    console.error('복사 실패:', err);
+    showAlert('❌ 복사 실패', 'error');
+  });
+}
+
+/**
+ * OCR 결과 JSON 내보내기
+ */
+function exportOCRAsJSON() {
+  if (!parsedOCRData) {
+    showAlert('⚠️ 내보낼 OCR 데이터가 없습니다.', 'error');
+    return;
+  }
+
+  const jsonData = JSON.stringify(parsedOCRData, null, 2);
+  const blob = new Blob([jsonData], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ocr-result-${Date.now()}.json`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+  showAlert('💾 JSON 파일이 다운로드되었습니다.', 'success');
+}
+
+/**
+ * OCR 이미지 다운로드
+ */
+function downloadOCRImage(index) {
+  if (!parsedOCRData || !parsedOCRData.images[index]) return;
+
+  const img = parsedOCRData.images[index];
+  const a = document.createElement('a');
+  a.href = img.dataUrl || img.src;
+  a.download = `ocr-image-${index + 1}.png`;
+  a.click();
+}
+
+/**
  * OCR 결과 닫기
  */
 function closeOCRResult() {
   document.getElementById('ocrResultBox').style.display = 'none';
+  ocrProgress.hide();
+}
+
+/**
+ * 딜레이 유틸리티
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * HTML 이스케이프 유틸리티
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 /**
@@ -3288,10 +4783,61 @@ function redrawCanvas() {
 
 // 영역 정보 업데이트
 function updateRegionInfo() {
-  const infoEl = document.getElementById('regionInfo');
-  if (infoEl) {
-    infoEl.textContent = `문제 영역: ${problemRegions.length}개 | 자료 영역: ${assetRegions.length}개`;
+  // 상단 카운트 정보 업데이트
+  const countInfoEl = document.getElementById('regionCountInfo');
+  if (countInfoEl) {
+    countInfoEl.textContent = `문제: ${problemRegions.length}개 | 자료: ${assetRegions.length}개`;
   }
+
+  // 영역 목록 UI 업데이트
+  const listEl = document.getElementById('regionList');
+  if (!listEl) return;
+
+  if (problemRegions.length === 0 && assetRegions.length === 0) {
+    listEl.innerHTML = '<p class="info-message">📌 영역을 선택하려면 캔버스에서 드래그하세요.</p>';
+    return;
+  }
+
+  let html = '';
+
+  // 문제 영역 목록
+  if (problemRegions.length > 0) {
+    html += '<div class="region-group"><h5>📝 문제 영역</h5>';
+    html += problemRegions.map((r, i) => `
+      <div class="region-list-item problem-item" data-id="${r.id}">
+        <span class="region-label">문제 ${i + 1}</span>
+        <span class="region-size">${Math.round(r.width)}×${Math.round(r.height)}px</span>
+        <button class="btn-icon" onclick="deleteRegion('problem', ${i})" title="삭제">🗑️</button>
+      </div>
+    `).join('');
+    html += '</div>';
+  }
+
+  // 자료 영역 목록
+  if (assetRegions.length > 0) {
+    html += '<div class="region-group"><h5>🖼️ 자료 영역</h5>';
+    html += assetRegions.map((r, i) => `
+      <div class="region-list-item asset-item" data-id="${r.id}">
+        <span class="region-label">자료 ${i + 1}</span>
+        <span class="region-size">${Math.round(r.width)}×${Math.round(r.height)}px</span>
+        <button class="btn-icon" onclick="deleteRegion('asset', ${i})" title="삭제">🗑️</button>
+      </div>
+    `).join('');
+    html += '</div>';
+  }
+
+  listEl.innerHTML = html;
+}
+
+// 개별 영역 삭제
+function deleteRegion(type, index) {
+  if (type === 'problem') {
+    problemRegions.splice(index, 1);
+  } else {
+    assetRegions.splice(index, 1);
+  }
+  redrawCanvas();
+  updateRegionInfo();
 }
 
 // 영역 모드 설정
@@ -3299,12 +4845,23 @@ function setRegionMode(mode) {
   regionMode = mode;
 
   // 버튼 스타일 업데이트
-  document.querySelectorAll('.region-toolbar .btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  event.target.classList.add('active');
+  const problemBtn = document.getElementById('addProblemRegionBtn');
+  const assetBtn = document.getElementById('addAssetRegionBtn');
 
-  showAlert(`📐 ${mode === 'problem' ? '문제' : '자료'} 영역 선택 모드`, 'info');
+  if (problemBtn) problemBtn.classList.toggle('active', mode === 'problem');
+  if (assetBtn) assetBtn.classList.toggle('active', mode === 'asset');
+
+  // 모드 표시기 업데이트
+  const modeIndicator = document.getElementById('regionModeIndicator');
+  if (modeIndicator) {
+    modeIndicator.textContent = `선택 모드: ${mode === 'problem' ? '📝 문제' : '🖼️ 자료'}`;
+    modeIndicator.className = `mode-indicator ${mode}-mode`;
+  }
+
+  // 커서 스타일 업데이트
+  if (regionCanvas) {
+    regionCanvas.style.cursor = 'crosshair';
+  }
 }
 
 // 모든 영역 지우기
@@ -5629,6 +7186,305 @@ function clearEngineForm() {
   document.getElementById('newEnginePython').value = '';
 }
 
+// ==================== 엔진 대화형 생성 기능 (#10) ====================
+
+// 대화 히스토리 저장
+let engineChatHistory = [];
+// 대화에서 생성된 엔진 데이터
+let generatedEngineFromChat = null;
+
+/**
+ * 엔진 생성 모드 전환 (대화형/직접입력)
+ */
+function switchEngineCreateMode(mode) {
+  // 탭 버튼 활성화 상태 변경
+  document.querySelectorAll('.engine-create-mode-tabs .mode-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.mode === mode);
+  });
+
+  // 모드별 패널 표시/숨김
+  const chatMode = document.getElementById('engineChatMode');
+  const formMode = document.getElementById('engineFormMode');
+
+  if (mode === 'chat') {
+    chatMode.style.display = 'flex';
+    formMode.style.display = 'none';
+  } else {
+    chatMode.style.display = 'none';
+    formMode.style.display = 'block';
+  }
+}
+
+/**
+ * 대화 입력 키다운 핸들러 (Enter로 전송)
+ */
+function handleEngineChatKeydown(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendEngineChatMessage();
+  }
+}
+
+/**
+ * 제안 칩 클릭 시 입력창에 텍스트 설정
+ */
+function useEngineSuggestion(text) {
+  const input = document.getElementById('engineChatInput');
+  input.value = text + '를 생성하는 엔진을 만들어주세요.';
+  input.focus();
+}
+
+/**
+ * 대화 메시지 전송
+ */
+async function sendEngineChatMessage() {
+  const input = document.getElementById('engineChatInput');
+  const userMessage = input.value.trim();
+
+  if (!userMessage) return;
+
+  // 입력창 초기화
+  input.value = '';
+
+  // 사용자 메시지 추가
+  addChatMessage('user', userMessage);
+  engineChatHistory.push({ role: 'user', content: userMessage });
+
+  // 로딩 표시
+  const loadingId = addChatLoadingMessage();
+
+  try {
+    // AI 응답 생성 API 호출
+    const response = await fetch('/api/engines/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userMessage,
+        history: engineChatHistory.slice(-10) // 최근 10개 메시지만 전송
+      })
+    });
+
+    // 로딩 메시지 제거
+    removeChatLoadingMessage(loadingId);
+
+    const data = await response.json();
+
+    if (data.success) {
+      // AI 응답 추가
+      addChatMessage('assistant', data.response);
+      engineChatHistory.push({ role: 'assistant', content: data.response });
+
+      // 엔진 데이터가 생성되었으면 미리보기 표시
+      if (data.engine) {
+        generatedEngineFromChat = data.engine;
+        showEnginePreviewFromChat(data.engine);
+      }
+    } else {
+      addChatMessage('assistant', `죄송합니다. 오류가 발생했습니다: ${data.error || '알 수 없는 오류'}`);
+    }
+
+  } catch (error) {
+    removeChatLoadingMessage(loadingId);
+    console.error('엔진 채팅 오류:', error);
+    addChatMessage('assistant', '네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+  }
+}
+
+/**
+ * 채팅 메시지 추가
+ */
+function addChatMessage(role, content) {
+  const messagesContainer = document.getElementById('engineChatMessages');
+
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `chat-message ${role}`;
+
+  const avatar = role === 'assistant' ? '🤖' : '👤';
+
+  // 마크다운 간단 변환 (줄바꿈, 강조)
+  const formattedContent = content
+    .replace(/\n/g, '</p><p>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code>$1</code>');
+
+  messageDiv.innerHTML = `
+    <div class="message-avatar">${avatar}</div>
+    <div class="message-content">
+      <p>${formattedContent}</p>
+    </div>
+  `;
+
+  messagesContainer.appendChild(messageDiv);
+
+  // 스크롤 맨 아래로
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+/**
+ * 로딩 메시지 추가
+ */
+function addChatLoadingMessage() {
+  const messagesContainer = document.getElementById('engineChatMessages');
+  const loadingId = 'loading-' + Date.now();
+
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'chat-message assistant loading';
+  loadingDiv.id = loadingId;
+  loadingDiv.innerHTML = `
+    <div class="message-avatar">🤖</div>
+    <div class="message-content">
+      <div class="typing-indicator">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  `;
+
+  messagesContainer.appendChild(loadingDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  return loadingId;
+}
+
+/**
+ * 로딩 메시지 제거
+ */
+function removeChatLoadingMessage(loadingId) {
+  const loadingDiv = document.getElementById(loadingId);
+  if (loadingDiv) {
+    loadingDiv.remove();
+  }
+}
+
+/**
+ * 대화에서 생성된 엔진 미리보기 표시
+ */
+function showEnginePreviewFromChat(engine) {
+  const preview = document.getElementById('enginePreviewFromChat');
+  if (!preview) return;
+
+  document.getElementById('previewEngineName').textContent = engine.name || '이름 없음';
+  document.getElementById('previewEngineSubject').textContent =
+    `${engine.subject || '-'} / ${engine.chapter || '-'}`;
+  document.getElementById('previewEnginePrompt').textContent = engine.promptRules || '-';
+
+  preview.style.display = 'block';
+
+  // 미리보기로 스크롤
+  preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * 대화에서 생성된 엔진을 폼으로 이동하여 수정
+ */
+function editEngineFromChat() {
+  if (!generatedEngineFromChat) {
+    showAlert('수정할 엔진이 없습니다.', 'warning');
+    return;
+  }
+
+  // 폼에 데이터 채우기
+  document.getElementById('newEngineName').value = generatedEngineFromChat.name || '';
+  document.getElementById('newEngineDesc').value = generatedEngineFromChat.description || '';
+  document.getElementById('newEngineSubject').value = generatedEngineFromChat.subject || '';
+  document.getElementById('newEngineChapter').value = generatedEngineFromChat.chapter || '';
+  document.getElementById('newEnginePrompt').value = generatedEngineFromChat.promptRules || '';
+  document.getElementById('newEnginePython').value = generatedEngineFromChat.pythonCode || '';
+
+  // 직접 입력 모드로 전환
+  switchEngineCreateMode('form');
+
+  showAlert('📝 엔진 데이터가 폼에 채워졌습니다. 수정 후 저장하세요.', 'info');
+}
+
+/**
+ * 대화에서 생성된 엔진 바로 저장
+ */
+async function saveEngineFromChat() {
+  if (!generatedEngineFromChat) {
+    showAlert('저장할 엔진이 없습니다.', 'warning');
+    return;
+  }
+
+  try {
+    showAlert('엔진 저장 중...', 'info');
+
+    const response = await fetch('/api/engines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: generatedEngineFromChat.name,
+        description: generatedEngineFromChat.description || '',
+        subject: generatedEngineFromChat.subject || '',
+        chapter: generatedEngineFromChat.chapter || '',
+        promptRules: generatedEngineFromChat.promptRules,
+        pythonCode: generatedEngineFromChat.pythonCode || '',
+        version: '1.0.0',
+        tags: []
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 엔진 "${generatedEngineFromChat.name}"이(가) 저장되었습니다.`, 'success');
+
+      // 미리보기 숨기기
+      document.getElementById('enginePreviewFromChat').style.display = 'none';
+      generatedEngineFromChat = null;
+
+      // 커스텀 엔진 탭으로 전환
+      switchEngineTab('custom');
+      document.querySelectorAll('.engine-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent.includes('커스텀')) {
+          tab.classList.add('active');
+        }
+      });
+
+      // 성공 메시지를 채팅에도 추가
+      addChatMessage('assistant', `✅ "${generatedEngineFromChat?.name || '엔진'}"이 성공적으로 저장되었습니다! 커스텀 엔진 탭에서 확인해보세요.`);
+
+    } else {
+      showAlert(data.error || '엔진 저장 실패', 'error');
+    }
+  } catch (error) {
+    console.error('엔진 저장 오류:', error);
+    showAlert('엔진 저장 중 오류가 발생했습니다.', 'error');
+  }
+}
+
+/**
+ * 대화 히스토리 초기화
+ */
+function clearEngineChatHistory() {
+  engineChatHistory = [];
+  generatedEngineFromChat = null;
+
+  const messagesContainer = document.getElementById('engineChatMessages');
+  if (messagesContainer) {
+    messagesContainer.innerHTML = `
+      <div class="chat-message assistant">
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+          <p>안녕하세요! 문제 생성 엔진을 만들어 드릴게요.</p>
+          <p>어떤 유형의 문제를 생성하는 엔진을 만들고 싶으신가요?</p>
+          <p class="chat-hint">예: "도형 색칠 문제를 만드는 엔진", "인수분해 문제 생성기", "확률 계산 문제 엔진"</p>
+        </div>
+      </div>
+    `;
+  }
+
+  // 미리보기 숨기기
+  const preview = document.getElementById('enginePreviewFromChat');
+  if (preview) {
+    preview.style.display = 'none';
+  }
+
+  showAlert('대화가 초기화되었습니다.', 'info');
+}
+
 /**
  * DOCX/TXT 파일에서 엔진 가져오기
  */
@@ -6139,6 +7995,185 @@ async function resetLabelsToDefault() {
   showAlert('✅ 라벨 목록이 새로고침되었습니다.', 'success');
 }
 
+// ==================== 키워드 자동 생성 기능 (#11) ====================
+
+// 추출된 키워드 저장
+let extractedKeywords = [];
+
+/**
+ * 키워드 자동 생성 모달 열기
+ */
+function openAutoKeywordModal() {
+  document.getElementById('autoKeywordModal').style.display = 'flex';
+
+  // 이전에 OCR된 텍스트가 있으면 자동 채우기
+  const ocrText = document.getElementById('ocrResultText')?.value;
+  if (ocrText) {
+    document.getElementById('keywordSourceText').value = ocrText;
+  }
+
+  // 결과 영역 초기화
+  document.getElementById('extractedKeywordsResult').style.display = 'none';
+  extractedKeywords = [];
+}
+
+/**
+ * 키워드 자동 생성 모달 닫기
+ */
+function closeAutoKeywordModal() {
+  document.getElementById('autoKeywordModal').style.display = 'none';
+}
+
+/**
+ * AI로 키워드 추출
+ */
+async function generateKeywordsFromText() {
+  const sourceText = document.getElementById('keywordSourceText').value.trim();
+
+  if (!sourceText) {
+    showAlert('분석할 텍스트를 입력해주세요.', 'warning');
+    return;
+  }
+
+  // 옵션 수집
+  const options = {
+    extractConcepts: document.getElementById('extractConcepts').checked,
+    extractMethods: document.getElementById('extractMethods').checked,
+    extractFormulas: document.getElementById('extractFormulas').checked,
+    extractDifficulty: document.getElementById('extractDifficulty').checked,
+    targetCategory: document.getElementById('targetCategory').value
+  };
+
+  try {
+    showAlert('🤖 AI로 키워드 추출 중...', 'info');
+
+    const response = await fetch('/api/labels/extract-keywords', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: sourceText,
+        options
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      extractedKeywords = data.keywords || [];
+      displayExtractedKeywords(extractedKeywords);
+      showAlert(`✅ ${extractedKeywords.length}개 키워드가 추출되었습니다.`, 'success');
+    } else {
+      throw new Error(data.error || '키워드 추출 실패');
+    }
+  } catch (error) {
+    console.error('키워드 추출 오류:', error);
+    showAlert(`❌ 키워드 추출 오류: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 추출된 키워드 표시
+ */
+function displayExtractedKeywords(keywords) {
+  const container = document.getElementById('extractedKeywordsList');
+  const resultSection = document.getElementById('extractedKeywordsResult');
+
+  if (keywords.length === 0) {
+    container.innerHTML = '<p class="info-message">추출된 키워드가 없습니다.</p>';
+    resultSection.style.display = 'block';
+    return;
+  }
+
+  container.innerHTML = keywords.map((kw, idx) => `
+    <div class="keyword-chip" data-index="${idx}" onclick="toggleKeywordSelection(${idx})">
+      <span class="keyword-name">${kw.name}</span>
+      <span class="keyword-type">${kw.type || kw.category}</span>
+    </div>
+  `).join('');
+
+  resultSection.style.display = 'block';
+}
+
+/**
+ * 키워드 선택 토글
+ */
+function toggleKeywordSelection(index) {
+  const chip = document.querySelector(`.keyword-chip[data-index="${index}"]`);
+  if (chip) {
+    chip.classList.toggle('selected');
+    extractedKeywords[index].selected = chip.classList.contains('selected');
+  }
+}
+
+/**
+ * 전체 키워드 선택
+ */
+function selectAllKeywords() {
+  document.querySelectorAll('.keyword-chip').forEach((chip, idx) => {
+    chip.classList.add('selected');
+    if (extractedKeywords[idx]) {
+      extractedKeywords[idx].selected = true;
+    }
+  });
+}
+
+/**
+ * 선택된 키워드를 라벨로 추가
+ */
+async function addSelectedKeywordsAsLabels() {
+  const selectedKeywords = extractedKeywords.filter(kw => kw.selected);
+
+  if (selectedKeywords.length === 0) {
+    showAlert('추가할 키워드를 선택해주세요.', 'warning');
+    return;
+  }
+
+  const targetCategory = document.getElementById('targetCategory').value;
+
+  try {
+    showAlert(`📝 ${selectedKeywords.length}개 라벨 추가 중...`, 'info');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const kw of selectedKeywords) {
+      try {
+        const response = await fetch('/api/labels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: targetCategory,
+            name: kw.name,
+            metadata: { source: 'auto-generated', confidence: kw.confidence || 0.8 }
+          })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        failCount++;
+      }
+    }
+
+    showAlert(`✅ ${successCount}개 라벨 추가 완료${failCount > 0 ? `, ${failCount}개 실패` : ''}`, 'success');
+
+    // 라벨 목록 새로고침
+    loadLabels();
+
+    // 결과 초기화
+    extractedKeywords = [];
+    document.getElementById('extractedKeywordsResult').style.display = 'none';
+
+  } catch (error) {
+    console.error('라벨 추가 오류:', error);
+    showAlert(`❌ 라벨 추가 오류: ${error.message}`, 'error');
+  }
+}
+
 // ==================== RAG 관리 함수들 ====================
 
 /**
@@ -6271,6 +8306,246 @@ async function deleteRAGDocument(documentName) {
   } catch (error) {
     console.error('RAG 문서 삭제 오류:', error);
     showAlert(`❌ 삭제 실패: ${error.message}`, 'error');
+  }
+}
+
+// ==================== RAG 청크 뷰어 기능 (#12) ====================
+
+// 청크 데이터 저장
+let chunkViewerData = [];
+let chunkCurrentPage = 1;
+const chunksPerPage = 10;
+
+/**
+ * 청크 뷰어 열기
+ */
+function openChunkViewer() {
+  const section = document.getElementById('chunkViewerSection');
+  if (section) {
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+/**
+ * 청크 뷰어 닫기
+ */
+function closeChunkViewer() {
+  const section = document.getElementById('chunkViewerSection');
+  if (section) {
+    section.style.display = 'none';
+  }
+  chunkViewerData = [];
+  chunkCurrentPage = 1;
+}
+
+/**
+ * 청크 검색
+ */
+async function searchChunks() {
+  const query = document.getElementById('chunkSearchQuery').value.trim();
+
+  if (!query) {
+    showAlert('검색어를 입력해주세요.', 'warning');
+    return;
+  }
+
+  const container = document.getElementById('chunkViewerList');
+  container.innerHTML = '<p class="info-message">🔍 청크 검색 중...</p>';
+
+  try {
+    const response = await fetch('/api/rag/chunks/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        limit: 50 // 최대 50개 청크 검색
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      chunkViewerData = data.chunks || [];
+      chunkCurrentPage = 1;
+      renderChunks();
+      showAlert(`🔍 ${chunkViewerData.length}개 청크를 찾았습니다.`, 'success');
+    } else {
+      throw new Error(data.error || '청크 검색 실패');
+    }
+  } catch (error) {
+    console.error('청크 검색 오류:', error);
+    container.innerHTML = `<p class="error-message">❌ 검색 실패: ${error.message}</p>`;
+  }
+}
+
+/**
+ * 청크 정렬
+ */
+function sortChunks() {
+  const sortOrder = document.getElementById('chunkSortOrder').value;
+
+  switch (sortOrder) {
+    case 'relevance':
+      chunkViewerData.sort((a, b) => (b.score || 0) - (a.score || 0));
+      break;
+    case 'newest':
+      chunkViewerData.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      break;
+    case 'oldest':
+      chunkViewerData.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      break;
+  }
+
+  chunkCurrentPage = 1;
+  renderChunks();
+}
+
+/**
+ * 청크 렌더링
+ */
+function renderChunks() {
+  const container = document.getElementById('chunkViewerList');
+  const pagination = document.getElementById('chunkViewerPagination');
+
+  if (chunkViewerData.length === 0) {
+    container.innerHTML = '<p class="info-message">검색 결과가 없습니다.</p>';
+    pagination.innerHTML = '';
+    return;
+  }
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(chunkViewerData.length / chunksPerPage);
+  const startIdx = (chunkCurrentPage - 1) * chunksPerPage;
+  const endIdx = startIdx + chunksPerPage;
+  const chunksToShow = chunkViewerData.slice(startIdx, endIdx);
+
+  // 청크 렌더링
+  container.innerHTML = chunksToShow.map((chunk, idx) => {
+    const globalIdx = startIdx + idx;
+    const scorePercent = Math.round((chunk.score || 0) * 100);
+    const metadata = chunk.metadata || {};
+
+    return `
+      <div class="chunk-item" data-index="${globalIdx}">
+        <div class="chunk-item-header">
+          <span class="chunk-id">📄 청크 #${globalIdx + 1}</span>
+          <div class="chunk-score">
+            <span>관련도: ${scorePercent}%</span>
+            <div class="chunk-score-bar">
+              <div class="chunk-score-fill" style="width: ${scorePercent}%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="chunk-content" id="chunk-content-${globalIdx}">
+          ${escapeHtml(chunk.content || chunk.text || '내용 없음')}
+        </div>
+        <div class="chunk-metadata">
+          ${metadata.source ? `<span class="chunk-meta-tag">📁 ${metadata.source}</span>` : ''}
+          ${metadata.category ? `<span class="chunk-meta-tag">🏷️ ${metadata.category}</span>` : ''}
+          ${metadata.createdAt ? `<span class="chunk-meta-tag">📅 ${new Date(metadata.createdAt).toLocaleDateString()}</span>` : ''}
+          ${chunk.documentName ? `<span class="chunk-meta-tag">📄 ${chunk.documentName}</span>` : ''}
+        </div>
+        <div class="chunk-actions">
+          <button class="btn btn-small btn-outline" onclick="toggleChunkExpand(${globalIdx})">
+            📖 전체 보기
+          </button>
+          <button class="btn btn-small btn-secondary" onclick="copyChunkContent(${globalIdx})">
+            📋 복사
+          </button>
+          <button class="btn btn-small btn-info" onclick="useChunkAsContext(${globalIdx})">
+            🔗 컨텍스트로 사용
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 페이지네이션 렌더링
+  if (totalPages > 1) {
+    let paginationHTML = `
+      <button onclick="goToChunkPage(${chunkCurrentPage - 1})" ${chunkCurrentPage === 1 ? 'disabled' : ''}>◀ 이전</button>
+    `;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= chunkCurrentPage - 2 && i <= chunkCurrentPage + 2)) {
+        paginationHTML += `
+          <button onclick="goToChunkPage(${i})" class="${i === chunkCurrentPage ? 'active' : ''}">${i}</button>
+        `;
+      } else if (i === chunkCurrentPage - 3 || i === chunkCurrentPage + 3) {
+        paginationHTML += '<span>...</span>';
+      }
+    }
+
+    paginationHTML += `
+      <button onclick="goToChunkPage(${chunkCurrentPage + 1})" ${chunkCurrentPage === totalPages ? 'disabled' : ''}>다음 ▶</button>
+    `;
+
+    pagination.innerHTML = paginationHTML;
+  } else {
+    pagination.innerHTML = '';
+  }
+}
+
+/**
+ * 청크 페이지 이동
+ */
+function goToChunkPage(page) {
+  const totalPages = Math.ceil(chunkViewerData.length / chunksPerPage);
+  if (page < 1 || page > totalPages) return;
+
+  chunkCurrentPage = page;
+  renderChunks();
+
+  // 스크롤을 청크 목록 상단으로
+  document.getElementById('chunkViewerList').scrollTop = 0;
+}
+
+/**
+ * 청크 내용 펼치기/접기
+ */
+function toggleChunkExpand(index) {
+  const content = document.getElementById(`chunk-content-${index}`);
+  if (content) {
+    content.classList.toggle('expanded');
+  }
+}
+
+/**
+ * 청크 내용 복사
+ */
+function copyChunkContent(index) {
+  const chunk = chunkViewerData[index];
+  if (!chunk) return;
+
+  const text = chunk.content || chunk.text || '';
+  navigator.clipboard.writeText(text).then(() => {
+    showAlert('📋 청크 내용이 클립보드에 복사되었습니다.', 'success');
+  }).catch(err => {
+    console.error('복사 실패:', err);
+    showAlert('복사에 실패했습니다.', 'error');
+  });
+}
+
+/**
+ * 청크를 RAG 컨텍스트로 사용
+ */
+function useChunkAsContext(index) {
+  const chunk = chunkViewerData[index];
+  if (!chunk) return;
+
+  const text = chunk.content || chunk.text || '';
+
+  // 문제 입력란이나 다른 입력 필드에 추가
+  const problemInput = document.getElementById('problemInput') || document.getElementById('originalProblem');
+  if (problemInput) {
+    const currentValue = problemInput.value;
+    problemInput.value = currentValue + (currentValue ? '\n\n[참고 컨텍스트]\n' : '') + text;
+    showAlert('🔗 청크가 컨텍스트로 추가되었습니다.', 'success');
+  } else {
+    // 클립보드에 복사
+    navigator.clipboard.writeText(text);
+    showAlert('📋 청크가 클립보드에 복사되었습니다. 필요한 곳에 붙여넣으세요.', 'info');
   }
 }
 
@@ -6714,3 +8989,480 @@ window.closeProblemDetailModal = closeProblemDetailModal;
 window.approveCurrentProblem = approveCurrentProblem;
 window.rejectCurrentProblem = rejectCurrentProblem;
 window.reindexCurrentProblem = reindexCurrentProblem;
+
+// ==================== 새로운 기능 함수들 ====================
+
+/**
+ * 6-⑧ 해설/정답 생성
+ * 입력된 문제에 대한 해설과 정답을 AI로 생성
+ */
+async function generateSolutionAndAnswer() {
+  const problemText = document.getElementById('inputResultText')?.innerText;
+
+  if (!problemText || problemText.trim() === '') {
+    showAlert('❌ 먼저 문제를 입력해주세요.', 'error');
+    return;
+  }
+
+  showAlert('📖 해설과 정답 생성 중...', 'info');
+
+  try {
+    const response = await fetch('/api/generate-solution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        problemText: problemText,
+        subject: selectedCourse?.name || '',
+        model: document.getElementById('geminiModelSelect')?.value || 'gemini-2.5-flash-preview-05-20'
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || '해설 생성 실패');
+    }
+
+    // 해설/정답 결과 표시
+    displaySolutionResult(data);
+    showAlert('✅ 해설과 정답이 생성되었습니다.', 'success');
+
+  } catch (error) {
+    console.error('해설 생성 오류:', error);
+    showAlert(`❌ 해설 생성 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 해설/정답 결과 표시
+ */
+function displaySolutionResult(data) {
+  // 기존 결과 제거
+  const existingResult = document.getElementById('solutionResultBox');
+  if (existingResult) existingResult.remove();
+
+  const resultBox = document.createElement('div');
+  resultBox.id = 'solutionResultBox';
+  resultBox.className = 'solution-result-box';
+  resultBox.innerHTML = `
+    <h4>📖 해설 및 정답</h4>
+    <div class="solution-content">
+      <div class="solution-section">
+        <h5>✅ 정답</h5>
+        <div class="answer-highlight">${data.answer || '정답 정보 없음'}</div>
+      </div>
+      <div class="solution-section">
+        <h5>📝 해설</h5>
+        <div class="solution-text">${data.solution || '해설 정보 없음'}</div>
+      </div>
+    </div>
+    <div class="solution-actions">
+      <button class="btn btn-secondary btn-sm" onclick="copySolution()">📋 복사</button>
+      <button class="btn btn-outline btn-sm" onclick="closeSolutionResult()">✕ 닫기</button>
+    </div>
+  `;
+
+  const inputResult = document.getElementById('problemInputResult');
+  if (inputResult) {
+    inputResult.appendChild(resultBox);
+  }
+}
+
+/**
+ * 해설 결과 닫기
+ */
+function closeSolutionResult() {
+  const resultBox = document.getElementById('solutionResultBox');
+  if (resultBox) resultBox.remove();
+}
+
+/**
+ * 해설 복사
+ */
+function copySolution() {
+  const solutionText = document.querySelector('.solution-text')?.innerText || '';
+  const answer = document.querySelector('.answer-highlight')?.innerText || '';
+  const text = `정답: ${answer}\n\n해설:\n${solutionText}`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    showAlert('📋 해설이 클립보드에 복사되었습니다.', 'success');
+  });
+}
+
+/**
+ * 6-⑨ 참조 문제만 저장 (변형 생성 없이)
+ */
+async function saveReferenceProblemOnly() {
+  if (!currentStore) {
+    showAlert('❌ 먼저 스토어를 선택해주세요.', 'error');
+    return;
+  }
+
+  const problemText = document.getElementById('inputResultText')?.innerText;
+  if (!problemText || problemText.trim() === '') {
+    showAlert('❌ 저장할 문제가 없습니다. 먼저 문제를 입력해주세요.', 'error');
+    return;
+  }
+
+  // 메타데이터 수집
+  const metadata = collectProblemMetadata();
+
+  showAlert('💾 참조 문제 저장 중...', 'info');
+
+  try {
+    const response = await fetch('/api/problems/save-reference', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeName: currentStore,
+        problemText: problemText,
+        images: extractedImages || [],
+        tables: extractedTables || [],
+        metadata: metadata
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || '저장 실패');
+    }
+
+    showAlert(`✅ 참조 문제가 저장되었습니다. (ID: ${data.problemId})`, 'success');
+
+    // DB 문제 목록 새로고침
+    if (document.getElementById('dbProblemSection')?.style.display !== 'none') {
+      searchDbProblems();
+    }
+
+  } catch (error) {
+    console.error('참조 문제 저장 오류:', error);
+    showAlert(`❌ 저장 실패: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * 문제 메타데이터 수집
+ */
+function collectProblemMetadata() {
+  const examType = document.getElementById('examTypeSelect')?.value || '';
+  const grade = document.getElementById('gradeSelect')?.value || '';
+  const year = document.getElementById('examYearInput')?.value || '';
+  const subject = selectedCourse?.name || '';
+
+  let metadata = {
+    examType,
+    grade,
+    year,
+    subject,
+    createdAt: new Date().toISOString()
+  };
+
+  // 시험 종류별 추가 메타데이터
+  switch (examType) {
+    case '내신':
+      metadata.source = document.getElementById('naesinSourceSelect')?.value || '';
+      metadata.school = document.getElementById('naesinSchoolInput')?.value || '';
+      metadata.book = document.getElementById('naesinBookInput')?.value || '';
+      metadata.semester = document.getElementById('semesterSelect')?.value || '';
+      metadata.chapterLarge = document.getElementById('naesinChapterLarge')?.value || '';
+      metadata.chapterMedium = document.getElementById('naesinChapterMedium')?.value || '';
+      metadata.chapterType = document.getElementById('naesinChapterType')?.value || '';
+      metadata.chapterCode = document.getElementById('naesinChapterCode')?.value || '';
+      break;
+    case '수능':
+      metadata.source = document.getElementById('suneungSourceSelect')?.value || '';
+      metadata.month = document.getElementById('suneungMonthSelect')?.value || '';
+      metadata.questionNum = document.getElementById('suneungQuestionNum')?.value || '';
+      metadata.chapterLarge = document.getElementById('suneungChapterLarge')?.value || '';
+      metadata.chapterMedium = document.getElementById('suneungChapterMedium')?.value || '';
+      metadata.chapterType = document.getElementById('suneungChapterType')?.value || '';
+      metadata.chapterCode = document.getElementById('suneungChapterCode')?.value || '';
+      break;
+    case '논술':
+      metadata.source = document.getElementById('nonsulSourceSelect')?.value || '';
+      metadata.university = document.getElementById('nonsulUnivSelect')?.value || '';
+      metadata.chapter = document.getElementById('nonsulChapterInput')?.value || '';
+      break;
+    case '심층면접':
+      metadata.source = document.getElementById('interviewSourceSelect')?.value || '';
+      metadata.university = document.getElementById('interviewUnivSelect')?.value || '';
+      metadata.interviewType = document.getElementById('interviewTypeSelect')?.value || '';
+      break;
+  }
+
+  return metadata;
+}
+
+// ==================== 6-⑥ DB 문제 불러오기 기능 ====================
+
+let dbProblemsCache = [];
+let dbCurrentPage = 1;
+const dbPageSize = 10;
+
+/**
+ * DB 과목 필터 변경 이벤트
+ */
+function onDbSubjectFilterChange() {
+  const subjectFilter = document.getElementById('dbSubjectFilter');
+  const chapterFilter = document.getElementById('dbChapterFilter');
+
+  const selectedSubject = subjectFilter.value;
+
+  if (!selectedSubject) {
+    chapterFilter.disabled = true;
+    chapterFilter.innerHTML = '<option value="">전체</option>';
+    return;
+  }
+
+  // 선택된 과목에 해당하는 단원 목록 불러오기
+  chapterFilter.disabled = false;
+
+  // subjectsData에서 단원 정보 추출
+  let chapters = [];
+  if (subjectsData) {
+    for (const subject of subjectsData.subjects) {
+      for (const course of subject.courses) {
+        if (course.name === selectedSubject) {
+          for (const publisher of course.publishers || []) {
+            chapters = publisher.chapters || [];
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  chapterFilter.innerHTML = '<option value="">전체</option>';
+  chapters.forEach(ch => {
+    const option = document.createElement('option');
+    option.value = ch.name;
+    option.textContent = ch.name;
+    chapterFilter.appendChild(option);
+  });
+}
+
+/**
+ * DB에서 문제 검색
+ */
+async function searchDbProblems() {
+  const subject = document.getElementById('dbSubjectFilter')?.value || '';
+  const chapter = document.getElementById('dbChapterFilter')?.value || '';
+  const type = document.getElementById('dbTypeFilter')?.value || '';
+
+  const listEl = document.getElementById('dbProblemList');
+  listEl.innerHTML = '<p class="info-message">🔍 검색 중...</p>';
+
+  try {
+    const params = new URLSearchParams();
+    if (subject) params.append('subject', subject);
+    if (chapter) params.append('chapter', chapter);
+    if (type) params.append('type', type);
+    params.append('page', dbCurrentPage);
+    params.append('limit', dbPageSize);
+
+    const response = await fetch(`/api/problems/search?${params}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || '검색 실패');
+    }
+
+    dbProblemsCache = data.problems || [];
+    renderDbProblems(dbProblemsCache, data.total || 0);
+
+  } catch (error) {
+    console.error('문제 검색 오류:', error);
+    listEl.innerHTML = `<p class="error-message">❌ 검색 실패: ${error.message}</p>`;
+  }
+}
+
+/**
+ * DB 문제 목록 렌더링
+ */
+function renderDbProblems(problems, total) {
+  const listEl = document.getElementById('dbProblemList');
+  const paginationEl = document.getElementById('dbProblemPagination');
+
+  if (!problems || problems.length === 0) {
+    listEl.innerHTML = '<p class="info-message">📂 검색 결과가 없습니다.</p>';
+    paginationEl.style.display = 'none';
+    return;
+  }
+
+  listEl.innerHTML = problems.map((p, idx) => `
+    <div class="db-problem-item" onclick="selectDbProblem(${idx})">
+      <div class="problem-header">
+        <div class="problem-meta">
+          <span class="tag">${p.metadata?.subject || '과목 없음'}</span>
+          <span class="tag">${p.metadata?.examType || '유형 없음'}</span>
+          ${p.metadata?.chapterLarge ? `<span class="tag">${p.metadata.chapterLarge}</span>` : ''}
+        </div>
+        <small>${formatDate(p.createdAt)}</small>
+      </div>
+      <div class="problem-preview">${truncateText(p.problemText || p.text || '', 100)}</div>
+      <div class="problem-actions">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); loadDbProblem(${idx})">📥 불러오기</button>
+        <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); previewDbProblem(${idx})">👁️ 미리보기</button>
+      </div>
+    </div>
+  `).join('');
+
+  // 페이지네이션
+  const totalPages = Math.ceil(total / dbPageSize);
+  if (totalPages > 1) {
+    paginationEl.style.display = 'flex';
+    paginationEl.innerHTML = `
+      <button onclick="goToDbPage(${dbCurrentPage - 1})" ${dbCurrentPage <= 1 ? 'disabled' : ''}>◀ 이전</button>
+      <span>${dbCurrentPage} / ${totalPages}</span>
+      <button onclick="goToDbPage(${dbCurrentPage + 1})" ${dbCurrentPage >= totalPages ? 'disabled' : ''}>다음 ▶</button>
+    `;
+  } else {
+    paginationEl.style.display = 'none';
+  }
+}
+
+/**
+ * DB 문제 페이지 이동
+ */
+function goToDbPage(page) {
+  if (page < 1) return;
+  dbCurrentPage = page;
+  searchDbProblems();
+}
+
+/**
+ * DB 문제 선택
+ */
+function selectDbProblem(idx) {
+  document.querySelectorAll('.db-problem-item').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+}
+
+/**
+ * DB 문제 불러오기 (문제 입력 영역에 표시)
+ */
+function loadDbProblem(idx) {
+  const problem = dbProblemsCache[idx];
+  if (!problem) return;
+
+  // 문제 입력 결과 영역에 표시
+  document.getElementById('problemInputResult').style.display = 'block';
+  document.getElementById('inputResultText').innerHTML = problem.problemText || problem.text || '';
+  document.getElementById('inputResultImages').innerHTML = (problem.images || []).map(img =>
+    `<img src="${img}" alt="문제 이미지" style="max-width: 100%; margin: 8px 0;" />`
+  ).join('');
+  document.getElementById('inputResultTables').innerHTML = problem.tables?.join('<hr>') || '<p>표 없음</p>';
+
+  // 메타데이터 복원
+  if (problem.metadata) {
+    restoreProblemMetadata(problem.metadata);
+  }
+
+  showAlert('📥 문제를 불러왔습니다. 수정 후 변형 생성하거나 바로 사용하세요.', 'success');
+
+  // DB 섹션 접기
+  toggleSection('dbProblemSection');
+}
+
+/**
+ * DB 문제 미리보기
+ */
+function previewDbProblem(idx) {
+  const problem = dbProblemsCache[idx];
+  if (!problem) return;
+
+  const previewHtml = `
+    <div class="modal-overlay" onclick="this.remove()">
+      <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+        <h3>📋 문제 미리보기</h3>
+        <div style="margin: 16px 0;">
+          <strong>과목:</strong> ${problem.metadata?.subject || '-'} |
+          <strong>유형:</strong> ${problem.metadata?.examType || '-'} |
+          <strong>단원:</strong> ${problem.metadata?.chapterLarge || '-'}
+        </div>
+        <div style="background: #f8f9ff; padding: 16px; border-radius: 8px; line-height: 1.6;">
+          ${problem.problemText || problem.text || '내용 없음'}
+        </div>
+        ${problem.images?.length ? `<div style="margin-top: 16px;">${problem.images.map(img => `<img src="${img}" style="max-width: 100%;" />`).join('')}</div>` : ''}
+        <div style="margin-top: 16px; text-align: right;">
+          <button class="btn btn-primary" onclick="loadDbProblem(${idx}); this.closest('.modal-overlay').remove();">📥 불러오기</button>
+          <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove();">닫기</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', previewHtml);
+}
+
+/**
+ * 메타데이터 복원
+ */
+function restoreProblemMetadata(metadata) {
+  if (metadata.examType) {
+    document.getElementById('examTypeSelect').value = metadata.examType;
+    onExamTypeChange();
+  }
+  if (metadata.grade) {
+    document.getElementById('gradeSelect').value = metadata.grade;
+  }
+  if (metadata.year) {
+    document.getElementById('examYearInput').value = metadata.year;
+  }
+}
+
+/**
+ * 텍스트 자르기
+ */
+function truncateText(text, maxLength) {
+  if (!text) return '';
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
+/**
+ * 날짜 포맷
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) return '오늘';
+  if (days === 1) return '어제';
+  if (days < 7) return `${days}일 전`;
+  return date.toLocaleDateString('ko-KR');
+}
+
+/**
+ * DB 과목 필터 초기화
+ */
+function initDbSubjectFilter() {
+  const filterEl = document.getElementById('dbSubjectFilter');
+  if (!filterEl || !subjectsData) return;
+
+  filterEl.innerHTML = '<option value="">전체</option>';
+
+  for (const subject of subjectsData.subjects) {
+    for (const course of subject.courses) {
+      const option = document.createElement('option');
+      option.value = course.name;
+      option.textContent = `${course.name}`;
+      filterEl.appendChild(option);
+    }
+  }
+}
+
+// 전역 등록
+window.generateSolutionAndAnswer = generateSolutionAndAnswer;
+window.closeSolutionResult = closeSolutionResult;
+window.copySolution = copySolution;
+window.saveReferenceProblemOnly = saveReferenceProblemOnly;
+window.onDbSubjectFilterChange = onDbSubjectFilterChange;
+window.searchDbProblems = searchDbProblems;
+window.selectDbProblem = selectDbProblem;
+window.loadDbProblem = loadDbProblem;
+window.previewDbProblem = previewDbProblem;
+window.goToDbPage = goToDbPage;

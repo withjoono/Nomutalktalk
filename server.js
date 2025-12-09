@@ -285,6 +285,39 @@ app.delete('/api/store/:storeName', async (req, res) => {
 });
 
 /**
+ * PATCH /api/store/:storeName/rename
+ * 스토어 이름 수정
+ */
+app.patch('/api/store/:storeName/rename', async (req, res) => {
+  try {
+    const { storeName } = req.params;
+    const { newDisplayName } = req.body;
+
+    if (!newDisplayName || !newDisplayName.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '새 스토어 이름을 입력하세요.'
+      });
+    }
+
+    const agent = getAgent();
+    const updatedStore = await agent.renameStore(storeName, newDisplayName.trim());
+
+    res.json({
+      success: true,
+      message: '스토어 이름이 변경되었습니다.',
+      store: updatedStore
+    });
+  } catch (error) {
+    console.error('스토어 이름 수정 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /api/upload
  * 파일 업로드 (직접 업로드 방식)
  */
@@ -465,6 +498,161 @@ app.post('/api/upload-import', upload.single('file'), async (req, res) => {
     });
   }
 });
+
+/**
+ * POST /api/upload/preview-embedding
+ * 업로드 전 embedding 미리보기 (텍스트 추출, 청크 분할, 특수 문자 인식)
+ */
+app.post('/api/upload/preview-embedding', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '파일이 업로드되지 않았습니다.'
+      });
+    }
+
+    const filePath = req.file.path;
+    const mimeType = req.file.mimetype;
+    const fileName = req.file.originalname;
+
+    // 청킹 설정
+    let maxTokensPerChunk = 250;
+    let maxOverlapTokens = 25;
+    if (req.body.maxTokensPerChunk) {
+      maxTokensPerChunk = parseInt(req.body.maxTokensPerChunk) || 250;
+    }
+    if (req.body.maxOverlapTokens) {
+      maxOverlapTokens = parseInt(req.body.maxOverlapTokens) || 25;
+    }
+
+    // 텍스트 추출
+    let extractedText = '';
+    if (mimeType === 'text/plain' || mimeType === 'text/markdown') {
+      extractedText = fs.readFileSync(filePath, 'utf-8');
+    } else if (mimeType === 'application/pdf') {
+      // PDF는 여기서 간단한 텍스트 추출 시뮬레이션 (실제로는 PDF 파싱 필요)
+      extractedText = `[PDF 파일: ${fileName}]\n※ PDF 텍스트 추출은 업로드 시 서버에서 처리됩니다.\n파일 크기: ${(req.file.size / 1024).toFixed(1)}KB`;
+    } else {
+      extractedText = `[${mimeType} 파일]\n파일명: ${fileName}\n파일 크기: ${(req.file.size / 1024).toFixed(1)}KB`;
+    }
+
+    // 청크 분할 미리보기 (간단한 시뮬레이션)
+    const chunks = simulateChunking(extractedText, maxTokensPerChunk, maxOverlapTokens);
+
+    // 특수 문자/수식 탐지
+    const specialChars = detectSpecialCharacters(extractedText);
+
+    // 파일 삭제
+    await cleanupFile(filePath);
+
+    res.json({
+      success: true,
+      preview: {
+        fileName,
+        mimeType,
+        fileSize: req.file.size,
+        extractedText: extractedText.substring(0, 2000) + (extractedText.length > 2000 ? '...' : ''),
+        totalTextLength: extractedText.length,
+        chunks: chunks.slice(0, 5), // 최대 5개 청크만 미리보기
+        totalChunks: chunks.length,
+        specialCharacters: specialChars,
+        settings: {
+          maxTokensPerChunk,
+          maxOverlapTokens
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Embedding 미리보기 오류:', error);
+
+    if (req.file && fs.existsSync(req.file.path)) {
+      await cleanupFile(req.file.path);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 청크 분할 시뮬레이션
+ */
+function simulateChunking(text, maxTokens, overlap) {
+  const chunks = [];
+  // 대략 4 글자 = 1 토큰으로 가정
+  const charsPerChunk = maxTokens * 4;
+  const overlapChars = overlap * 4;
+
+  let start = 0;
+  let chunkIndex = 1;
+
+  while (start < text.length) {
+    const end = Math.min(start + charsPerChunk, text.length);
+    const chunkText = text.substring(start, end);
+
+    chunks.push({
+      index: chunkIndex,
+      content: chunkText.substring(0, 200) + (chunkText.length > 200 ? '...' : ''),
+      fullLength: chunkText.length,
+      estimatedTokens: Math.ceil(chunkText.length / 4)
+    });
+
+    start = end - overlapChars;
+    if (start >= text.length || end === text.length) break;
+    chunkIndex++;
+  }
+
+  return chunks;
+}
+
+/**
+ * 특수 문자 및 수식 탐지
+ */
+function detectSpecialCharacters(text) {
+  const results = {
+    hasLatex: false,
+    hasGreekLetters: false,
+    hasMathSymbols: false,
+    hasChemical: false,
+    samples: []
+  };
+
+  // LaTeX 수식 탐지
+  const latexPatterns = [/\$[^$]+\$/g, /\\\[[\s\S]*?\\\]/g, /\\begin\{[^}]+\}/g];
+  for (const pattern of latexPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      results.hasLatex = true;
+      results.samples.push(...matches.slice(0, 3).map(m => ({ type: 'LaTeX', content: m.substring(0, 50) })));
+    }
+  }
+
+  // 그리스 문자 탐지
+  if (/[α-ωΑ-Ω]/.test(text)) {
+    results.hasGreekLetters = true;
+    const greekMatches = text.match(/[α-ωΑ-Ω]+/g) || [];
+    results.samples.push(...greekMatches.slice(0, 3).map(m => ({ type: 'Greek', content: m })));
+  }
+
+  // 수학 기호 탐지
+  if (/[∑∫∂√∞±×÷≈≠≤≥∈∉⊂⊃∪∩]/.test(text)) {
+    results.hasMathSymbols = true;
+    const mathMatches = text.match(/[∑∫∂√∞±×÷≈≠≤≥∈∉⊂⊃∪∩]+/g) || [];
+    results.samples.push(...mathMatches.slice(0, 3).map(m => ({ type: 'Math', content: m })));
+  }
+
+  // 화학식 탐지
+  if (/[A-Z][a-z]?\d*/.test(text) && /[₀-₉]|(?:H2O|CO2|NaCl|O2|N2)/.test(text)) {
+    results.hasChemical = true;
+    const chemMatches = text.match(/\b[A-Z][a-z]?(?:₀-₉|\d)*\b/g) || [];
+    results.samples.push(...chemMatches.slice(0, 3).map(m => ({ type: 'Chemical', content: m })));
+  }
+
+  return results;
+}
 
 /**
  * 좌표 라벨 새니타이제이션 (XSS 방지)
@@ -979,7 +1167,7 @@ app.post('/api/generate-variation', async (req, res) => {
     } = req.body;
 
     // 하위 호환성: 기존 llmType 파라미터 지원
-    const selectedGeminiModel = geminiModel || 'gemini-2.0-flash-exp';
+    const selectedGeminiModel = geminiModel || 'gemini-2.5-flash';
     const selectedOpenaiModel = openaiModel || (llmType === 'gpt4' ? 'gpt-4o' : '');
 
     if (!images || images.length === 0) {
@@ -1146,7 +1334,7 @@ app.post('/api/variation-solution', async (req, res) => {
     const { problem, metadata, geminiModel, openaiModel, llmType } = req.body;
 
     // 하위 호환성
-    const selectedGeminiModel = geminiModel || 'gemini-2.0-flash-exp';
+    const selectedGeminiModel = geminiModel || 'gemini-2.5-flash';
     const selectedOpenaiModel = openaiModel || (llmType === 'gpt4' ? 'gpt-4o' : '');
 
     if (!problem) {
