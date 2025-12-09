@@ -4820,6 +4820,106 @@ app.use((err, req, res, next) => {
 });
 
 // 서버 시작
+
+
+/**
+ * POST /api/rag/chunks/search
+ * RAG 청크 검색 (유사도 기반)
+ */
+app.post('/api/rag/chunks/search', async (req, res) => {
+  try {
+    const { query, limit = 50 } = req.body;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: '검색어를 입력해주세요.'
+      });
+    }
+
+    if (!agentInstance) {
+      return res.status(400).json({
+        success: false,
+        error: '먼저 스토어를 초기화하세요.'
+      });
+    }
+
+    const storeName = currentStoreName;
+
+    if (!storeName) {
+      return res.status(400).json({
+        success: false,
+        error: '활성화된 스토어가 없습니다.'
+      });
+    }
+
+    // @google/genai SDK를 사용하여 File Search
+    const { GoogleGenAI } = require('@google/genai');
+    const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    // File Search Tool을 사용하여 검색
+    const response = await genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{
+        role: 'user',
+        parts: [{ text: `다음 검색어와 관련된 문서 내용을 찾아주세요: "${query}"\n\n관련 내용이 있다면 해당 부분을 인용해주세요.` }]
+      }],
+      config: {
+        tools: [{
+          fileSearch: {
+            fileSearchStoreNames: [storeName]
+          }
+        }]
+      }
+    });
+
+    const chunks = [];
+
+    if (response.candidates && response.candidates[0]) {
+      const candidate = response.candidates[0];
+
+      if (candidate.groundingMetadata && candidate.groundingMetadata.groundingChunks) {
+        candidate.groundingMetadata.groundingChunks.forEach((chunk, index) => {
+          chunks.push({
+            id: `chunk_${index}`,
+            content: chunk.retrievedContext?.text || chunk.web?.title || '',
+            source: chunk.retrievedContext?.uri || chunk.web?.uri || '',
+            score: 1 - (index * 0.1),
+            createdAt: new Date().toISOString()
+          });
+        });
+      }
+
+      if (candidate.content && candidate.content.parts && chunks.length === 0) {
+        const responseText = candidate.content.parts.map(p => p.text).join('');
+        if (responseText) {
+          chunks.push({
+            id: 'response_chunk',
+            content: responseText,
+            source: 'AI 검색 결과',
+            score: 1,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      chunks: chunks.slice(0, limit),
+      totalCount: chunks.length,
+      query: query
+    });
+
+  } catch (error) {
+    console.error('청크 검색 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`
 🚀 Google File Search RAG Agent 서버 시작
