@@ -1014,6 +1014,10 @@
               <span>📊 사용: <strong id="selectedEngineUsage">0</strong>회</span>
               <span>📁 과목: <strong id="selectedEngineSubject">-</strong></span>
             </div>
+            <div class="engine-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="openEditEngineModal()">✏️ 수정</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="deleteCustomEngine()">🗑️ 삭제</button>
+            </div>
           </div>
         </div>
 
@@ -2087,6 +2091,47 @@ def validate_problem(problem):
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
+
+
+<!-- 엔진 수정 모달 -->
+<div id="editEngineModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3>✏️ 엔진 수정</h3>
+      <button class="modal-close" onclick="closeEditEngineModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="editEngineName">엔진 이름:</label>
+        <input type="text" id="editEngineName" class="input-field" placeholder="엔진 이름">
+      </div>
+      <div class="form-group">
+        <label for="editEngineDesc">설명:</label>
+        <textarea id="editEngineDesc" class="input-field" rows="2" placeholder="엔진 설명"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editEngineSubject">과목:</label>
+        <input type="text" id="editEngineSubject" class="input-field" placeholder="과목">
+      </div>
+      <div class="form-group">
+        <label for="editEngineChapter">단원:</label>
+        <input type="text" id="editEngineChapter" class="input-field" placeholder="단원">
+      </div>
+      <div class="form-group">
+        <label for="editEnginePrompt">프롬프트 규칙:</label>
+        <textarea id="editEnginePrompt" class="input-field" rows="6" placeholder="프롬프트 규칙"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editEnginePython">Python 코드 (선택):</label>
+        <textarea id="editEnginePython" class="input-field" rows="4" placeholder="변수 생성용 Python 코드"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditEngineModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEditedEngine()">💾 저장</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

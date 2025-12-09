@@ -7186,6 +7186,146 @@ function clearEngineForm() {
   document.getElementById('newEnginePython').value = '';
 }
 
+
+
+// ==================== 커스텀 엔진 수정/삭제 기능 ====================
+
+/**
+ * 엔진 수정 모달 열기
+ */
+function openEditEngineModal() {
+  if (!selectedCustomEngine) {
+    showAlert('수정할 엔진을 먼저 선택해주세요.', 'warning');
+    return;
+  }
+
+  // 모달에 현재 엔진 정보 채우기
+  document.getElementById('editEngineName').value = selectedCustomEngine.name || '';
+  document.getElementById('editEngineDesc').value = selectedCustomEngine.description || '';
+  document.getElementById('editEngineSubject').value = selectedCustomEngine.subject || '';
+  document.getElementById('editEngineChapter').value = selectedCustomEngine.chapter || '';
+  document.getElementById('editEnginePrompt').value = selectedCustomEngine.promptRules || '';
+  document.getElementById('editEnginePython').value = selectedCustomEngine.pythonCode || '';
+
+  document.getElementById('editEngineModal').style.display = 'flex';
+}
+
+/**
+ * 엔진 수정 모달 닫기
+ */
+function closeEditEngineModal() {
+  document.getElementById('editEngineModal').style.display = 'none';
+}
+
+/**
+ * 수정된 엔진 저장
+ */
+async function saveEditedEngine() {
+  if (!selectedCustomEngine) {
+    showAlert('수정할 엔진이 선택되지 않았습니다.', 'error');
+    return;
+  }
+
+  const name = document.getElementById('editEngineName').value.trim();
+  const description = document.getElementById('editEngineDesc').value.trim();
+  const subject = document.getElementById('editEngineSubject').value.trim();
+  const chapter = document.getElementById('editEngineChapter').value.trim();
+  const promptRules = document.getElementById('editEnginePrompt').value.trim();
+  const pythonCode = document.getElementById('editEnginePython').value.trim();
+
+  if (!name) {
+    showAlert('엔진 이름을 입력해주세요.', 'warning');
+    return;
+  }
+
+  if (!promptRules) {
+    showAlert('프롬프트 규칙을 입력해주세요.', 'warning');
+    return;
+  }
+
+  try {
+    showAlert('엔진 수정 중...', 'info');
+
+    const response = await fetch(`/api/engines/${selectedCustomEngine.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        description,
+        subject,
+        chapter,
+        promptRules,
+        pythonCode
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 엔진 "${name}"이(가) 수정되었습니다.`, 'success');
+      closeEditEngineModal();
+
+      // 엔진 목록 새로고침
+      await loadCustomEngines();
+
+      // 선택된 엔진 정보 업데이트
+      selectedCustomEngine = customEngines.find(e => e.id === selectedCustomEngine.id);
+      if (selectedCustomEngine) {
+        onCustomEngineSelect();
+      }
+    } else {
+      showAlert(data.error || '엔진 수정 실패', 'error');
+    }
+  } catch (error) {
+    console.error('엔진 수정 오류:', error);
+    showAlert('엔진 수정 중 오류가 발생했습니다.', 'error');
+  }
+}
+
+/**
+ * 커스텀 엔진 삭제
+ */
+async function deleteCustomEngine() {
+  if (!selectedCustomEngine) {
+    showAlert('삭제할 엔진을 먼저 선택해주세요.', 'warning');
+    return;
+  }
+
+  const confirmDelete = confirm(`정말 "${selectedCustomEngine.name}" 엔진을 삭제하시겠습니까?
+이 작업은 되돌릴 수 없습니다.`);
+
+  if (!confirmDelete) {
+    return;
+  }
+
+  try {
+    showAlert('엔진 삭제 중...', 'info');
+
+    const response = await fetch(`/api/engines/${selectedCustomEngine.id}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ 엔진 "${selectedCustomEngine.name}"이(가) 삭제되었습니다.`, 'success');
+
+      // 선택 초기화
+      selectedCustomEngine = null;
+      document.getElementById('selectedEngineInfo').style.display = 'none';
+      document.getElementById('customEngineSelect').value = '';
+
+      // 엔진 목록 새로고침
+      await loadCustomEngines();
+    } else {
+      showAlert(data.error || '엔진 삭제 실패', 'error');
+    }
+  } catch (error) {
+    console.error('엔진 삭제 오류:', error);
+    showAlert('엔진 삭제 중 오류가 발생했습니다.', 'error');
+  }
+}
+
 // ==================== 엔진 대화형 생성 기능 (#10) ====================
 
 // 대화 히스토리 저장
