@@ -42,3 +42,15 @@ pids
 # OS
 .DS_Store
 Thumbs.db
+
+# Sensitive credentials
+firebase-service-account.json
+*-service-account.json
+*.pem
+*.key
+
+# Playwright MCP
+.playwright-mcp/
+
+# Misc
+nul
