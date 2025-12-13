@@ -38,15 +38,18 @@ function loadEditorModePreference() {
  */
 function toggleEditorMode() {
   const toggle = document.getElementById('editorModeToggle');
+  const studioLink = document.getElementById('studioLink');
   isEditorMode = toggle.checked;
 
   if (isEditorMode) {
     document.body.classList.add('editor-mode');
     localStorage.setItem('editorMode', 'true');
-    showAlert('📝 편집자 모드로 전환되었습니다. 불필요한 섹션이 숨겨집니다.', 'info');
+    if (studioLink) studioLink.style.display = 'inline-block';
+    showAlert('📝 편집자 모드로 전환되었습니다. 출제 스튜디오를 사용할 수 있습니다.', 'info');
   } else {
     document.body.classList.remove('editor-mode');
     localStorage.setItem('editorMode', 'false');
+    if (studioLink) studioLink.style.display = 'none';
     showAlert('🔓 전체 기능 모드로 전환되었습니다.', 'info');
   }
 }
@@ -1351,7 +1354,8 @@ function displayEmbeddingPreview(preview) {
   // 추출 텍스트 표시
   document.getElementById('extractedTextPreview').textContent = preview.extractedText;
 
-  // 청크 미리보기 표시
+  // 청크 미리보기 표시 (편집 가능)
+  if (typeof renderEditableChunkPreview === "function") { renderEditableChunkPreview(preview.chunks); return; }
   const chunkContainer = document.getElementById('chunkPreview');
   if (preview.chunks.length > 0) {
     chunkContainer.innerHTML = preview.chunks.map(chunk => `
@@ -3104,19 +3108,8 @@ function renderThreeJsGraphs(container) {
  * 모든 그래프 렌더링
  */
 async function renderAllGraphs(container) {
-  // 카운터 초기화
-  graphCounters = {
-    plotly: 0,
-    chart: 0,
-    mermaid: 0,
-    jsxgraph: 0,
-    mol3d: 0,
-    matter: 0,
-    p5: 0,
-    cytoscape: 0,
-    leaflet: 0,
-    threejs: 0
-  };
+  // 카운터는 전역으로 유지 (중복 ID 방지)
+  // 각 호출마다 리셋하지 않음
 
   // 각 그래프 타입 렌더링
   renderPlotlyGraphs(container);
@@ -8870,6 +8863,15 @@ function renderChunks() {
           <button class="btn btn-small btn-info" onclick="useChunkAsContext(${globalIdx})">
             🔗 컨텍스트로 사용
           </button>
+          <button class="chunk-edit-btn" onclick="editChunk(${globalIdx})" title="청크 편집">
+            ✏️ 수정
+          </button>
+          <button class="chunk-save-btn" onclick="saveChunkToLocal(${globalIdx})" title="로컬에 저장">
+            💾 저장
+          </button>
+          <button class="chunk-delete-btn" onclick="deleteChunk(${globalIdx})" title="청크 삭제">
+            🗑️ 삭제
+          </button>
         </div>
       </div>
     `;
@@ -10164,3 +10166,1694 @@ def calculate_answer(params):
   editor.value = template;
   editor.focus();
 }
+
+
+
+// ==================== 청크 편집 기능 (#RAG) ====================
+
+// 현재 편집 중인 청크 정보
+let currentEditChunk = null;
+let localChunksData = [];
+
+/**
+ * 청크 편집 모달 열기
+ */
+function openChunkEditModal(chunkData) {
+  currentEditChunk = chunkData;
+
+  document.getElementById('editChunkId').value = chunkData.id || '';
+  document.getElementById('editChunkSource').value = chunkData.source || 'local';
+  document.getElementById('editChunkDocName').value = chunkData.documentName || chunkData.source || '알 수 없음';
+  document.getElementById('editChunkContent').value = chunkData.content || chunkData.text || '';
+
+  try {
+    const metadata = chunkData.metadata || {};
+    document.getElementById('editChunkMetadata').value = JSON.stringify(metadata, null, 2);
+  } catch (e) {
+    document.getElementById('editChunkMetadata').value = '{}';
+  }
+
+  document.getElementById('chunkEditModal').style.display = 'flex';
+}
+
+/**
+ * 청크 편집 모달 닫기
+ */
+function closeChunkEditModal() {
+  document.getElementById('chunkEditModal').style.display = 'none';
+  currentEditChunk = null;
+}
+
+/**
+ * 편집된 청크 저장
+ */
+async function saveEditedChunk() {
+  const id = document.getElementById('editChunkId').value;
+  const content = document.getElementById('editChunkContent').value.trim();
+  const source = document.getElementById('editChunkSource').value;
+
+  if (!content) {
+    showAlert('❌ 청크 내용을 입력해주세요.', 'error');
+    return;
+  }
+
+  let metadata = {};
+  try {
+    const metaStr = document.getElementById('editChunkMetadata').value.trim();
+    if (metaStr) {
+      metadata = JSON.parse(metaStr);
+    }
+  } catch (e) {
+    showAlert('❌ 메타데이터 JSON 형식이 올바르지 않습니다.', 'error');
+    return;
+  }
+
+  try {
+    let response;
+
+    if (id && source === 'local') {
+      // 기존 로컬 청크 수정
+      response = await fetch('/api/local-chunks/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, metadata })
+      });
+    } else {
+      // 새 로컬 청크로 저장 (Google 청크를 로컬로 복사하는 경우 포함)
+      response = await fetch('/api/local-chunks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          metadata,
+          documentName: document.getElementById('editChunkDocName').value || '수정된 청크'
+        })
+      });
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 청크가 저장되었습니다.', 'success');
+      closeChunkEditModal();
+
+      // 청크 뷰어 새로고침
+      if (typeof loadLocalChunks === 'function') {
+        loadLocalChunks();
+      }
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('청크 저장 오류:', error);
+    showAlert('❌ 저장 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 현재 청크 삭제
+ */
+async function deleteCurrentChunk() {
+  const id = document.getElementById('editChunkId').value;
+  const source = document.getElementById('editChunkSource').value;
+
+  if (!id || source !== 'local') {
+    showAlert('⚠️ 로컬에 저장된 청크만 삭제할 수 있습니다.', 'warning');
+    return;
+  }
+
+  if (!confirm('정말 이 청크를 삭제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/local-chunks/' + id, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 청크가 삭제되었습니다.', 'success');
+      closeChunkEditModal();
+
+      if (typeof loadLocalChunks === 'function') {
+        loadLocalChunks();
+      }
+    } else {
+      throw new Error(data.error || '삭제 실패');
+    }
+  } catch (error) {
+    console.error('청크 삭제 오류:', error);
+    showAlert('❌ 삭제 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 청크 뷰어에서 청크 편집 버튼 클릭
+ */
+function editChunk(index) {
+  const chunk = chunkViewerData[index];
+  if (!chunk) {
+    showAlert('❌ 청크를 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  openChunkEditModal({
+    id: chunk.id,
+    content: chunk.content || chunk.text,
+    documentName: chunk.documentName || chunk.source,
+    metadata: chunk.metadata,
+    source: chunk.id && chunk.id.length > 10 ? 'local' : 'google'
+  });
+}
+
+/**
+ * 청크 뷰어에서 청크 삭제 버튼 클릭
+ */
+async function deleteChunk(index) {
+  const chunk = chunkViewerData[index];
+  if (!chunk) {
+    showAlert('❌ 청크를 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  // 로컬 청크인지 확인
+  if (!chunk.id || chunk.id.startsWith('chunk_') || chunk.id === 'response_chunk') {
+    showAlert('⚠️ Google에서 검색된 청크는 삭제할 수 없습니다. 로컬에 저장된 청크만 삭제 가능합니다.', 'warning');
+    return;
+  }
+
+  if (!confirm('정말 이 청크를 삭제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/local-chunks/' + chunk.id, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 청크가 삭제되었습니다.', 'success');
+      // 목록에서 제거
+      chunkViewerData.splice(index, 1);
+      renderChunks();
+    } else {
+      throw new Error(data.error || '삭제 실패');
+    }
+  } catch (error) {
+    console.error('청크 삭제 오류:', error);
+    showAlert('❌ 삭제 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 청크를 로컬에 저장 (Google 청크를 로컬로 복사)
+ */
+async function saveChunkToLocal(index) {
+  const chunk = chunkViewerData[index];
+  if (!chunk) {
+    showAlert('❌ 청크를 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/local-chunks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: chunk.content || chunk.text,
+        documentName: chunk.documentName || chunk.source || 'Google 검색 결과',
+        metadata: chunk.metadata || {}
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 청크가 로컬에 저장되었습니다. 이제 편집할 수 있습니다.', 'success');
+      // 저장된 ID로 업데이트
+      chunkViewerData[index].id = data.id;
+      renderChunks();
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('청크 로컬 저장 오류:', error);
+    showAlert('❌ 저장 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 로컬 청크 목록 로드
+ */
+async function loadLocalChunks() {
+  try {
+    const response = await fetch('/api/local-chunks?limit=100');
+    const data = await response.json();
+
+    if (data.success) {
+      localChunksData = data.chunks || [];
+      renderLocalChunks();
+    }
+  } catch (error) {
+    console.error('로컬 청크 로드 오류:', error);
+  }
+}
+
+/**
+ * 로컬 청크 렌더링
+ */
+function renderLocalChunks() {
+  const container = document.getElementById('chunkViewerList');
+  if (!container) return;
+
+  if (localChunksData.length === 0) {
+    container.innerHTML = '<p class="info-message">📭 저장된 로컬 청크가 없습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = localChunksData.map((chunk, idx) => {
+    const preview = (chunk.content || '').substring(0, 200);
+    return '<div class="chunk-item" data-id="' + chunk.id + '">' +
+      '<div class="chunk-item-header">' +
+        '<span class="chunk-id">📄 ' + (chunk.documentName || '청크 #' + (idx + 1)) + '</span>' +
+        '<span class="chunk-meta">' + new Date(chunk.createdAt).toLocaleDateString() + '</span>' +
+      '</div>' +
+      '<div class="chunk-content">' + escapeHtml(preview) + (chunk.content.length > 200 ? '...' : '') + '</div>' +
+      '<div class="chunk-actions">' +
+        '<button class="chunk-edit-btn" onclick="editLocalChunk(\'' + chunk.id + '\')">✏️ 수정</button>' +
+        '<button class="chunk-delete-btn" onclick="deleteLocalChunk(\'' + chunk.id + '\')">🗑️ 삭제</button>' +
+        '<button class="btn btn-small" onclick="copyChunkContent(\'' + chunk.id + '\')">📋 복사</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/**
+ * 로컬 청크 수정
+ */
+function editLocalChunk(id) {
+  const chunk = localChunksData.find(c => c.id === id);
+  if (!chunk) {
+    showAlert('❌ 청크를 찾을 수 없습니다.', 'error');
+    return;
+  }
+
+  openChunkEditModal({
+    id: chunk.id,
+    content: chunk.content,
+    documentName: chunk.documentName,
+    metadata: chunk.metadata,
+    source: 'local'
+  });
+}
+
+/**
+ * 로컬 청크 삭제
+ */
+async function deleteLocalChunk(id) {
+  if (!confirm('정말 이 청크를 삭제하시겠습니까?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/local-chunks/' + id, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ 청크가 삭제되었습니다.', 'success');
+      loadLocalChunks();
+    } else {
+      throw new Error(data.error || '삭제 실패');
+    }
+  } catch (error) {
+    console.error('로컬 청크 삭제 오류:', error);
+    showAlert('❌ 삭제 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 청크 내용 복사
+ */
+function copyChunkContent(id) {
+  const chunk = localChunksData.find(c => c.id === id);
+  if (chunk && chunk.content) {
+    navigator.clipboard.writeText(chunk.content);
+    showAlert('📋 청크 내용이 복사되었습니다.', 'success');
+  }
+}
+
+// ==================== Embedding 미리보기 청크 편집 기능 ====================
+
+// 미리보기 청크 데이터
+let previewChunksData = [];
+
+/**
+ * Embedding 미리보기에서 청크 편집 가능하게 렌더링
+ */
+function renderEditableChunkPreview(chunks) {
+  previewChunksData = chunks;
+  const container = document.getElementById('chunkPreview');
+
+  if (!container) return;
+
+  if (!chunks || chunks.length === 0) {
+    container.innerHTML = '<p class="info-message">청크가 생성되지 않았습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = chunks.map((chunk, idx) => {
+    return '<div class="chunk-preview-item editable" data-index="' + idx + '">' +
+      '<div class="chunk-header">' +
+        '<span class="chunk-number">청크 #' + chunk.index + '</span>' +
+        '<span class="chunk-meta">~' + chunk.estimatedTokens + ' 토큰 (' + chunk.fullLength + '자)</span>' +
+        '<div class="chunk-edit-overlay">' +
+          '<button class="chunk-edit-btn" onclick="editPreviewChunk(' + idx + ')" title="청크 편집">✏️</button>' +
+          '<button class="chunk-delete-btn" onclick="deletePreviewChunk(' + idx + ')" title="청크 삭제">🗑️</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="chunk-content" id="preview-chunk-content-' + idx + '" onclick="startEditPreviewChunk(' + idx + ')">' +
+        escapeHtml(chunk.content) +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // 추가 청크가 있는 경우 표시
+  const originalTotal = parseInt(document.getElementById('previewChunkCount')?.textContent) || chunks.length;
+  if (originalTotal > chunks.length) {
+    container.innerHTML += '<div class="chunk-preview-item" style="text-align: center; color: #888;">' +
+      '... 외 ' + (originalTotal - chunks.length) + '개 청크 더 있음 (저장 후 확인 가능)' +
+    '</div>';
+  }
+}
+
+/**
+ * 미리보기 청크 인라인 편집 시작
+ */
+function startEditPreviewChunk(index) {
+  const contentEl = document.getElementById('preview-chunk-content-' + index);
+  if (!contentEl || contentEl.contentEditable === 'true') return;
+
+  const chunk = previewChunksData[index];
+  if (!chunk) return;
+
+  contentEl.contentEditable = 'true';
+  contentEl.classList.add('chunk-content-editable');
+  contentEl.focus();
+
+  // 저장/취소 버튼 추가
+  const actionsHtml = '<div class="chunk-edit-actions" id="chunk-edit-actions-' + index + '" style="margin-top: 8px;">' +
+    '<button class="chunk-save-btn" onclick="savePreviewChunkEdit(' + index + ')">💾 저장</button>' +
+    '<button class="btn btn-small btn-secondary" onclick="cancelPreviewChunkEdit(' + index + ')">취소</button>' +
+  '</div>';
+
+  contentEl.insertAdjacentHTML('afterend', actionsHtml);
+}
+
+/**
+ * 미리보기 청크 편집 저장
+ */
+function savePreviewChunkEdit(index) {
+  const contentEl = document.getElementById('preview-chunk-content-' + index);
+  if (!contentEl) return;
+
+  const newContent = contentEl.innerText.trim();
+  if (!newContent) {
+    showAlert('❌ 청크 내용을 입력해주세요.', 'error');
+    return;
+  }
+
+  // 데이터 업데이트
+  previewChunksData[index].content = newContent;
+  previewChunksData[index].fullLength = newContent.length;
+  previewChunksData[index].estimatedTokens = Math.ceil(newContent.length / 4);
+
+  // UI 정리
+  contentEl.contentEditable = 'false';
+  contentEl.classList.remove('chunk-content-editable');
+
+  const actionsEl = document.getElementById('chunk-edit-actions-' + index);
+  if (actionsEl) actionsEl.remove();
+
+  // 메타 정보 업데이트
+  const metaEl = contentEl.closest('.chunk-preview-item').querySelector('.chunk-meta');
+  if (metaEl) {
+    metaEl.textContent = '~' + previewChunksData[index].estimatedTokens + ' 토큰 (' + newContent.length + '자)';
+  }
+
+  showAlert('✅ 청크가 수정되었습니다.', 'success');
+}
+
+/**
+ * 미리보기 청크 편집 취소
+ */
+function cancelPreviewChunkEdit(index) {
+  const contentEl = document.getElementById('preview-chunk-content-' + index);
+  if (!contentEl) return;
+
+  const chunk = previewChunksData[index];
+  contentEl.innerHTML = escapeHtml(chunk.content);
+  contentEl.contentEditable = 'false';
+  contentEl.classList.remove('chunk-content-editable');
+
+  const actionsEl = document.getElementById('chunk-edit-actions-' + index);
+  if (actionsEl) actionsEl.remove();
+}
+
+/**
+ * 미리보기 청크 편집 (모달)
+ */
+function editPreviewChunk(index) {
+  const chunk = previewChunksData[index];
+  if (!chunk) return;
+
+  openChunkEditModal({
+    id: null,
+    content: chunk.content,
+    documentName: '미리보기 청크 #' + chunk.index,
+    metadata: {},
+    source: 'preview',
+    previewIndex: index
+  });
+}
+
+/**
+ * 미리보기 청크 삭제
+ */
+function deletePreviewChunk(index) {
+  if (!confirm('이 청크를 삭제하시겠습니까?')) return;
+
+  previewChunksData.splice(index, 1);
+
+  // 인덱스 재정렬
+  previewChunksData.forEach((chunk, i) => {
+    chunk.index = i + 1;
+  });
+
+  // 다시 렌더링
+  renderEditableChunkPreview(previewChunksData);
+
+  // 청크 카운트 업데이트
+  const countEl = document.getElementById('previewChunkCount');
+  if (countEl) {
+    countEl.textContent = previewChunksData.length + '개 청크';
+  }
+
+  showAlert('✅ 청크가 삭제되었습니다.', 'success');
+}
+
+/**
+ * 미리보기 청크 추가
+ */
+function addPreviewChunk() {
+  const newChunk = {
+    index: previewChunksData.length + 1,
+    content: '',
+    estimatedTokens: 0,
+    fullLength: 0
+  };
+
+  previewChunksData.push(newChunk);
+  renderEditableChunkPreview(previewChunksData);
+
+  // 새 청크 편집 시작
+  setTimeout(() => {
+    startEditPreviewChunk(previewChunksData.length - 1);
+  }, 100);
+}
+
+/**
+ * 수정된 청크로 업로드
+ */
+async function uploadWithEditedChunks() {
+  if (previewChunksData.length === 0) {
+    showAlert('❌ 업로드할 청크가 없습니다.', 'error');
+    return;
+  }
+
+  // 기존 uploadFile 함수 호출 (수정된 청크 데이터 전달)
+  if (typeof uploadFile === 'function') {
+    // previewChunksData를 사용하도록 설정
+    window.editedPreviewChunks = previewChunksData;
+    uploadFile();
+  }
+}
+
+/**
+ * 편집된 청크들을 로컬에 일괄 저장
+ */
+async function savePreviewChunksToLocal() {
+  if (previewChunksData.length === 0) {
+    showAlert('❌ 저장할 청크가 없습니다.', 'error');
+    return;
+  }
+
+  const documentName = document.getElementById('previewFileName')?.textContent || '미리보기 문서';
+
+  try {
+    const response = await fetch('/api/local-chunks/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chunks: previewChunksData.map(c => ({
+          content: c.content,
+          index: c.index,
+          metadata: { estimatedTokens: c.estimatedTokens }
+        })),
+        documentName: documentName
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ ' + data.savedCount + '개 청크가 로컬에 저장되었습니다.', 'success');
+    } else {
+      throw new Error(data.error || '저장 실패');
+    }
+  } catch (error) {
+    console.error('청크 일괄 저장 오류:', error);
+    showAlert('❌ 저장 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 청크 뷰어 탭 전환
+ */
+function switchChunkTab(tab) {
+  const searchTab = document.getElementById('tabChunkSearch');
+  const localTab = document.getElementById('tabChunkLocal');
+  const searchControls = document.getElementById('chunkSearchControls');
+
+  if (tab === 'search') {
+    searchTab.classList.add('active');
+    localTab.classList.remove('active');
+    if (searchControls) searchControls.style.display = 'flex';
+    // 검색 결과 표시
+    renderChunks();
+  } else {
+    searchTab.classList.remove('active');
+    localTab.classList.add('active');
+    if (searchControls) searchControls.style.display = 'none';
+    // 로컬 청크 로드 및 표시
+    loadLocalChunks();
+  }
+}
+
+// ==================== Embedding 벡터 시각화 ====================
+
+let embeddingVizData = [];
+const vizColors = [
+  '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
+  '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b'
+];
+
+/**
+ * Embedding 시각화 모달 열기
+ */
+async function openEmbeddingVisualization() {
+  document.getElementById('embeddingVisualizationModal').style.display = 'flex';
+
+  // 문서 목록 로드
+  await loadDocumentsForVisualization();
+
+  // 시각화 데이터 로드
+  await loadEmbeddingVisualization();
+}
+
+/**
+ * Embedding 시각화 모달 닫기
+ */
+function closeEmbeddingVisualization() {
+  document.getElementById('embeddingVisualizationModal').style.display = 'none';
+}
+
+/**
+ * 시각화용 문서 목록 로드
+ */
+async function loadDocumentsForVisualization() {
+  try {
+    const response = await fetch('/api/documents');
+    const data = await response.json();
+
+    const select = document.getElementById('vizDocumentFilter');
+    select.innerHTML = '<option value="">전체 문서</option>';
+
+    if (data.success && data.documents) {
+      data.documents.forEach(doc => {
+        const option = document.createElement('option');
+        option.value = doc.documentId;
+        option.textContent = `${doc.documentName} (${doc.chunkCount}개)`;
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('문서 목록 로드 오류:', error);
+  }
+}
+
+/**
+ * Embedding 시각화 데이터 로드 및 렌더링
+ */
+async function loadEmbeddingVisualization() {
+  const documentId = document.getElementById('vizDocumentFilter').value;
+  const statsEl = document.getElementById('vizStats');
+  const legendEl = document.getElementById('vizLegend');
+
+  statsEl.innerHTML = '<span class="stat">⏳ 데이터 로드 중...</span>';
+
+  try {
+    const response = await fetch('/api/embedding-visualization', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: documentId || null })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || '시각화 데이터 로드 실패');
+    }
+
+    embeddingVizData = data.chunks || [];
+
+    if (data.message) {
+      statsEl.innerHTML = `<span class="stat">ℹ️ ${data.message}</span>`;
+      clearCanvas();
+      legendEl.innerHTML = '';
+      return;
+    }
+
+    // 통계 표시
+    statsEl.innerHTML = `
+      <div class="stat">📦 청크 수: <span class="stat-value">${data.stats?.totalChunks || 0}</span></div>
+      <div class="stat">📐 벡터 차원: <span class="stat-value">${data.stats?.dimensions || '-'}</span></div>
+      <div class="stat">🔄 차원 축소: <span class="stat-value">PCA 2D</span></div>
+    `;
+
+    // 캔버스에 시각화
+    renderEmbeddingCanvas();
+
+    // 범례 생성
+    renderVizLegend();
+
+  } catch (error) {
+    console.error('Embedding 시각화 오류:', error);
+    statsEl.innerHTML = `<span class="stat" style="color: #e74c3c;">❌ 오류: ${error.message}</span>`;
+  }
+}
+
+/**
+ * 캔버스 초기화
+ */
+function clearCanvas() {
+  const canvas = document.getElementById('embeddingCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/**
+ * Embedding 캔버스 렌더링
+ */
+function renderEmbeddingCanvas() {
+  const canvas = document.getElementById('embeddingCanvas');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // 캔버스 초기화
+  ctx.clearRect(0, 0, width, height);
+
+  // 배경 그리드
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * width / 10, 0);
+    ctx.lineTo(i * width / 10, height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i * height / 10);
+    ctx.lineTo(width, i * height / 10);
+    ctx.stroke();
+  }
+
+  // 문서별 색상 매핑
+  const documentColors = new Map();
+  let colorIndex = 0;
+
+  embeddingVizData.forEach(chunk => {
+    if (!documentColors.has(chunk.documentName)) {
+      documentColors.set(chunk.documentName, vizColors[colorIndex % vizColors.length]);
+      colorIndex++;
+    }
+  });
+
+  // 데이터 포인트 그리기
+  embeddingVizData.forEach((chunk, index) => {
+    const x = (chunk.x / 100) * width;
+    const y = (chunk.y / 100) * height;
+    const color = documentColors.get(chunk.documentName);
+
+    // 원 그리기
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 데이터 저장 (마우스 이벤트용)
+    chunk._x = x;
+    chunk._y = y;
+    chunk._color = color;
+  });
+
+  // 마우스 이벤트 설정
+  setupCanvasEvents(canvas);
+}
+
+/**
+ * 캔버스 마우스 이벤트 설정
+ */
+function setupCanvasEvents(canvas) {
+  const tooltip = document.getElementById('vizTooltip');
+
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // 가장 가까운 포인트 찾기
+    let closest = null;
+    let minDist = 20;
+
+    embeddingVizData.forEach(chunk => {
+      const dist = Math.sqrt(Math.pow(x - chunk._x, 2) + Math.pow(y - chunk._y, 2));
+      if (dist < minDist) {
+        minDist = dist;
+        closest = chunk;
+      }
+    });
+
+    if (closest) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+      tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+      tooltip.innerHTML = `
+        <strong>${closest.documentName}</strong><br>
+        <span style="font-size: 11px; color: #aaa;">ID: ${closest.id.substring(0, 8)}...</span><br>
+        ${closest.content}
+      `;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  };
+
+  canvas.onmouseleave = function() {
+    tooltip.style.display = 'none';
+  };
+}
+
+/**
+ * 범례 렌더링
+ */
+function renderVizLegend() {
+  const legendEl = document.getElementById('vizLegend');
+  const documentColors = new Map();
+  let colorIndex = 0;
+
+  embeddingVizData.forEach(chunk => {
+    if (!documentColors.has(chunk.documentName)) {
+      documentColors.set(chunk.documentName, vizColors[colorIndex % vizColors.length]);
+      colorIndex++;
+    }
+  });
+
+  legendEl.innerHTML = '';
+  documentColors.forEach((color, name) => {
+    const count = embeddingVizData.filter(c => c.documentName === name).length;
+    legendEl.innerHTML += `
+      <div class="viz-legend-item">
+        <span class="viz-legend-color" style="background: ${color}"></span>
+        <span>${name} (${count})</span>
+      </div>
+    `;
+  });
+}
+
+// ==================== 청크 재생성 ====================
+
+let rechunkDocuments = [];
+
+/**
+ * 청크 재생성 모달 열기
+ */
+async function openRechunkModal() {
+  document.getElementById('rechunkModal').style.display = 'flex';
+
+  // 문서 목록 로드
+  await loadDocumentsForRechunk();
+}
+
+/**
+ * 청크 재생성 모달 닫기
+ */
+function closeRechunkModal() {
+  document.getElementById('rechunkModal').style.display = 'none';
+}
+
+/**
+ * 재생성용 문서 목록 로드
+ */
+async function loadDocumentsForRechunk() {
+  try {
+    const response = await fetch('/api/documents');
+    const data = await response.json();
+
+    rechunkDocuments = data.documents || [];
+
+    const select = document.getElementById('rechunkDocumentSelect');
+    select.innerHTML = '<option value="">문서를 선택하세요</option>';
+
+    rechunkDocuments.forEach(doc => {
+      const option = document.createElement('option');
+      option.value = doc.documentId;
+      option.textContent = `${doc.documentName} (${doc.chunkCount}개 청크)`;
+      select.appendChild(option);
+    });
+
+    // 선택 변경 이벤트
+    select.onchange = function() {
+      const docId = this.value;
+      const infoEl = document.getElementById('rechunkInfo');
+      const countEl = document.getElementById('currentChunkCount');
+
+      if (docId) {
+        const doc = rechunkDocuments.find(d => d.documentId === docId);
+        if (doc) {
+          countEl.textContent = doc.chunkCount;
+          infoEl.style.display = 'block';
+        }
+      } else {
+        infoEl.style.display = 'none';
+      }
+    };
+  } catch (error) {
+    console.error('문서 목록 로드 오류:', error);
+    showAlert('❌ 문서 목록 로드 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 청크 재생성 실행
+ */
+async function executeRechunk() {
+  const documentId = document.getElementById('rechunkDocumentSelect').value;
+  const maxTokens = parseInt(document.getElementById('rechunkMaxTokens').value) || 800;
+  const overlap = parseInt(document.getElementById('rechunkOverlap').value) || 100;
+
+  if (!documentId) {
+    showAlert('❌ 문서를 선택하세요.', 'error');
+    return;
+  }
+
+  if (!confirm('정말 이 문서의 청크를 재생성하시겠습니까? 기존 청크가 삭제됩니다.')) {
+    return;
+  }
+
+  try {
+    showAlert('⏳ 청크 재생성 중...', 'info');
+
+    const response = await fetch(`/api/rechunk/${documentId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chunkingConfig: {
+          maxTokensPerChunk: maxTokens,
+          maxOverlapTokens: overlap
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert(`✅ ${data.message}`, 'success');
+      closeRechunkModal();
+
+      // 문서 목록 새로고침
+      if (typeof loadRAGDocuments === 'function') {
+        loadRAGDocuments();
+      }
+    } else {
+      throw new Error(data.error || '재생성 실패');
+    }
+  } catch (error) {
+    console.error('청크 재생성 오류:', error);
+    showAlert('❌ 재생성 실패: ' + error.message, 'error');
+  }
+}
+
+// 전역 함수 등록
+window.openEmbeddingVisualization = openEmbeddingVisualization;
+window.closeEmbeddingVisualization = closeEmbeddingVisualization;
+window.loadEmbeddingVisualization = loadEmbeddingVisualization;
+window.openRechunkModal = openRechunkModal;
+window.closeRechunkModal = closeRechunkModal;
+window.executeRechunk = executeRechunk;
+
+// ==================== 통합 문서 관리 ====================
+
+/**
+ * 문서 관리 탭 전환
+ */
+function switchDocManagementTab(tabName) {
+  // 모든 탭 버튼 비활성화
+  document.querySelectorAll('.doc-tab').forEach(tab => tab.classList.remove('active'));
+  // 모든 탭 컨텐츠 숨기기
+  document.querySelectorAll('.doc-tab-content').forEach(content => {
+    content.classList.remove('active');
+    content.style.display = 'none';
+  });
+
+  // 선택된 탭 활성화
+  const tabButton = document.getElementById('tabDoc' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+  const tabContent = document.getElementById('docTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+
+  if (tabButton) tabButton.classList.add('active');
+  if (tabContent) {
+    tabContent.classList.add('active');
+    tabContent.style.display = 'block';
+  }
+
+  // 탭별 초기화 로직
+  if (tabName === 'rag') {
+    loadRAGDocumentsUnified();
+  } else if (tabName === 'chunks') {
+    // 청크 탭 초기화
+  }
+}
+
+/**
+ * 통합 RAG 문서 목록 로드
+ */
+async function loadRAGDocumentsUnified() {
+  const listEl = document.getElementById('unifiedRagDocumentsList');
+  listEl.innerHTML = '<p class="info-message">⏳ 문서 로드 중...</p>';
+
+  try {
+    const response = await fetch('/api/documents');
+    const data = await response.json();
+
+    if (data.success && data.documents && data.documents.length > 0) {
+      document.getElementById('unifiedRagDocCount').textContent = data.documents.length;
+      document.getElementById('unifiedRagStoreName').textContent = currentStore || '-';
+
+      listEl.innerHTML = data.documents.map(doc => `
+        <div class="rag-doc-item" data-doc-id="${doc.documentId}">
+          <div class="rag-doc-info">
+            <span class="doc-name">${escapeHtml(doc.documentName)}</span>
+            <span class="doc-meta">청크 ${doc.chunkCount}개</span>
+          </div>
+          <div class="rag-doc-actions">
+            <button class="btn btn-sm btn-info" onclick="viewDocumentChunks('${doc.documentId}')">📦 청크 보기</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteDocumentChunks('${doc.documentId}')">🗑️ 삭제</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      listEl.innerHTML = '<p class="info-message">📂 등록된 문서가 없습니다.</p>';
+      document.getElementById('unifiedRagDocCount').textContent = '0';
+    }
+  } catch (error) {
+    console.error('통합 RAG 문서 로드 오류:', error);
+    listEl.innerHTML = '<p class="info-message error">❌ 문서 로드 실패: ' + error.message + '</p>';
+  }
+}
+
+/**
+ * 통합 RAG 문서 필터링
+ */
+function filterUnifiedRAGDocuments() {
+  const searchQuery = document.getElementById('unifiedRagSearchInput').value.toLowerCase();
+  const typeFilter = document.getElementById('unifiedRagTypeFilter').value;
+
+  document.querySelectorAll('#unifiedRagDocumentsList .rag-doc-item').forEach(item => {
+    const docName = item.querySelector('.doc-name').textContent.toLowerCase();
+    const matchesSearch = docName.includes(searchQuery);
+    // 유형 필터 로직 (추후 확장)
+    item.style.display = matchesSearch ? 'flex' : 'none';
+  });
+}
+
+/**
+ * 문서의 청크 보기
+ */
+async function viewDocumentChunks(documentId) {
+  switchDocManagementTab('chunks');
+
+  const listEl = document.getElementById('unifiedChunkViewerList');
+  listEl.innerHTML = '<p class="info-message">⏳ 청크 로드 중...</p>';
+
+  try {
+    const response = await fetch('/api/local-chunks?documentId=' + documentId);
+    const data = await response.json();
+
+    if (data.success && data.chunks && data.chunks.length > 0) {
+      listEl.innerHTML = data.chunks.map((chunk, idx) => `
+        <div class="chunk-item">
+          <div class="chunk-header">
+            <span class="chunk-number">청크 #${idx + 1}</span>
+            <span class="chunk-id">${chunk.id.substring(0, 8)}...</span>
+          </div>
+          <div class="chunk-content">${escapeHtml(chunk.content?.substring(0, 300) || '')}...</div>
+          <div class="chunk-actions">
+            <button class="chunk-edit-btn" onclick="editLocalChunk('${chunk.id}')">✏️ 수정</button>
+            <button class="chunk-delete-btn" onclick="deleteLocalChunk('${chunk.id}')">🗑️ 삭제</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      listEl.innerHTML = '<p class="info-message">📂 해당 문서에 청크가 없습니다.</p>';
+    }
+  } catch (error) {
+    console.error('청크 로드 오류:', error);
+    listEl.innerHTML = '<p class="info-message error">❌ 청크 로드 실패: ' + error.message + '</p>';
+  }
+}
+
+/**
+ * 문서의 모든 청크 삭제
+ */
+async function deleteDocumentChunks(documentId) {
+  if (!confirm('정말 이 문서의 모든 청크를 삭제하시겠습니까?')) return;
+
+  try {
+    const response = await fetch('/api/local-chunks/document/' + documentId, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      showAlert('✅ ' + data.message, 'success');
+      loadRAGDocumentsUnified();
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    console.error('문서 삭제 오류:', error);
+    showAlert('❌ 삭제 실패: ' + error.message, 'error');
+  }
+}
+
+/**
+ * 통합 로컬 청크 로드
+ */
+async function loadUnifiedLocalChunks() {
+  const listEl = document.getElementById('unifiedChunkViewerList');
+  listEl.innerHTML = '<p class="info-message">⏳ 로컬 청크 로드 중...</p>';
+
+  try {
+    const response = await fetch('/api/local-chunks');
+    const data = await response.json();
+
+    if (data.success && data.chunks && data.chunks.length > 0) {
+      listEl.innerHTML = data.chunks.map((chunk, idx) => `
+        <div class="chunk-item">
+          <div class="chunk-header">
+            <span class="chunk-number">청크 #${idx + 1}</span>
+            <span class="chunk-doc-name">${escapeHtml(chunk.documentName || '알 수 없음')}</span>
+          </div>
+          <div class="chunk-content">${escapeHtml(chunk.content?.substring(0, 300) || '')}...</div>
+          <div class="chunk-actions">
+            <button class="chunk-edit-btn" onclick="editLocalChunk('${chunk.id}')">✏️ 수정</button>
+            <button class="chunk-delete-btn" onclick="deleteLocalChunk('${chunk.id}')">🗑️ 삭제</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      listEl.innerHTML = '<p class="info-message">📂 저장된 로컬 청크가 없습니다.</p>';
+    }
+  } catch (error) {
+    console.error('로컬 청크 로드 오류:', error);
+    listEl.innerHTML = '<p class="info-message error">❌ 로드 실패: ' + error.message + '</p>';
+  }
+}
+
+/**
+ * 통합 청크 검색
+ */
+async function searchUnifiedChunks() {
+  const query = document.getElementById('unifiedChunkSearchQuery').value.trim();
+  if (!query) {
+    showAlert('검색어를 입력하세요.', 'warning');
+    return;
+  }
+
+  const listEl = document.getElementById('unifiedChunkViewerList');
+  listEl.innerHTML = '<p class="info-message">⏳ 검색 중...</p>';
+
+  try {
+    // 로컬 청크에서 검색
+    const response = await fetch('/api/local-chunks');
+    const data = await response.json();
+
+    if (data.success && data.chunks) {
+      const filtered = data.chunks.filter(chunk =>
+        chunk.content && chunk.content.toLowerCase().includes(query.toLowerCase())
+      );
+
+      if (filtered.length > 0) {
+        listEl.innerHTML = filtered.map((chunk, idx) => `
+          <div class="chunk-item">
+            <div class="chunk-header">
+              <span class="chunk-number">검색 결과 #${idx + 1}</span>
+              <span class="chunk-doc-name">${escapeHtml(chunk.documentName || '알 수 없음')}</span>
+            </div>
+            <div class="chunk-content">${highlightSearchTerm(chunk.content?.substring(0, 300) || '', query)}...</div>
+            <div class="chunk-actions">
+              <button class="chunk-edit-btn" onclick="editLocalChunk('${chunk.id}')">✏️ 수정</button>
+              <button class="chunk-delete-btn" onclick="deleteLocalChunk('${chunk.id}')">🗑️ 삭제</button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        listEl.innerHTML = '<p class="info-message">🔍 검색 결과가 없습니다.</p>';
+      }
+    }
+  } catch (error) {
+    console.error('청크 검색 오류:', error);
+    listEl.innerHTML = '<p class="info-message error">❌ 검색 실패: ' + error.message + '</p>';
+  }
+}
+
+/**
+ * 검색어 하이라이트
+ */
+function highlightSearchTerm(text, term) {
+  if (!term) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const regex = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return escaped.replace(regex, '<mark>$1</mark>');
+}
+
+// 전역 함수 등록 (통합 문서 관리)
+window.switchDocManagementTab = switchDocManagementTab;
+window.loadRAGDocumentsUnified = loadRAGDocumentsUnified;
+window.filterUnifiedRAGDocuments = filterUnifiedRAGDocuments;
+window.viewDocumentChunks = viewDocumentChunks;
+window.deleteDocumentChunks = deleteDocumentChunks;
+window.loadUnifiedLocalChunks = loadUnifiedLocalChunks;
+window.searchUnifiedChunks = searchUnifiedChunks;
+
+// ============================================
+// 문서 유형 선택 및 메타데이터 관리 함수
+// ============================================
+
+/**
+ * 문서 유형 변경 시 해당 메타데이터 폼 표시
+ */
+function onDocumentTypeChange() {
+  const docType = document.getElementById('documentTypeSelect').value;
+  const formsContainer = document.getElementById('documentMetadataForms');
+
+  // 모든 메타데이터 폼 숨기기
+  const allForms = formsContainer.querySelectorAll('.metadata-form');
+  allForms.forEach(form => form.style.display = 'none');
+
+  if (docType) {
+    // 해당 유형의 폼 표시
+    formsContainer.style.display = 'block';
+    const targetForm = document.getElementById('metadataForm_' + docType);
+    if (targetForm) {
+      targetForm.style.display = 'block';
+    }
+  } else {
+    formsContainer.style.display = 'none';
+  }
+}
+
+/**
+ * 선택된 문서 유형에 따른 메타데이터 수집
+ */
+function getDocumentMetadata() {
+  const docType = document.getElementById('documentTypeSelect').value;
+  if (!docType) return null;
+
+  const metadata = {};
+
+  switch (docType) {
+    case 'textbook':
+      metadata.domain = document.getElementById('tb_domain').value;
+      metadata.subject = document.getElementById('tb_subject').value;
+      metadata.curriculum = document.getElementById('tb_curriculum').value;
+      metadata.publisher = document.getElementById('tb_publisher').value;
+      metadata.unit = {
+        majorUnit: document.getElementById('tb_majorUnit').value,
+        middleUnit: document.getElementById('tb_middleUnit').value,
+        minorUnit: document.getElementById('tb_minorUnit').value
+      };
+      metadata.contentType = document.getElementById('tb_contentType').value;
+      const keyConcepts = document.getElementById('tb_keyConcepts').value;
+      metadata.keyConcepts = keyConcepts ? keyConcepts.split(',').map(s => s.trim()) : [];
+      break;
+
+    case 'supplementary':
+      metadata.materialName = document.getElementById('sup_materialName').value;
+      metadata.domain = document.getElementById('sup_domain').value;
+      metadata.subject = document.getElementById('sup_subject').value;
+      metadata.curriculum = document.getElementById('sup_curriculum').value;
+      metadata.publisher = document.getElementById('sup_publisher').value;
+      metadata.unit = {
+        majorUnit: document.getElementById('sup_majorUnit').value,
+        middleUnit: document.getElementById('sup_middleUnit').value
+      };
+      break;
+
+    case 'csat_past':
+      metadata.examType = document.getElementById('csat_examType').value;
+      metadata.year = parseInt(document.getElementById('csat_year').value) || null;
+      metadata.domain = document.getElementById('csat_domain').value;
+      metadata.subject = document.getElementById('csat_subject').value;
+      metadata.problemNumber = document.getElementById('csat_problemNumber').value;
+      metadata.problemFormat = document.getElementById('csat_problemFormat').value;
+      metadata.difficulty = document.getElementById('csat_difficulty').value;
+      metadata.knowledgeType = getCheckedValues('csat_knowledgeType');
+      metadata.unit = {
+        majorUnit: document.getElementById('csat_majorUnit').value,
+        middleUnit: document.getElementById('csat_middleUnit').value
+      };
+      metadata.intent = document.getElementById('csat_intent').value;
+      const csatTraps = document.getElementById('csat_trapElements').value;
+      metadata.trapElements = csatTraps ? csatTraps.split(',').map(s => s.trim()) : [];
+      break;
+
+    case 'csat_mock':
+      metadata.examType = document.getElementById('mock_examType').value;
+      metadata.year = parseInt(document.getElementById('mock_year').value) || null;
+      metadata.month = document.getElementById('mock_month').value;
+      metadata.grade = document.getElementById('mock_grade').value;
+      metadata.domain = document.getElementById('mock_domain').value;
+      metadata.subject = document.getElementById('mock_subject').value;
+      metadata.problemNumber = document.getElementById('mock_problemNumber').value;
+      metadata.difficulty = document.getElementById('mock_difficulty').value;
+      metadata.unit = {
+        majorUnit: document.getElementById('mock_majorUnit').value
+      };
+      const mockTraps = document.getElementById('mock_trapElements').value;
+      metadata.trapElements = mockTraps ? mockTraps.split(',').map(s => s.trim()) : [];
+      break;
+
+    case 'school_exam':
+      metadata.schoolInfo = {
+        schoolName: document.getElementById('school_schoolName').value,
+        grade: document.getElementById('school_grade').value,
+        semester: document.getElementById('school_semester').value
+      };
+      metadata.examType = document.getElementById('school_examType').value;
+      metadata.year = parseInt(document.getElementById('school_year').value) || null;
+      metadata.domain = document.getElementById('school_domain').value;
+      metadata.subject = document.getElementById('school_subject').value;
+      metadata.textbook = document.getElementById('school_textbook').value;
+      metadata.examRange = document.getElementById('school_examRange').value;
+      metadata.difficulty = document.getElementById('school_difficulty').value;
+      metadata.tendency = document.getElementById('school_tendency').value;
+      break;
+
+    case 'university_essay':
+      metadata.universityName = document.getElementById('essay_universityName').value;
+      metadata.campus = document.getElementById('essay_campus').value;
+      metadata.admissionType = document.getElementById('essay_admissionType').value;
+      metadata.department = document.getElementById('essay_department').value;
+      metadata.year = parseInt(document.getElementById('essay_year').value) || null;
+      metadata.admissionPeriod = document.getElementById('essay_admissionPeriod').value;
+      metadata.problemNumber = document.getElementById('essay_problemNumber').value;
+      metadata.problemType = document.getElementById('essay_problemType').value;
+      metadata.difficulty = document.getElementById('essay_difficulty').value;
+      metadata.estimatedTime = parseInt(document.getElementById('essay_estimatedTime').value) || 0;
+      metadata.score = parseInt(document.getElementById('essay_score').value) || 0;
+      metadata.thinkingProcess = getCheckedValues('essay_thinkingProcess');
+      const essayUnits = document.getElementById('essay_units').value;
+      metadata.units = essayUnits ? essayUnits.split(',').map(s => ({ majorUnit: s.trim() })) : [];
+      metadata.solutionStrategy = document.getElementById('essay_solutionStrategy').value;
+      const commonErrors = document.getElementById('essay_commonErrors').value;
+      metadata.commonErrors = commonErrors ? commonErrors.split(',').map(s => s.trim()) : [];
+      break;
+
+    case 'university_interview':
+      metadata.universityName = document.getElementById('interview_universityName').value;
+      metadata.department = document.getElementById('interview_department').value;
+      metadata.admissionType = document.getElementById('interview_admissionType').value;
+      metadata.year = parseInt(document.getElementById('interview_year').value) || null;
+      metadata.interviewType = document.getElementById('interview_interviewType').value;
+      metadata.procedure = document.getElementById('interview_procedure').value;
+      metadata.interviewDuration = parseInt(document.getElementById('interview_duration').value) || 0;
+      metadata.difficultyDepth = document.getElementById('interview_difficultyDepth').value;
+      metadata.evaluationCompetencies = getCheckedValues('interview_competencies');
+      metadata.originalQuestion = document.getElementById('interview_originalQuestion').value;
+      const followUp = document.getElementById('interview_followUpSequence').value;
+      metadata.followUpSequence = followUp ? followUp.split('\n').filter(s => s.trim()) : [];
+      metadata.questionIntent = document.getElementById('interview_questionIntent').value;
+      metadata.modelAnswerSummary = document.getElementById('interview_modelAnswer').value;
+      const evalPoints = document.getElementById('interview_evaluationPoints').value;
+      metadata.evaluationPoints = evalPoints ? evalPoints.split(',').map(s => s.trim()) : [];
+      const deductFactors = document.getElementById('interview_deductionFactors').value;
+      metadata.deductionFactors = deductFactors ? deductFactors.split(',').map(s => s.trim()) : [];
+      break;
+
+    case 'other':
+      metadata.category = document.getElementById('other_category').value;
+      const tags = document.getElementById('other_tags').value;
+      metadata.tags = tags ? tags.split(',').map(s => s.trim()) : [];
+      metadata.description = document.getElementById('other_description').value;
+      break;
+  }
+
+  return { documentType: docType, metadata };
+}
+
+/**
+ * 체크박스 그룹에서 선택된 값들 가져오기
+ */
+function getCheckedValues(name) {
+  const checkboxes = document.querySelectorAll('input[name="' + name + '"]:checked');
+  return Array.from(checkboxes).map(cb => cb.value);
+}
+
+/**
+ * 문서 유형별 라벨 반환
+ */
+function getDocumentTypeLabel(docType) {
+  const labels = {
+    'textbook': '📚 교과서',
+    'supplementary': '📖 부교재',
+    'csat_past': '📝 수능 기출',
+    'csat_mock': '📋 모의고사',
+    'school_exam': '🏫 내신 기출',
+    'university_essay': '✍️ 수리논술',
+    'university_interview': '🎤 심층면접',
+    'other': '📄 기타'
+  };
+  return labels[docType] || docType;
+}
+
+/**
+ * 난이도 라벨 반환
+ */
+function getDifficultyLabel(difficulty) {
+  const labels = {
+    'killer': '🔥 킬러',
+    'high': '⬆️ 상',
+    'medium': '➡️ 중',
+    'low': '⬇️ 하',
+    'concept': '📖 개념'
+  };
+  return labels[difficulty] || difficulty;
+}
+
+// ============================================
+// 고급 검색 기능
+// ============================================
+
+// 현재 RAG 문서 목록 (필터링용)
+let currentRAGDocuments = [];
+
+/**
+ * 고급 검색 패널 토글
+ */
+function toggleAdvancedSearch() {
+  const panel = document.getElementById('advancedSearchPanel');
+  const toggleBtn = document.getElementById('advancedSearchToggle');
+
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    toggleBtn.classList.add('active');
+  } else {
+    panel.style.display = 'none';
+    toggleBtn.classList.remove('active');
+  }
+}
+
+/**
+ * 고급 검색 필터 초기화
+ */
+function clearAdvancedSearch() {
+  // 모든 입력 필드 초기화
+  document.getElementById('adv_domain').value = '';
+  document.getElementById('adv_subject').value = '';
+  document.getElementById('adv_curriculum').value = '';
+  document.getElementById('adv_year').value = '';
+  document.getElementById('adv_difficulty').value = '';
+  document.getElementById('adv_knowledgeType').value = '';
+  document.getElementById('adv_majorUnit').value = '';
+  document.getElementById('adv_universityName').value = '';
+  document.getElementById('adv_intent').value = '';
+  document.getElementById('adv_trapElements').value = '';
+
+  // 결과 카운트 초기화
+  document.getElementById('advancedSearchResultCount').textContent = '';
+
+  // 전체 목록 다시 표시
+  filterRAGDocuments();
+}
+
+/**
+ * 고급 검색 적용
+ */
+function applyAdvancedSearch() {
+  const filters = {
+    domain: document.getElementById('adv_domain').value,
+    subject: document.getElementById('adv_subject').value,
+    curriculum: document.getElementById('adv_curriculum').value,
+    year: document.getElementById('adv_year').value,
+    difficulty: document.getElementById('adv_difficulty').value,
+    knowledgeType: document.getElementById('adv_knowledgeType').value,
+    majorUnit: document.getElementById('adv_majorUnit').value,
+    universityName: document.getElementById('adv_universityName').value,
+    intent: document.getElementById('adv_intent').value,
+    trapElements: document.getElementById('adv_trapElements').value
+  };
+
+  // 기본 필터도 함께 적용
+  const docTypeFilter = document.getElementById('ragTypeFilter').value;
+  const searchTerm = document.getElementById('ragSearchInput').value.toLowerCase();
+
+  let filteredDocs = [...currentRAGDocuments];
+
+  // 문서 유형 필터
+  if (docTypeFilter && docTypeFilter !== 'all') {
+    filteredDocs = filteredDocs.filter(doc => doc.documentType === docTypeFilter);
+  }
+
+  // 텍스트 검색
+  if (searchTerm) {
+    filteredDocs = filteredDocs.filter(doc => {
+      const name = (doc.displayName || doc.name || '').toLowerCase();
+      const title = (doc.title || '').toLowerCase();
+      return name.includes(searchTerm) || title.includes(searchTerm);
+    });
+  }
+
+  // 고급 필터 적용
+  filteredDocs = filteredDocs.filter(doc => {
+    const meta = doc.metadata || {};
+
+    // 영역 필터
+    if (filters.domain && meta.domain !== filters.domain) return false;
+
+    // 과목 필터 (부분 일치)
+    if (filters.subject && !(meta.subject || '').toLowerCase().includes(filters.subject.toLowerCase())) return false;
+
+    // 교육과정 필터
+    if (filters.curriculum && meta.curriculum !== filters.curriculum) return false;
+
+    // 연도 필터
+    if (filters.year && meta.year !== parseInt(filters.year)) return false;
+
+    // 난이도 필터
+    if (filters.difficulty && meta.difficulty !== filters.difficulty) return false;
+
+    // 지식 유형 필터
+    if (filters.knowledgeType) {
+      const docKnowledge = meta.knowledgeType || [];
+      if (Array.isArray(docKnowledge)) {
+        if (!docKnowledge.includes(filters.knowledgeType)) return false;
+      } else {
+        if (docKnowledge !== filters.knowledgeType) return false;
+      }
+    }
+
+    // 대단원 필터 (부분 일치)
+    if (filters.majorUnit) {
+      const unit = meta.unit || {};
+      const majorUnit = unit.majorUnit || '';
+      if (!majorUnit.toLowerCase().includes(filters.majorUnit.toLowerCase())) return false;
+    }
+
+    // 대학명 필터 (논술/면접용)
+    if (filters.universityName) {
+      const uniName = meta.universityName || '';
+      if (!uniName.toLowerCase().includes(filters.universityName.toLowerCase())) return false;
+    }
+
+    // 출제 의도 검색 (텍스트 검색)
+    if (filters.intent) {
+      const intent = (meta.intent || meta.questionIntent || '').toLowerCase();
+      if (!intent.includes(filters.intent.toLowerCase())) return false;
+    }
+
+    // 함정 요소 검색
+    if (filters.trapElements) {
+      const traps = meta.trapElements || [];
+      const searchTraps = filters.trapElements.toLowerCase();
+      const hasMatch = traps.some(t => t.toLowerCase().includes(searchTraps));
+      if (!hasMatch) return false;
+    }
+
+    return true;
+  });
+
+  // 결과 표시
+  displayFilteredRAGDocuments(filteredDocs);
+
+  // 결과 카운트 업데이트
+  const countEl = document.getElementById('advancedSearchResultCount');
+  countEl.innerHTML = '검색 결과: <strong>' + filteredDocs.length + '</strong>건 / 전체 ' + currentRAGDocuments.length + '건';
+}
+
+/**
+ * RAG 문서 필터링 (기본 + 유형 필터)
+ */
+function filterRAGDocuments() {
+  const docTypeFilter = document.getElementById('ragTypeFilter').value;
+  const searchTerm = document.getElementById('ragSearchInput').value.toLowerCase();
+
+  let filteredDocs = [...currentRAGDocuments];
+
+  // 문서 유형 필터
+  if (docTypeFilter && docTypeFilter !== 'all') {
+    filteredDocs = filteredDocs.filter(doc => doc.documentType === docTypeFilter);
+  }
+
+  // 텍스트 검색
+  if (searchTerm) {
+    filteredDocs = filteredDocs.filter(doc => {
+      const name = (doc.displayName || doc.name || '').toLowerCase();
+      const title = (doc.title || '').toLowerCase();
+      return name.includes(searchTerm) || title.includes(searchTerm);
+    });
+  }
+
+  displayFilteredRAGDocuments(filteredDocs);
+}
+
+/**
+ * 필터링된 RAG 문서 목록 표시
+ */
+function displayFilteredRAGDocuments(documents) {
+  const listEl = document.getElementById('ragDocumentsList');
+
+  if (!documents || documents.length === 0) {
+    listEl.innerHTML = '<p class="info-message">📭 조건에 맞는 문서가 없습니다.</p>';
+    return;
+  }
+
+  const html = documents.map(doc => {
+    const name = doc.displayName || doc.name || doc.title || '(이름 없음)';
+    const docType = doc.documentType || 'other';
+    const meta = doc.metadata || {};
+
+    // 메타데이터 태그 생성
+    let metaTags = '';
+
+    if (meta.domain) {
+      metaTags += '<span class="metadata-tag"><span class="tag-label">영역:</span><span class="tag-value">' + meta.domain + '</span></span>';
+    }
+    if (meta.subject) {
+      metaTags += '<span class="metadata-tag"><span class="tag-label">과목:</span><span class="tag-value">' + meta.subject + '</span></span>';
+    }
+    if (meta.year) {
+      metaTags += '<span class="metadata-tag"><span class="tag-label">연도:</span><span class="tag-value">' + meta.year + '</span></span>';
+    }
+    if (meta.difficulty) {
+      metaTags += '<span class="difficulty-badge ' + meta.difficulty + '">' + getDifficultyLabel(meta.difficulty) + '</span>';
+    }
+    if (meta.unit && meta.unit.majorUnit) {
+      metaTags += '<span class="metadata-tag"><span class="tag-label">단원:</span><span class="tag-value">' + meta.unit.majorUnit + '</span></span>';
+    }
+    if (meta.universityName) {
+      metaTags += '<span class="metadata-tag"><span class="tag-label">대학:</span><span class="tag-value">' + meta.universityName + '</span></span>';
+    }
+
+    return `
+      <div class="rag-doc-item">
+        <div class="rag-doc-header">
+          <span class="rag-doc-name">${escapeHtml(name)}</span>
+          <span class="doc-type-badge ${docType}">${getDocumentTypeLabel(docType)}</span>
+        </div>
+        ${metaTags ? '<div class="rag-doc-metadata">' + metaTags + '</div>' : ''}
+        <div class="rag-doc-actions">
+          <button onclick="viewDocumentDetail('${doc.id || doc.name}')" class="btn btn-small btn-info">상세</button>
+          <button onclick="deleteRAGDocument('${doc.id || doc.name}')" class="btn btn-small btn-danger">삭제</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.innerHTML = html;
+}
+
+/**
+ * RAG 문서 로드 시 currentRAGDocuments 업데이트
+ */
+async function loadRAGDocumentsWithMetadata() {
+  const listEl = document.getElementById('ragDocumentsList');
+  const docCountEl = document.getElementById('ragDocCount');
+  const storeNameEl = document.getElementById('ragStoreName');
+
+  try {
+    listEl.innerHTML = '<p class="info-message">🔄 문서를 불러오는 중...</p>';
+
+    const response = await fetch('/api/rag/documents');
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || '문서 로드 실패');
+    }
+
+    currentRAGDocuments = data.documents || [];
+
+    // 통계 업데이트
+    docCountEl.textContent = currentRAGDocuments.length;
+    storeNameEl.textContent = data.storeName || '-';
+
+    // 문서 표시
+    displayFilteredRAGDocuments(currentRAGDocuments);
+
+  } catch (error) {
+    console.error('RAG 문서 로드 오류:', error);
+    listEl.innerHTML = '<p class="info-message error">❌ 문서 로드 실패: ' + error.message + '</p>';
+  }
+}
+
+// 기존 loadRAGDocuments 함수 대체
+const originalLoadRAGDocuments = window.loadRAGDocuments;
+window.loadRAGDocuments = function() {
+  loadRAGDocumentsWithMetadata();
+};
+
+// 전역 함수 등록 (문서 유형 및 고급 검색)
+window.onDocumentTypeChange = onDocumentTypeChange;
+window.getDocumentMetadata = getDocumentMetadata;
+window.toggleAdvancedSearch = toggleAdvancedSearch;
+window.clearAdvancedSearch = clearAdvancedSearch;
+window.applyAdvancedSearch = applyAdvancedSearch;
+window.filterRAGDocuments = filterRAGDocuments;

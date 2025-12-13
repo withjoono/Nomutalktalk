@@ -7,6 +7,10 @@ const RAGAgent = require('./RAGAgent');
 const OpenAI = require('openai');
 require('dotenv').config();
 
+// RAG 문서 관리 시스템 모듈
+const validators = require('./models/validators');
+const ChunkingService = require('./services/ChunkingService');
+
 // OpenAI 클라이언트 초기화
 let openaiClient = null;
 if (process.env.OPENAI_API_KEY) {
@@ -76,8 +80,10 @@ const corsOptions = {
       : [
           'http://localhost:3000',
           'http://localhost:3001',
+          'http://localhost:8080',
           'http://127.0.0.1:3000',
           'http://127.0.0.1:3001',
+          'http://127.0.0.1:8080',
           'https://google-file-search.vercel.app',
           'https://google-file-search.netlify.app'
         ];
@@ -4963,11 +4969,1320 @@ app.post('/api/rag/chunks/search', async (req, res) => {
   }
 });
 
+// ==================== 로컬 청크 관리 API ====================
+
+/**
+ * GET /api/local-chunks
+ * 로컬 저장된 청크 목록 조회
+ */
+app.get('/api/local-chunks', async (req, res) => {
+  try {
+    const { documentId, limit = 100 } = req.query;
+
+    let query = db.collection('localChunks').orderBy('createdAt', 'desc');
+
+    if (documentId) {
+      query = query.where('documentId', '==', documentId);
+    }
+
+    const snapshot = await query.limit(parseInt(limit)).get();
+
+    const chunks = [];
+    snapshot.forEach(doc => {
+      chunks.push({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt
+      });
+    });
+
+    res.json({
+      success: true,
+      chunks,
+      totalCount: chunks.length
+    });
+  } catch (error) {
+    console.error('로컬 청크 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/local-chunks
+ * 새 로컬 청크 저장
+ */
+app.post('/api/local-chunks', async (req, res) => {
+  try {
+    const { content, documentId, documentName, metadata = {} } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ success: false, error: '청크 내용이 필요합니다.' });
+    }
+
+    const chunkData = {
+      content,
+      documentId: documentId || null,
+      documentName: documentName || '직접 입력',
+      metadata,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await db.collection('localChunks').add(chunkData);
+    res.json({ success: true, id: docRef.id, message: '청크가 저장되었습니다.' });
+  } catch (error) {
+    console.error('로컬 청크 저장 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/local-chunks/batch
+ * 여러 청크 일괄 저장
+ */
+app.post('/api/local-chunks/batch', async (req, res) => {
+  try {
+    const { chunks, documentId, documentName } = req.body;
+
+    if (!chunks || !Array.isArray(chunks) || chunks.length === 0) {
+      return res.status(400).json({ success: false, error: '저장할 청크가 없습니다.' });
+    }
+
+    const batch = db.batch();
+    const savedIds = [];
+
+    for (const chunk of chunks) {
+      const docRef = db.collection('localChunks').doc();
+      batch.set(docRef, {
+        content: chunk.content,
+        index: chunk.index,
+        documentId: documentId || null,
+        documentName: documentName || '직접 입력',
+        metadata: chunk.metadata || {},
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      savedIds.push(docRef.id);
+    }
+
+    await batch.commit();
+    res.json({ success: true, savedCount: savedIds.length, ids: savedIds, message: savedIds.length + '개 청크가 저장되었습니다.' });
+  } catch (error) {
+    console.error('청크 일괄 저장 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/local-chunks/:id
+ * 로컬 청크 수정
+ */
+app.put('/api/local-chunks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, metadata } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ success: false, error: '청크 내용이 필요합니다.' });
+    }
+
+    const docRef = db.collection('localChunks').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '청크를 찾을 수 없습니다.' });
+    }
+
+    await docRef.update({
+      content,
+      metadata: metadata || doc.data().metadata,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true, message: '청크가 수정되었습니다.' });
+  } catch (error) {
+    console.error('로컬 청크 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/local-chunks/:id
+ * 로컬 청크 삭제
+ */
+app.delete('/api/local-chunks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const docRef = db.collection('localChunks').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '청크를 찾을 수 없습니다.' });
+    }
+
+    await docRef.delete();
+    res.json({ success: true, message: '청크가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('로컬 청크 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/local-chunks/document/:documentId
+ * 문서의 모든 청크 삭제
+ */
+app.delete('/api/local-chunks/document/:documentId', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    const snapshot = await db.collection('localChunks')
+      .where('documentId', '==', documentId)
+      .get();
+
+    if (snapshot.empty) {
+      return res.json({ success: true, deletedCount: 0, message: '삭제할 청크가 없습니다.' });
+    }
+
+    const batch = db.batch();
+    snapshot.forEach(doc => { batch.delete(doc.ref); });
+
+    await batch.commit();
+    res.json({ success: true, deletedCount: snapshot.size, message: snapshot.size + '개 청크가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('문서 청크 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+/**
+ * POST /api/embedding-visualization
+ * Embedding 벡터 시각화 (PCA 차원 축소)
+ */
+app.post('/api/embedding-visualization', async (req, res) => {
+  try {
+    const { documentId, chunkIds } = req.body;
+
+    // Firestore에서 청크 조회
+    let query = db.collection('local_chunks');
+
+    if (documentId) {
+      query = query.where('documentId', '==', documentId);
+    }
+
+    const snapshot = await query.limit(100).get();
+
+    if (snapshot.empty) {
+      return res.json({ success: true, chunks: [], visualization: null });
+    }
+
+    const chunks = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.embedding && Array.isArray(data.embedding)) {
+        chunks.push({
+          id: doc.id,
+          content: data.content?.substring(0, 100) + '...',
+          documentName: data.documentName || '알 수 없음',
+          embedding: data.embedding
+        });
+      }
+    });
+
+    if (chunks.length < 2) {
+      return res.json({
+        success: true,
+        chunks: chunks.map(c => ({ ...c, x: 0, y: 0, embedding: undefined })),
+        visualization: null,
+        message: '시각화하려면 최소 2개 이상의 임베딩된 청크가 필요합니다.'
+      });
+    }
+
+    // PCA 차원 축소 (간단한 구현)
+    const embeddings = chunks.map(c => c.embedding);
+    const dim = embeddings[0].length;
+    const n = embeddings.length;
+
+    // 1. 평균 계산
+    const mean = new Array(dim).fill(0);
+    for (const emb of embeddings) {
+      for (let i = 0; i < dim; i++) {
+        mean[i] += emb[i] / n;
+      }
+    }
+
+    // 2. 중심화
+    const centered = embeddings.map(emb => emb.map((v, i) => v - mean[i]));
+
+    // 3. 공분산 행렬 계산 (2x2만 필요하므로 간단화)
+    // Power iteration으로 상위 2개 주성분 근사
+    function normalize(v) {
+      const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+      return v.map(x => x / (norm || 1));
+    }
+
+    function matVecMul(data, v) {
+      const result = new Array(v.length).fill(0);
+      for (const row of data) {
+        const dot = row.reduce((s, x, i) => s + x * v[i], 0);
+        for (let i = 0; i < v.length; i++) {
+          result[i] += row[i] * dot;
+        }
+      }
+      return result;
+    }
+
+    // 첫 번째 주성분
+    let pc1 = normalize(new Array(dim).fill(0).map(() => Math.random() - 0.5));
+    for (let iter = 0; iter < 50; iter++) {
+      pc1 = normalize(matVecMul(centered, pc1));
+    }
+
+    // 두 번째 주성분 (직교화)
+    let pc2 = normalize(new Array(dim).fill(0).map(() => Math.random() - 0.5));
+    for (let iter = 0; iter < 50; iter++) {
+      pc2 = matVecMul(centered, pc2);
+      // Gram-Schmidt 직교화
+      const dot = pc2.reduce((s, x, i) => s + x * pc1[i], 0);
+      pc2 = pc2.map((x, i) => x - dot * pc1[i]);
+      pc2 = normalize(pc2);
+    }
+
+    // 4. 투영
+    const projected = centered.map(row => ({
+      x: row.reduce((s, v, i) => s + v * pc1[i], 0),
+      y: row.reduce((s, v, i) => s + v * pc2[i], 0)
+    }));
+
+    // 정규화 (0-100 범위로)
+    const xs = projected.map(p => p.x);
+    const ys = projected.map(p => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    const result = chunks.map((chunk, i) => ({
+      id: chunk.id,
+      content: chunk.content,
+      documentName: chunk.documentName,
+      x: ((projected[i].x - minX) / rangeX) * 90 + 5,
+      y: ((projected[i].y - minY) / rangeY) * 90 + 5
+    }));
+
+    res.json({
+      success: true,
+      chunks: result,
+      stats: {
+        totalChunks: result.length,
+        dimensions: dim
+      }
+    });
+  } catch (error) {
+    console.error('Embedding 시각화 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/rechunk/:documentId
+ * 청크 재생성 - 기존 청크 삭제 후 새 설정으로 재생성
+ */
+app.post('/api/rechunk/:documentId', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { chunkingConfig } = req.body;
+
+    // 1. 기존 문서 정보 조회
+    const chunksSnapshot = await db.collection('local_chunks')
+      .where('documentId', '==', documentId)
+      .limit(1)
+      .get();
+
+    if (chunksSnapshot.empty) {
+      return res.status(404).json({ success: false, error: '해당 문서의 청크를 찾을 수 없습니다.' });
+    }
+
+    const firstChunk = chunksSnapshot.docs[0].data();
+    const documentName = firstChunk.documentName || '알 수 없음';
+
+    // 2. 해당 문서의 모든 청크에서 원본 텍스트 조합
+    const allChunksSnapshot = await db.collection('local_chunks')
+      .where('documentId', '==', documentId)
+      .orderBy('chunkIndex', 'asc')
+      .get();
+
+    let originalText = '';
+    const oldChunkIds = [];
+    allChunksSnapshot.forEach(doc => {
+      oldChunkIds.push(doc.id);
+      originalText += (doc.data().content || '') + '\n';
+    });
+
+    originalText = originalText.trim();
+
+    if (!originalText) {
+      return res.status(400).json({ success: false, error: '원본 텍스트를 복구할 수 없습니다.' });
+    }
+
+    // 3. 기존 청크 삭제
+    const batch = db.batch();
+    allChunksSnapshot.forEach(doc => { batch.delete(doc.ref); });
+    await batch.commit();
+
+    // 4. 새 청킹 설정으로 청크 생성
+    const maxTokens = chunkingConfig?.maxTokensPerChunk || 800;
+    const overlap = chunkingConfig?.maxOverlapTokens || 100;
+
+    // 간단한 청킹 로직 (문장 단위)
+    const sentences = originalText.split(/(?<=[.!?。])\s+/);
+    const newChunks = [];
+    let currentChunk = '';
+    let currentTokens = 0;
+
+    for (const sentence of sentences) {
+      const sentenceTokens = Math.ceil(sentence.length / 4); // 대략적인 토큰 추정
+
+      if (currentTokens + sentenceTokens > maxTokens && currentChunk) {
+        newChunks.push(currentChunk.trim());
+        // 오버랩 처리
+        const overlapText = currentChunk.slice(-overlap * 4);
+        currentChunk = overlapText + ' ' + sentence;
+        currentTokens = Math.ceil(currentChunk.length / 4);
+      } else {
+        currentChunk += ' ' + sentence;
+        currentTokens += sentenceTokens;
+      }
+    }
+
+    if (currentChunk.trim()) {
+      newChunks.push(currentChunk.trim());
+    }
+
+    // 5. 새 청크 저장
+    const newBatch = db.batch();
+    const newChunkIds = [];
+
+    for (let i = 0; i < newChunks.length; i++) {
+      const chunkRef = db.collection('local_chunks').doc();
+      newChunkIds.push(chunkRef.id);
+
+      newBatch.set(chunkRef, {
+        documentId: documentId,
+        documentName: documentName,
+        content: newChunks[i],
+        chunkIndex: i,
+        createdAt: new Date().toISOString(),
+        rechunked: true,
+        chunkingConfig: {
+          maxTokensPerChunk: maxTokens,
+          maxOverlapTokens: overlap
+        }
+      });
+    }
+
+    await newBatch.commit();
+
+    res.json({
+      success: true,
+      message: `청크가 재생성되었습니다. (${oldChunkIds.length}개 → ${newChunks.length}개)`,
+      oldChunkCount: oldChunkIds.length,
+      newChunkCount: newChunks.length,
+      newChunkIds: newChunkIds
+    });
+  } catch (error) {
+    console.error('청크 재생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/documents
+ * 문서 목록 조회 (청크 재생성용)
+ */
+app.get('/api/documents', async (req, res) => {
+  try {
+    const snapshot = await db.collection('local_chunks').get();
+
+    const documentsMap = new Map();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const docId = data.documentId;
+      if (docId && !documentsMap.has(docId)) {
+        documentsMap.set(docId, {
+          documentId: docId,
+          documentName: data.documentName || '알 수 없음',
+          chunkCount: 0
+        });
+      }
+      if (docId) {
+        documentsMap.get(docId).chunkCount++;
+      }
+    });
+
+    res.json({
+      success: true,
+      documents: Array.from(documentsMap.values())
+    });
+  } catch (error) {
+    console.error('문서 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== RAG 문서 관리 시스템 API ====================
+
+// ChunkingService 인스턴스 (지연 초기화)
+let chunkingService = null;
+
+function getChunkingService() {
+  if (!chunkingService) {
+    const agent = getAgent();
+    chunkingService = new ChunkingService(agent.gemini);
+  }
+  return chunkingService;
+}
+
+/**
+ * POST /api/rag/documents
+ * 새 RAG 문서 생성
+ */
+app.post('/api/rag/documents', upload.single('file'), async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { documentType, title, metadata: metadataStr } = req.body;
+    const metadata = metadataStr ? JSON.parse(metadataStr) : {};
+
+    // 스키마 검증
+    const validationResult = validators.validateDocument({
+      documentType,
+      title,
+      metadata
+    });
+
+    if (!validationResult.valid) {
+      return res.status(400).json({
+        success: false,
+        error: '유효성 검증 실패',
+        details: validationResult.errors
+      });
+    }
+
+    // 문서 생성
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const docData = {
+      documentType,
+      title,
+      description: req.body.description || '',
+      originalFileName: req.file?.originalname || '',
+      mimeType: req.file?.mimetype || 'text/plain',
+      fileSize: req.file?.size || 0,
+      status: 'pending',
+      chunkCount: 0,
+      metadata,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const docRef = await db.collection('rag_documents').add(docData);
+
+    // 파일이 업로드된 경우 청킹 처리 큐에 추가
+    if (req.file) {
+      await db.collection('document_processing_queue').add({
+        documentId: docRef.id,
+        filePath: req.file.path,
+        status: 'queued',
+        priority: 1,
+        createdAt: now
+      });
+    }
+
+    res.json({
+      success: true,
+      document: {
+        id: docRef.id,
+        ...docData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('RAG 문서 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/rag/documents
+ * RAG 문서 목록 조회
+ */
+app.get('/api/rag/documents', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const {
+      documentType,
+      status,
+      subject,
+      year,
+      limit: limitStr = '50',
+      offset: offsetStr = '0',
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    let query = db.collection('rag_documents');
+
+    // 필터 적용
+    if (documentType) {
+      query = query.where('documentType', '==', documentType);
+    }
+    if (status) {
+      query = query.where('status', '==', status);
+    }
+    if (subject) {
+      query = query.where('metadata.subject', '==', subject);
+    }
+    if (year) {
+      query = query.where('metadata.year', '==', parseInt(year));
+    }
+
+    // 정렬
+    query = query.orderBy(sortBy, sortOrder);
+
+    // 페이지네이션
+    const limit = parseInt(limitStr);
+    const offset = parseInt(offsetStr);
+    query = query.limit(limit);
+
+    const snapshot = await query.get();
+    const documents = [];
+
+    snapshot.forEach(doc => {
+      documents.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    // 전체 개수 조회
+    const countSnapshot = await db.collection('rag_documents').count().get();
+    const total = countSnapshot.data().count;
+
+    res.json({
+      success: true,
+      documents,
+      total,
+      hasMore: offset + documents.length < total
+    });
+
+  } catch (error) {
+    console.error('RAG 문서 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/rag/documents/:id
+ * RAG 문서 상세 조회
+ */
+app.get('/api/rag/documents/:id', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+
+    const docRef = await db.collection('rag_documents').doc(id).get();
+
+    if (!docRef.exists) {
+      return res.status(404).json({ success: false, error: '문서를 찾을 수 없습니다.' });
+    }
+
+    // 관련 청크 조회
+    const chunksSnapshot = await db.collection('rag_chunks')
+      .where('documentId', '==', id)
+      .orderBy('index', 'asc')
+      .get();
+
+    const chunks = [];
+    chunksSnapshot.forEach(doc => {
+      chunks.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      document: {
+        id: docRef.id,
+        ...docRef.data()
+      },
+      chunks
+    });
+
+  } catch (error) {
+    console.error('RAG 문서 상세 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/rag/documents/:id
+ * RAG 문서 메타데이터 수정
+ */
+app.put('/api/rag/documents/:id', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+    const { title, description, metadata } = req.body;
+
+    const docRef = db.collection('rag_documents').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '문서를 찾을 수 없습니다.' });
+    }
+
+    const currentData = doc.data();
+    const updatedMetadata = { ...currentData.metadata, ...metadata };
+
+    // 메타데이터 검증
+    const validationResult = validators.validateDocumentMetadata(
+      currentData.documentType,
+      updatedMetadata
+    );
+
+    if (!validationResult.valid) {
+      return res.status(400).json({
+        success: false,
+        error: '유효성 검증 실패',
+        details: validationResult.errors
+      });
+    }
+
+    const updates = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (title) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (metadata) updates.metadata = updatedMetadata;
+
+    await docRef.update(updates);
+
+    const updatedDoc = await docRef.get();
+
+    res.json({
+      success: true,
+      document: {
+        id: updatedDoc.id,
+        ...updatedDoc.data()
+      }
+    });
+
+  } catch (error) {
+    console.error('RAG 문서 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/rag/documents/:id
+ * RAG 문서 삭제
+ */
+app.delete('/api/rag/documents/:id', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+
+    const docRef = db.collection('rag_documents').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '문서를 찾을 수 없습니다.' });
+    }
+
+    // 관련 청크 삭제
+    const chunksSnapshot = await db.collection('rag_chunks')
+      .where('documentId', '==', id)
+      .get();
+
+    const batch = db.batch();
+    let deletedChunkCount = 0;
+
+    chunksSnapshot.forEach(chunkDoc => {
+      batch.delete(chunkDoc.ref);
+      deletedChunkCount++;
+    });
+
+    // 문서 삭제
+    batch.delete(docRef);
+
+    await batch.commit();
+
+    res.json({
+      success: true,
+      message: '문서가 삭제되었습니다.',
+      deletedChunkCount
+    });
+
+  } catch (error) {
+    console.error('RAG 문서 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/rag/documents/:id/chunk
+ * 문서 청킹 실행
+ */
+app.post('/api/rag/documents/:id/chunk', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+    const { strategy = 'auto', options = {} } = req.body;
+
+    const docRef = db.collection('rag_documents').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '문서를 찾을 수 없습니다.' });
+    }
+
+    const docData = doc.data();
+
+    // 청킹에 필요한 콘텐츠 가져오기
+    let content = docData.content || req.body.content;
+
+    if (!content) {
+      return res.status(400).json({
+        success: false,
+        error: '청킹할 콘텐츠가 없습니다. content 필드를 제공하세요.'
+      });
+    }
+
+    // 청킹 서비스 실행
+    const chunkingService = getChunkingService();
+    const result = await chunkingService.chunkDocument({
+      id,
+      documentType: docData.documentType,
+      metadata: docData.metadata,
+      content,
+      assets: docData.assets || []
+    }, {
+      strategy,
+      ...options
+    });
+
+    // 기존 청크 삭제
+    const existingChunks = await db.collection('rag_chunks')
+      .where('documentId', '==', id)
+      .get();
+
+    const batch = db.batch();
+    existingChunks.forEach(chunkDoc => {
+      batch.delete(chunkDoc.ref);
+    });
+
+    // 새 청크 저장
+    const chunkIds = [];
+    for (const chunk of result.chunks) {
+      const chunkRef = db.collection('rag_chunks').doc();
+      chunkIds.push(chunkRef.id);
+
+      batch.set(chunkRef, {
+        ...chunk,
+        documentId: id,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // 문서 업데이트
+    batch.update(docRef, {
+      chunkCount: result.chunks.length,
+      status: 'indexed',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    res.json({
+      success: true,
+      chunkCount: result.chunks.length,
+      chunks: result.chunks.map((chunk, i) => ({
+        id: chunkIds[i],
+        ...chunk
+      })),
+      metadata: result.metadata
+    });
+
+  } catch (error) {
+    console.error('문서 청킹 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/rag/documents/:id/chunks
+ * 문서의 청크 목록 조회
+ */
+app.get('/api/rag/documents/:id/chunks', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+
+    const chunksSnapshot = await db.collection('rag_chunks')
+      .where('documentId', '==', id)
+      .orderBy('index', 'asc')
+      .get();
+
+    const chunks = [];
+    let totalTokens = 0;
+
+    chunksSnapshot.forEach(doc => {
+      const data = doc.data();
+      chunks.push({
+        id: doc.id,
+        ...data
+      });
+      totalTokens += data.tokenCount || 0;
+    });
+
+    res.json({
+      success: true,
+      chunks,
+      totalTokens
+    });
+
+  } catch (error) {
+    console.error('청크 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/rag/chunks/:id
+ * 청크 수정
+ */
+app.put('/api/rag/chunks/:id', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { id } = req.params;
+    const { content, contentType, problemData, conceptData } = req.body;
+
+    const chunkRef = db.collection('rag_chunks').doc(id);
+    const chunk = await chunkRef.get();
+
+    if (!chunk.exists) {
+      return res.status(404).json({ success: false, error: '청크를 찾을 수 없습니다.' });
+    }
+
+    const updates = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (content) updates.content = content;
+    if (contentType) updates.contentType = contentType;
+    if (problemData) updates.problemData = problemData;
+    if (conceptData) updates.conceptData = conceptData;
+
+    await chunkRef.update(updates);
+
+    const updatedChunk = await chunkRef.get();
+
+    res.json({
+      success: true,
+      chunk: {
+        id: updatedChunk.id,
+        ...updatedChunk.data()
+      }
+    });
+
+  } catch (error) {
+    console.error('청크 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/rag/units/import
+ * 자이스토리 기준 단원 분류 가져오기 (CSV)
+ */
+app.post('/api/rag/units/import', upload.single('file'), async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: '파일이 필요합니다.' });
+    }
+
+    const { curriculum = '2022', subject } = req.body;
+
+    // CSV 파일 읽기
+    const fileContent = fs.readFileSync(req.file.path, 'utf-8');
+    const lines = fileContent.split('\n').filter(line => line.trim());
+
+    if (lines.length < 2) {
+      return res.status(400).json({ success: false, error: 'CSV 파일에 데이터가 없습니다.' });
+    }
+
+    // 헤더 파싱 (예: majorCode,majorName,middleCode,middleName,typeCode,typeName)
+    const headers = lines[0].split(',').map(h => h.trim());
+
+    const units = [];
+    const batch = db.batch();
+    let importedCount = 0;
+    const errors = [];
+
+    // 그룹화를 위한 맵
+    const unitMap = new Map();
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+
+      if (values.length < headers.length) {
+        errors.push({ row: i + 1, error: '열 수가 맞지 않습니다.' });
+        continue;
+      }
+
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx];
+      });
+
+      // 대단원-중단원 키 생성
+      const majorKey = `${row.majorCode || row.major_code}`;
+      const middleKey = `${majorKey}-${row.middleCode || row.middle_code}`;
+
+      if (!unitMap.has(middleKey)) {
+        unitMap.set(middleKey, {
+          subject: subject || row.subject,
+          curriculum,
+          majorUnit: {
+            code: row.majorCode || row.major_code,
+            name: row.majorName || row.major_name
+          },
+          middleUnit: {
+            code: row.middleCode || row.middle_code,
+            name: row.middleName || row.middle_name
+          },
+          types: []
+        });
+      }
+
+      // 유형 추가
+      const unit = unitMap.get(middleKey);
+      if (row.typeCode || row.type_code) {
+        unit.types.push({
+          code: row.typeCode || row.type_code,
+          name: row.typeName || row.type_name,
+          fullCode: `${row.middleCode || row.middle_code}${row.typeCode || row.type_code}`
+        });
+      }
+    }
+
+    // Firestore에 저장
+    for (const [key, unit] of unitMap) {
+      // 검증
+      const validationResult = validators.validateUnitClassification(unit);
+      if (!validationResult.valid) {
+        errors.push({ unit: key, error: validationResult.errors.join(', ') });
+        continue;
+      }
+
+      const unitRef = db.collection('rag_units').doc();
+      batch.set(unitRef, {
+        ...unit,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      importedCount++;
+    }
+
+    await batch.commit();
+
+    // 임시 파일 삭제
+    await cleanupFile(req.file.path);
+
+    res.json({
+      success: true,
+      importedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('단원 분류 가져오기 오류:', error);
+    if (req.file) await cleanupFile(req.file.path);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/rag/units
+ * 단원 분류 목록 조회
+ */
+app.get('/api/rag/units', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const { subject, curriculum } = req.query;
+
+    let query = db.collection('rag_units');
+
+    if (subject) {
+      query = query.where('subject', '==', subject);
+    }
+    if (curriculum) {
+      query = query.where('curriculum', '==', curriculum);
+    }
+
+    const snapshot = await query.get();
+    const units = [];
+
+    snapshot.forEach(doc => {
+      units.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      units
+    });
+
+  } catch (error) {
+    console.error('단원 분류 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/rag/search
+ * RAG 시맨틱 검색 with 메타데이터 필터
+ */
+app.post('/api/rag/search', async (req, res) => {
+  if (!db) {
+    return res.status(500).json({ success: false, error: 'Firebase가 초기화되지 않았습니다.' });
+  }
+
+  try {
+    const {
+      query,
+      filters = {},
+      limit = 10,
+      includeChunks = true
+    } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ success: false, error: '검색어가 필요합니다.' });
+    }
+
+    // 1. 메타데이터 필터링으로 문서 ID 목록 가져오기
+    let docsQuery = db.collection('rag_documents').where('status', '==', 'indexed');
+
+    if (filters.documentType) {
+      const types = Array.isArray(filters.documentType) ? filters.documentType : [filters.documentType];
+      docsQuery = docsQuery.where('documentType', 'in', types);
+    }
+    if (filters.subject) {
+      const subjects = Array.isArray(filters.subject) ? filters.subject : [filters.subject];
+      docsQuery = docsQuery.where('metadata.subject', 'in', subjects);
+    }
+    if (filters.difficulty) {
+      const difficulties = Array.isArray(filters.difficulty) ? filters.difficulty : [filters.difficulty];
+      docsQuery = docsQuery.where('metadata.difficulty', 'in', difficulties);
+    }
+
+    const docsSnapshot = await docsQuery.limit(100).get();
+    const docIds = [];
+    const docsMap = new Map();
+
+    docsSnapshot.forEach(doc => {
+      docIds.push(doc.id);
+      docsMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+
+    if (docIds.length === 0) {
+      return res.json({
+        success: true,
+        results: [],
+        message: '필터 조건에 맞는 문서가 없습니다.'
+      });
+    }
+
+    // 2. RAG 검색 실행
+    const agent = getAgent();
+    let ragAnswer = null;
+
+    try {
+      ragAnswer = await agent.ask(query);
+    } catch (e) {
+      console.warn('RAG 검색 실패, 키워드 검색으로 폴백:', e.message);
+    }
+
+    // 3. 청크에서 키워드 검색 (보조)
+    const results = [];
+
+    for (const docId of docIds.slice(0, limit)) {
+      const doc = docsMap.get(docId);
+      const result = {
+        document: doc,
+        chunks: [],
+        relevanceScore: 0
+      };
+
+      if (includeChunks) {
+        const chunksSnapshot = await db.collection('rag_chunks')
+          .where('documentId', '==', docId)
+          .orderBy('index', 'asc')
+          .limit(5)
+          .get();
+
+        chunksSnapshot.forEach(chunkDoc => {
+          const chunkData = chunkDoc.data();
+          // 간단한 키워드 매칭 점수
+          const content = chunkData.content?.toLowerCase() || '';
+          const queryLower = query.toLowerCase();
+          const matchScore = content.includes(queryLower) ? 1 : 0;
+
+          result.chunks.push({
+            id: chunkDoc.id,
+            ...chunkData
+          });
+          result.relevanceScore += matchScore;
+        });
+      }
+
+      results.push(result);
+    }
+
+    // 관련성 점수로 정렬
+    results.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    res.json({
+      success: true,
+      results: results.slice(0, limit),
+      answer: ragAnswer,
+      totalFiltered: docIds.length
+    });
+
+  } catch (error) {
+    console.error('RAG 검색 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/rag/document-types
+ * 문서 유형 및 메타데이터 스키마 조회
+ */
+app.get('/api/rag/document-types', (req, res) => {
+  res.json({
+    success: true,
+    types: validators.DOCUMENT_TYPES,
+    schemas: {
+      textbook: {
+        required: ['domain', 'subject', 'curriculum'],
+        optional: ['publisher', 'unit', 'contentType', 'keyConcepts']
+      },
+      supplementary: {
+        required: ['domain', 'subject', 'materialName'],
+        optional: ['publisher', 'unit', 'contentType']
+      },
+      csat_past: {
+        required: ['examType', 'year', 'domain', 'subject'],
+        optional: ['unit', 'problemNumber', 'problemFormat', 'difficulty', 'knowledgeType', 'zystoryUnit']
+      },
+      csat_mock: {
+        required: ['examType', 'year', 'domain', 'subject'],
+        optional: ['month', 'unit', 'problemNumber', 'difficulty']
+      },
+      school_exam: {
+        required: ['examType', 'year', 'domain', 'subject', 'schoolInfo'],
+        optional: ['unit', 'problemNumber', 'difficulty']
+      },
+      university_essay: {
+        required: ['universityName', 'year', 'admissionType'],
+        optional: ['campus', 'department', 'problemNumber', 'problemType', 'units', 'difficulty', 'solutionStrategy', 'gradingKeySentences']
+      },
+      university_interview: {
+        required: ['universityName', 'department', 'year', 'originalQuestion'],
+        optional: ['admissionType', 'interviewType', 'interviewDuration', 'followUpSequence', 'questionIntent', 'modelAnswerSummary', 'evaluationCompetencies']
+      },
+      other: {
+        required: [],
+        optional: ['category', 'tags', 'description', 'customFields']
+      }
+    },
+    enums: {
+      examTypes: validators.EXAM_TYPES,
+      problemFormats: validators.PROBLEM_FORMATS,
+      difficultyLevels: validators.DIFFICULTY_LEVELS,
+      knowledgeTypes: validators.KNOWLEDGE_TYPES,
+      contentTypes: validators.TEXTBOOK_CONTENT_TYPES,
+      interviewTypes: validators.INTERVIEW_TYPES
+    }
+  });
+});
+
+/**
+ * GET /api/rag/chunking-config
+ * 문서 유형별 권장 청킹 설정 조회
+ */
+app.get('/api/rag/chunking-config', (req, res) => {
+  const { documentType } = req.query;
+  const chunkingService = getChunkingService();
+
+  if (documentType) {
+    const config = chunkingService.getRecommendedConfig(documentType);
+    res.json({ success: true, config });
+  } else {
+    const configs = {};
+    for (const type of validators.DOCUMENT_TYPES) {
+      configs[type] = chunkingService.getRecommendedConfig(type);
+    }
+    res.json({ success: true, configs });
+  }
+});
+
+// ==================== 서버 시작 ====================
+
 app.listen(PORT, () => {
   console.log(`
 🚀 Google File Search RAG Agent 서버 시작
 📡 URL: http://localhost:${PORT}
 🔑 API 키 설정: ${process.env.GEMINI_API_KEY ? '✅' : '❌ (.env 파일 확인 필요)'}
+📚 RAG 문서 관리 시스템: ✅
   `);
 
   if (!process.env.GEMINI_API_KEY) {

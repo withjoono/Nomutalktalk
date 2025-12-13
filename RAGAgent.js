@@ -389,6 +389,257 @@ class RAGAgent {
 
     await this.deleteStore(this.storeName, force);
   }
+
+  // ==================== 교육 콘텐츠 RAG 확장 메서드 ====================
+
+  /**
+   * 교육 문서 업로드 (메타데이터 전파 포함)
+   * @param {Object} document - 문서 객체
+   * @param {string} document.id - 문서 ID
+   * @param {string} document.documentType - 문서 유형
+   * @param {string} document.title - 문서 제목
+   * @param {Object} document.metadata - 문서 메타데이터
+   * @param {string} document.filePath - 업로드할 파일 경로
+   * @param {Object} options - 업로드 옵션
+   * @returns {Promise<Object>} 업로드 결과
+   */
+  async uploadEducationalDocument(document, options = {}) {
+    if (!this.storeName) {
+      throw new Error('에이전트가 초기화되지 않았습니다. initialize() 메서드를 먼저 호출하세요.');
+    }
+
+    const { filePath, documentType, metadata, title } = document;
+
+    if (!filePath || !fs.existsSync(filePath)) {
+      throw new Error(`파일을 찾을 수 없습니다: ${filePath}`);
+    }
+
+    // 커스텀 메타데이터 생성
+    const customMetadata = this.buildCustomMetadata(documentType, metadata);
+
+    // 문서 유형별 청킹 설정
+    const chunkingConfig = options.chunkingConfig || this.getChunkingConfig(documentType);
+
+    console.log(`📤 교육 문서 업로드: ${title} (유형: ${documentType})`);
+    console.log(`   메타데이터 필드: ${customMetadata.length}개`);
+
+    const result = await this.uploadAndImportFile(filePath, {
+      displayName: title,
+      mimeType: options.mimeType || this.getMimeType(filePath),
+      chunkingConfig,
+      customMetadata
+    });
+
+    return {
+      ...result,
+      documentId: document.id,
+      documentType,
+      metadataFields: customMetadata.length
+    };
+  }
+
+  /**
+   * 문서 유형에 따른 커스텀 메타데이터 생성 (Gemini File Search 호환)
+   * @param {string} documentType - 문서 유형
+   * @param {Object} metadata - 원본 메타데이터
+   * @returns {Array} Gemini 커스텀 메타데이터 배열
+   */
+  buildCustomMetadata(documentType, metadata) {
+    const customMetadata = [];
+
+    // 문서 유형 항상 포함
+    customMetadata.push({
+      key: 'document_type',
+      stringValue: documentType
+    });
+
+    if (!metadata) return customMetadata;
+
+    // 문서 유형별 메타데이터 추가
+    switch (documentType) {
+      case 'textbook':
+      case 'supplementary':
+        this._addStringField(customMetadata, 'domain', metadata.domain);
+        this._addStringField(customMetadata, 'subject', metadata.subject);
+        this._addStringField(customMetadata, 'curriculum', metadata.curriculum);
+        this._addStringField(customMetadata, 'publisher', metadata.publisher);
+        this._addStringField(customMetadata, 'content_type', metadata.contentType);
+        if (metadata.unit) {
+          this._addStringField(customMetadata, 'major_unit', metadata.unit.majorUnit);
+          this._addStringField(customMetadata, 'middle_unit', metadata.unit.middleUnit);
+        }
+        if (metadata.keyConcepts && metadata.keyConcepts.length > 0) {
+          this._addStringField(customMetadata, 'key_concepts', metadata.keyConcepts.join(', '));
+        }
+        break;
+
+      case 'csat_past':
+      case 'csat_mock':
+      case 'school_exam':
+        this._addStringField(customMetadata, 'exam_type', metadata.examType);
+        this._addNumericField(customMetadata, 'year', metadata.year);
+        this._addStringField(customMetadata, 'domain', metadata.domain);
+        this._addStringField(customMetadata, 'subject', metadata.subject);
+        this._addStringField(customMetadata, 'difficulty', metadata.difficulty);
+        this._addStringField(customMetadata, 'exam_institution', metadata.examInstitution);
+        if (metadata.unit) {
+          this._addStringField(customMetadata, 'major_unit', metadata.unit.majorUnit);
+        }
+        if (metadata.zystoryUnit) {
+          this._addStringField(customMetadata, 'zystory_major', metadata.zystoryUnit.majorUnit);
+          this._addStringField(customMetadata, 'zystory_middle', metadata.zystoryUnit.middleUnit);
+          this._addStringField(customMetadata, 'zystory_type', metadata.zystoryUnit.typeName);
+        }
+        if (metadata.knowledgeType && metadata.knowledgeType.length > 0) {
+          this._addStringField(customMetadata, 'knowledge_type', metadata.knowledgeType.join(', '));
+        }
+        break;
+
+      case 'university_essay':
+        this._addStringField(customMetadata, 'university', metadata.universityName);
+        this._addStringField(customMetadata, 'campus', metadata.campus);
+        this._addNumericField(customMetadata, 'year', metadata.year);
+        this._addStringField(customMetadata, 'admission_type', metadata.admissionType);
+        this._addStringField(customMetadata, 'department', metadata.department);
+        this._addStringField(customMetadata, 'problem_type', metadata.problemType);
+        this._addStringField(customMetadata, 'difficulty', metadata.difficulty);
+        if (metadata.units && metadata.units.length > 0) {
+          const unitNames = metadata.units.map(u => u.majorUnit).join(', ');
+          this._addStringField(customMetadata, 'units', unitNames);
+        }
+        if (metadata.thinkingProcess && metadata.thinkingProcess.length > 0) {
+          this._addStringField(customMetadata, 'thinking_process', metadata.thinkingProcess.join(', '));
+        }
+        break;
+
+      case 'university_interview':
+        this._addStringField(customMetadata, 'university', metadata.universityName);
+        this._addStringField(customMetadata, 'department', metadata.department);
+        this._addNumericField(customMetadata, 'year', metadata.year);
+        this._addStringField(customMetadata, 'admission_type', metadata.admissionType);
+        this._addStringField(customMetadata, 'interview_type', metadata.interviewType);
+        this._addNumericField(customMetadata, 'duration', metadata.interviewDuration);
+        if (metadata.evaluationCompetencies && metadata.evaluationCompetencies.length > 0) {
+          this._addStringField(customMetadata, 'competencies', metadata.evaluationCompetencies.join(', '));
+        }
+        break;
+
+      case 'other':
+      default:
+        this._addStringField(customMetadata, 'category', metadata.category);
+        if (metadata.tags && metadata.tags.length > 0) {
+          this._addStringField(customMetadata, 'tags', metadata.tags.join(', '));
+        }
+        break;
+    }
+
+    return customMetadata;
+  }
+
+  /**
+   * 문자열 메타데이터 필드 추가
+   */
+  _addStringField(arr, key, value) {
+    if (value && typeof value === 'string') {
+      arr.push({ key, stringValue: value });
+    }
+  }
+
+  /**
+   * 숫자 메타데이터 필드 추가
+   */
+  _addNumericField(arr, key, value) {
+    if (value && typeof value === 'number') {
+      arr.push({ key, numericValue: value });
+    }
+  }
+
+  /**
+   * 문서 유형별 최적 청킹 설정 반환
+   * @param {string} documentType - 문서 유형
+   * @returns {Object} 청킹 설정
+   */
+  getChunkingConfig(documentType) {
+    const configs = {
+      'textbook': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 512,
+          maxOverlapTokens: 64
+        }
+      },
+      'supplementary': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 512,
+          maxOverlapTokens: 64
+        }
+      },
+      'csat_past': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 1024,
+          maxOverlapTokens: 0  // 문제 단위이므로 오버랩 불필요
+        }
+      },
+      'csat_mock': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 1024,
+          maxOverlapTokens: 0
+        }
+      },
+      'school_exam': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 1024,
+          maxOverlapTokens: 0
+        }
+      },
+      'university_essay': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 2048,  // 논술 문제는 길 수 있음
+          maxOverlapTokens: 128
+        }
+      },
+      'university_interview': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 1536,
+          maxOverlapTokens: 64
+        }
+      },
+      'default': {
+        whiteSpaceConfig: {
+          maxTokensPerChunk: 768,
+          maxOverlapTokens: 64
+        }
+      }
+    };
+
+    return configs[documentType] || configs['default'];
+  }
+
+  /**
+   * 파일 경로에서 MIME 타입 추정
+   * @param {string} filePath - 파일 경로
+   * @returns {string} MIME 타입
+   */
+  getMimeType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.txt': 'text/plain',
+      '.pdf': 'application/pdf',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.html': 'text/html',
+      '.md': 'text/markdown',
+      '.json': 'application/json',
+      '.csv': 'text/csv'
+    };
+    return mimeTypes[ext] || 'application/octet-stream';
+  }
+
+  /**
+   * Gemini 클라이언트 접근자 (ChunkingService 등에서 사용)
+   */
+  get gemini() {
+    return this.manager.genai;
+  }
 }
 
 module.exports = RAGAgent;

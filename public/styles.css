@@ -6897,3 +6897,363 @@ kbd {
   margin-left: 8px;
   vertical-align: middle;
 }
+
+/* Studio Link Button */
+.studio-link {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.studio-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* ============================================
+   문서 유형 선택 및 메타데이터 입력 폼 스타일
+   ============================================ */
+
+/* 문서 유형 선택 힌트 */
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: #666;
+}
+
+/* 메타데이터 폼 스타일 */
+.metadata-form {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 15px 0;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.metadata-form h4 {
+  margin: 0 0 15px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #667eea;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* 메타데이터 그리드 레이아웃 */
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.metadata-grid .form-group {
+  margin-bottom: 0;
+}
+
+.metadata-grid .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.metadata-grid .form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
+}
+
+/* 체크박스 그룹 인라인 */
+.checkbox-group-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.checkbox-group-inline label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.checkbox-group-inline label:hover {
+  border-color: #667eea;
+  background: #f0f2ff;
+}
+
+.checkbox-group-inline input[type="checkbox"]:checked + span,
+.checkbox-group-inline label:has(input:checked) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+/* ============================================
+   고급 검색 패널 스타일
+   ============================================ */
+
+.advanced-search-panel {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 15px 0;
+  animation: slideDown 0.3s ease;
+}
+
+.advanced-search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #667eea;
+}
+
+.advanced-search-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* 고급 검색 그리드 */
+.advanced-search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.filter-group .input-field {
+  font-size: 0.9rem;
+  padding: 8px 10px;
+}
+
+.filter-group.wide {
+  grid-column: span 2;
+}
+
+/* 특수 필터 영역 */
+.advanced-search-special {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #ccc;
+}
+
+/* 검색 액션 버튼 영역 */
+.advanced-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #ddd;
+}
+
+.search-result-count {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.search-result-count strong {
+  color: #667eea;
+}
+
+/* ============================================
+   RAG 문서 유형 배지 스타일
+   ============================================ */
+
+.doc-type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.doc-type-badge.textbook {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.doc-type-badge.supplementary {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.doc-type-badge.csat_past {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.doc-type-badge.csat_mock {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
+.doc-type-badge.school_exam {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.doc-type-badge.university_essay {
+  background: #e0f2f1;
+  color: #00695c;
+}
+
+.doc-type-badge.university_interview {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+
+.doc-type-badge.other {
+  background: #eceff1;
+  color: #546e7a;
+}
+
+/* 난이도 배지 */
+.difficulty-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+.difficulty-badge.killer {
+  background: #ff1744;
+  color: white;
+}
+
+.difficulty-badge.high {
+  background: #ff9100;
+  color: white;
+}
+
+.difficulty-badge.medium {
+  background: #ffea00;
+  color: #333;
+}
+
+.difficulty-badge.low {
+  background: #76ff03;
+  color: #333;
+}
+
+.difficulty-badge.concept {
+  background: #00e5ff;
+  color: #333;
+}
+
+/* ============================================
+   RAG 문서 카드 메타데이터 표시
+   ============================================ */
+
+.rag-doc-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.metadata-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.metadata-tag .tag-label {
+  color: #999;
+}
+
+.metadata-tag .tag-value {
+  color: #333;
+  font-weight: 500;
+}
+
+/* 고급 검색 토글 버튼 활성화 상태 */
+#advancedSearchToggle.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+  .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-search-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filter-group.wide {
+    grid-column: 1 / -1;
+  }
+
+  .advanced-search-special {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .advanced-search-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkbox-group-inline {
+    flex-direction: column;
+  }
+}
+

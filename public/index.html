@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -120,6 +120,7 @@
           <span class="mode-label">편집자 모드</span>
         </div>
         <div id="serverStatus" class="status-badge">확인 중...</div>
+        <a href="problem_studio.html" class="studio-link" id="studioLink">🎯 출제 스튜디오</a>
       </div>
     </header>
 
@@ -256,56 +257,132 @@
       </div>
     </section>
 
-    <!-- 문서 관리 섹션 (요약) -->
+    <!-- 통합 문서 관리 섹션 -->
     <section class="card">
-      <h2>📚 문서 현황</h2>
+      <h2>📚 통합 문서 관리</h2>
       <p class="section-description">
-        💡 <strong>문서 현황</strong>: 업로드된 모든 문서의 요약 정보입니다.
-        <span class="description-detail">상세 관리는 하단의 'RAG 문서 관리'에서 청크 단위로 확인할 수 있습니다.</span>
+        💡 파일 업로드, RAG 인덱싱, 청크 관리를 한 곳에서 처리합니다.
       </p>
 
-      <div class="doc-summary-grid">
-        <div class="summary-item">
-          <span class="summary-icon">📄</span>
-          <div class="summary-info">
-            <span class="summary-value" id="totalDocCount">0</span>
-            <span class="summary-label">총 문서</span>
-          </div>
-        </div>
-        <div class="summary-item">
-          <span class="summary-icon">🔗</span>
-          <div class="summary-info">
-            <span class="summary-value" id="ragIndexedCount">0</span>
-            <span class="summary-label">RAG 인덱싱</span>
-          </div>
-        </div>
-        <div class="summary-item">
-          <span class="summary-icon">📝</span>
-          <div class="summary-info">
-            <span class="summary-value" id="problemDocCount">0</span>
-            <span class="summary-label">문제 문서</span>
-          </div>
-        </div>
-        <div class="summary-item">
-          <span class="summary-icon">🖼️</span>
-          <div class="summary-info">
-            <span class="summary-value" id="assetDocCount">0</span>
-            <span class="summary-label">자료 문서</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="doc-summary-actions">
-        <button onclick="loadDocuments()" class="btn btn-secondary btn-sm">
-          🔄 새로고침
+      <!-- 문서 관리 탭 네비게이션 -->
+      <div class="doc-management-tabs">
+        <button class="doc-tab active" onclick="switchDocManagementTab('overview')" id="tabDocOverview">
+          📊 현황
         </button>
-        <button onclick="scrollToRAGManagement()" class="btn btn-primary btn-sm">
-          📋 상세 관리 →
+        <button class="doc-tab" onclick="switchDocManagementTab('upload')" id="tabDocUpload">
+          📤 업로드
+        </button>
+        <button class="doc-tab" onclick="switchDocManagementTab('rag')" id="tabDocRag">
+          🔗 RAG 관리
+        </button>
+        <button class="doc-tab" onclick="switchDocManagementTab('chunks')" id="tabDocChunks">
+          📦 청크 관리
         </button>
       </div>
 
-      <!-- 간략 문서 목록 (최근 5개만) -->
-      <div id="recentDocsList" class="recent-docs-list"></div>
+      <!-- 탭 1: 문서 현황 -->
+      <div id="docTabOverview" class="doc-tab-content active">
+        <div class="doc-summary-grid">
+          <div class="summary-item">
+            <span class="summary-icon">📄</span>
+            <div class="summary-info">
+              <span class="summary-value" id="totalDocCount">0</span>
+              <span class="summary-label">총 문서</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">🔗</span>
+            <div class="summary-info">
+              <span class="summary-value" id="ragIndexedCount">0</span>
+              <span class="summary-label">RAG 인덱싱</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">📝</span>
+            <div class="summary-info">
+              <span class="summary-value" id="problemDocCount">0</span>
+              <span class="summary-label">문제 문서</span>
+            </div>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">🖼️</span>
+            <div class="summary-info">
+              <span class="summary-value" id="assetDocCount">0</span>
+              <span class="summary-label">자료 문서</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-summary-actions">
+          <button onclick="loadDocuments()" class="btn btn-secondary btn-sm">
+            🔄 새로고침
+          </button>
+          <button onclick="switchDocManagementTab('rag')" class="btn btn-primary btn-sm">
+            📋 상세 관리 →
+          </button>
+        </div>
+
+        <!-- 간략 문서 목록 (최근 5개만) -->
+        <div id="recentDocsList" class="recent-docs-list"></div>
+      </div>
+
+      <!-- 탭 2: 파일 업로드 (기존 업로드 섹션 통합) -->
+      <div id="docTabUpload" class="doc-tab-content" style="display: none;">
+        <!-- 업로드 컨텐츠는 아래 기존 섹션에서 이동 -->
+      </div>
+
+      <!-- 탭 3: RAG 관리 -->
+      <div id="docTabRag" class="doc-tab-content" style="display: none;">
+        <div class="management-toolbar">
+          <button onclick="loadRAGDocumentsUnified()" class="btn btn-secondary">
+            🔄 새로고침
+          </button>
+          <div class="rag-stats">
+            <span class="stat-item">📄 문서: <strong id="unifiedRagDocCount">0</strong></span>
+            <span class="stat-item">💾 스토어: <strong id="unifiedRagStoreName">-</strong></span>
+          </div>
+        </div>
+
+        <div class="rag-filter">
+          <input type="text" id="unifiedRagSearchInput" class="input-field" placeholder="문서 검색..." onkeyup="filterUnifiedRAGDocuments()">
+          <select id="unifiedRagTypeFilter" class="input-field" onchange="filterUnifiedRAGDocuments()">
+            <option value="all">전체 유형</option>
+            <option value="variation">변형 문제</option>
+            <option value="asset">자료</option>
+            <option value="document">일반 문서</option>
+          </select>
+        </div>
+
+        <div id="unifiedRagDocumentsList" class="rag-documents-list">
+          <p class="info-message">📚 문서를 불러오려면 새로고침을 클릭하세요.</p>
+        </div>
+      </div>
+
+      <!-- 탭 4: 청크 관리 -->
+      <div id="docTabChunks" class="doc-tab-content" style="display: none;">
+        <div class="chunk-management-toolbar">
+          <button onclick="openEmbeddingVisualization()" class="btn btn-info">
+            📊 벡터 시각화
+          </button>
+          <button onclick="openRechunkModal()" class="btn btn-secondary">
+            🔄 청크 재생성
+          </button>
+          <button onclick="loadUnifiedLocalChunks()" class="btn btn-secondary">
+            📦 로컬 청크 보기
+          </button>
+        </div>
+
+        <div class="chunk-search-box">
+          <input type="text" id="unifiedChunkSearchQuery" class="input-field"
+                 placeholder="청크 내용 검색 (유사도 기반)..."
+                 onkeydown="if(event.key==='Enter') searchUnifiedChunks()">
+          <button onclick="searchUnifiedChunks()" class="btn btn-primary">🔍 검색</button>
+        </div>
+
+        <div id="unifiedChunkViewerList" class="chunk-viewer-list">
+          <p class="info-message">검색어를 입력하거나 로컬 청크를 불러오세요.</p>
+        </div>
+      </div>
     </section>
 
     <!-- 파일 업로드 섹션 -->
@@ -323,6 +400,557 @@
             <input type="radio" name="uploadType" value="import">
             Files API Import (메타데이터 지원)
           </label>
+        </div>
+      </div>
+
+      <!-- 문서 유형 선택 UI -->
+      <div class="form-group">
+        <label for="documentTypeSelect">📂 문서 유형:</label>
+        <select id="documentTypeSelect" class="input-field" onchange="onDocumentTypeChange()">
+          <option value="">문서 유형을 선택하세요</option>
+          <option value="textbook">📚 교과서</option>
+          <option value="supplementary">📖 학교 부교재</option>
+          <option value="csat_past">📝 수능 기출</option>
+          <option value="csat_mock">📋 수능 모의고사</option>
+          <option value="school_exam">🏫 내신 기출</option>
+          <option value="university_essay">✍️ 대학 수리논술</option>
+          <option value="university_interview">🎤 대학 심층면접</option>
+          <option value="other">📄 기타</option>
+        </select>
+        <small class="form-hint">문서 유형에 따라 메타데이터 입력 폼이 표시됩니다.</small>
+      </div>
+
+      <!-- 문서 유형별 메타데이터 입력 폼 -->
+      <div id="documentMetadataForms" style="display: none;">
+        <!-- 교과서 메타데이터 폼 -->
+        <div id="metadataForm_textbook" class="metadata-form" style="display: none;">
+          <h4>📚 교과서 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>영역 *</label>
+              <select id="tb_domain" class="input-field" required>
+                <option value="">선택하세요</option>
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학">과학</option>
+                <option value="사회">사회</option>
+                <option value="정보">정보</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>과목 *</label>
+              <input type="text" id="tb_subject" class="input-field" placeholder="예: 수학1, 미적분" required>
+            </div>
+            <div class="form-group">
+              <label>교육과정 *</label>
+              <select id="tb_curriculum" class="input-field" required>
+                <option value="2022">2022 개정</option>
+                <option value="2015">2015 개정</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>출판사</label>
+              <input type="text" id="tb_publisher" class="input-field" placeholder="예: 미래엔, 비상">
+            </div>
+            <div class="form-group">
+              <label>대단원 *</label>
+              <input type="text" id="tb_majorUnit" class="input-field" placeholder="예: Ⅰ. 지수함수와 로그함수" required>
+            </div>
+            <div class="form-group">
+              <label>중단원</label>
+              <input type="text" id="tb_middleUnit" class="input-field" placeholder="예: 1. 지수">
+            </div>
+            <div class="form-group">
+              <label>소단원</label>
+              <input type="text" id="tb_minorUnit" class="input-field" placeholder="예: 01. 거듭제곱과 거듭제곱근">
+            </div>
+            <div class="form-group">
+              <label>콘텐츠 타입</label>
+              <select id="tb_contentType" class="input-field">
+                <option value="mixed">혼합</option>
+                <option value="concept_explanation">개념 설명</option>
+                <option value="definition">정의</option>
+                <option value="theorem_law">정리·법칙</option>
+                <option value="example">예제</option>
+                <option value="exercise">유제</option>
+                <option value="exploration">탐구활동</option>
+                <option value="check_problem">확인문제</option>
+                <option value="figure_table_description">그림·표 설명</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>핵심 개념 (쉼표로 구분)</label>
+              <input type="text" id="tb_keyConcepts" class="input-field" placeholder="예: 지수법칙, 거듭제곱근, 지수의 확장">
+            </div>
+          </div>
+        </div>
+
+        <!-- 부교재 메타데이터 폼 -->
+        <div id="metadataForm_supplementary" class="metadata-form" style="display: none;">
+          <h4>📖 부교재 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>부교재명 *</label>
+              <input type="text" id="sup_materialName" class="input-field" placeholder="예: 자이스토리, 쎈" required>
+            </div>
+            <div class="form-group">
+              <label>영역 *</label>
+              <select id="sup_domain" class="input-field" required>
+                <option value="">선택하세요</option>
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학">과학</option>
+                <option value="사회">사회</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>과목 *</label>
+              <input type="text" id="sup_subject" class="input-field" placeholder="예: 수학1" required>
+            </div>
+            <div class="form-group">
+              <label>교육과정</label>
+              <select id="sup_curriculum" class="input-field">
+                <option value="2022">2022 개정</option>
+                <option value="2015">2015 개정</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>출판사</label>
+              <input type="text" id="sup_publisher" class="input-field" placeholder="예: 수경출판사">
+            </div>
+            <div class="form-group">
+              <label>대단원 *</label>
+              <input type="text" id="sup_majorUnit" class="input-field" placeholder="예: Ⅰ. 지수함수와 로그함수" required>
+            </div>
+            <div class="form-group">
+              <label>중단원</label>
+              <input type="text" id="sup_middleUnit" class="input-field" placeholder="예: 1. 지수">
+            </div>
+          </div>
+        </div>
+
+        <!-- 수능/모의고사 기출 메타데이터 폼 -->
+        <div id="metadataForm_csat_past" class="metadata-form" style="display: none;">
+          <h4>📝 수능 기출 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>시험 유형 *</label>
+              <select id="csat_examType" class="input-field" required>
+                <option value="csat">수능</option>
+                <option value="eval_6">6월 평가원</option>
+                <option value="eval_9">9월 평가원</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>연도 *</label>
+              <input type="number" id="csat_year" class="input-field" placeholder="예: 2024" min="2000" max="2030" required>
+            </div>
+            <div class="form-group">
+              <label>영역 *</label>
+              <select id="csat_domain" class="input-field" required>
+                <option value="">선택하세요</option>
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학탐구">과학탐구</option>
+                <option value="사회탐구">사회탐구</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>과목 *</label>
+              <input type="text" id="csat_subject" class="input-field" placeholder="예: 미적분, 확률과 통계" required>
+            </div>
+            <div class="form-group">
+              <label>문항 번호</label>
+              <input type="text" id="csat_problemNumber" class="input-field" placeholder="예: 21, 22, 29-30">
+            </div>
+            <div class="form-group">
+              <label>문항 형태</label>
+              <select id="csat_problemFormat" class="input-field">
+                <option value="multiple_choice">객관식</option>
+                <option value="short_answer">단답형</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>난이도</label>
+              <select id="csat_difficulty" class="input-field">
+                <option value="medium">중</option>
+                <option value="killer">킬러</option>
+                <option value="high">상</option>
+                <option value="low">하</option>
+                <option value="concept">개념</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>지식 유형</label>
+              <div class="checkbox-group-inline">
+                <label><input type="checkbox" name="csat_knowledgeType" value="concept"> 개념</label>
+                <label><input type="checkbox" name="csat_knowledgeType" value="calculation"> 계산</label>
+                <label><input type="checkbox" name="csat_knowledgeType" value="reasoning"> 추론</label>
+                <label><input type="checkbox" name="csat_knowledgeType" value="data_interpretation"> 자료해석</label>
+                <label><input type="checkbox" name="csat_knowledgeType" value="integration"> 통합</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>대단원</label>
+              <input type="text" id="csat_majorUnit" class="input-field" placeholder="예: 미분법">
+            </div>
+            <div class="form-group">
+              <label>중단원</label>
+              <input type="text" id="csat_middleUnit" class="input-field" placeholder="예: 도함수의 활용">
+            </div>
+            <div class="form-group full-width">
+              <label>출제 의도</label>
+              <textarea id="csat_intent" class="input-field" rows="2" placeholder="이 문제의 출제 의도를 입력하세요"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>함정 요소 (쉼표로 구분)</label>
+              <input type="text" id="csat_trapElements" class="input-field" placeholder="예: 이중부정, 조건 누락, 계산 실수 유도">
+            </div>
+          </div>
+        </div>
+
+        <!-- 모의고사 기출 (csat_past와 거의 동일) -->
+        <div id="metadataForm_csat_mock" class="metadata-form" style="display: none;">
+          <h4>📋 모의고사 기출 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>시험 유형 *</label>
+              <select id="mock_examType" class="input-field" required>
+                <option value="mock_edu">교육청 모의고사</option>
+                <option value="mock_private">사설 모의고사</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>연도 *</label>
+              <input type="number" id="mock_year" class="input-field" placeholder="예: 2024" min="2000" max="2030" required>
+            </div>
+            <div class="form-group">
+              <label>월</label>
+              <select id="mock_month" class="input-field">
+                <option value="">선택</option>
+                <option value="3">3월</option>
+                <option value="4">4월</option>
+                <option value="5">5월</option>
+                <option value="6">6월</option>
+                <option value="7">7월</option>
+                <option value="9">9월</option>
+                <option value="10">10월</option>
+                <option value="11">11월</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>학년</label>
+              <select id="mock_grade" class="input-field">
+                <option value="3">고3</option>
+                <option value="2">고2</option>
+                <option value="1">고1</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>영역 *</label>
+              <select id="mock_domain" class="input-field" required>
+                <option value="">선택하세요</option>
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학탐구">과학탐구</option>
+                <option value="사회탐구">사회탐구</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>과목 *</label>
+              <input type="text" id="mock_subject" class="input-field" placeholder="예: 수학1, 수학2" required>
+            </div>
+            <div class="form-group">
+              <label>문항 번호</label>
+              <input type="text" id="mock_problemNumber" class="input-field" placeholder="예: 21, 22">
+            </div>
+            <div class="form-group">
+              <label>난이도</label>
+              <select id="mock_difficulty" class="input-field">
+                <option value="medium">중</option>
+                <option value="killer">킬러</option>
+                <option value="high">상</option>
+                <option value="low">하</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>대단원</label>
+              <input type="text" id="mock_majorUnit" class="input-field" placeholder="예: 미분법">
+            </div>
+            <div class="form-group full-width">
+              <label>함정 요소 (쉼표로 구분)</label>
+              <input type="text" id="mock_trapElements" class="input-field" placeholder="예: 조건 누락, 계산 실수">
+            </div>
+          </div>
+        </div>
+
+        <!-- 내신 기출 메타데이터 폼 -->
+        <div id="metadataForm_school_exam" class="metadata-form" style="display: none;">
+          <h4>🏫 내신 기출 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>학교명 *</label>
+              <input type="text" id="school_schoolName" class="input-field" placeholder="예: 서울고등학교" required>
+            </div>
+            <div class="form-group">
+              <label>시험 유형 *</label>
+              <select id="school_examType" class="input-field" required>
+                <option value="school_mid">중간고사</option>
+                <option value="school_final">기말고사</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>연도 *</label>
+              <input type="number" id="school_year" class="input-field" placeholder="예: 2024" min="2000" max="2030" required>
+            </div>
+            <div class="form-group">
+              <label>학기</label>
+              <select id="school_semester" class="input-field">
+                <option value="1">1학기</option>
+                <option value="2">2학기</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>학년</label>
+              <select id="school_grade" class="input-field">
+                <option value="1">고1</option>
+                <option value="2">고2</option>
+                <option value="3">고3</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>영역</label>
+              <select id="school_domain" class="input-field">
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학">과학</option>
+                <option value="사회">사회</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>과목 *</label>
+              <input type="text" id="school_subject" class="input-field" placeholder="예: 수학1" required>
+            </div>
+            <div class="form-group">
+              <label>교과서</label>
+              <input type="text" id="school_textbook" class="input-field" placeholder="예: 미래엔">
+            </div>
+            <div class="form-group">
+              <label>시험 범위</label>
+              <input type="text" id="school_examRange" class="input-field" placeholder="예: 1단원~3단원">
+            </div>
+            <div class="form-group">
+              <label>난이도</label>
+              <select id="school_difficulty" class="input-field">
+                <option value="medium">중</option>
+                <option value="high">상</option>
+                <option value="low">하</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>출제 경향</label>
+              <textarea id="school_tendency" class="input-field" rows="2" placeholder="예: 계산형 문제 다수, 서술형 30%"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 대학 수리논술 메타데이터 폼 -->
+        <div id="metadataForm_university_essay" class="metadata-form" style="display: none;">
+          <h4>✍️ 대학별 수리논술 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>대학명 *</label>
+              <input type="text" id="essay_universityName" class="input-field" placeholder="예: 서울대학교" required>
+            </div>
+            <div class="form-group">
+              <label>캠퍼스</label>
+              <input type="text" id="essay_campus" class="input-field" placeholder="예: 관악">
+            </div>
+            <div class="form-group">
+              <label>전형명 *</label>
+              <input type="text" id="essay_admissionType" class="input-field" placeholder="예: 논술전형" required>
+            </div>
+            <div class="form-group">
+              <label>계열/학과</label>
+              <input type="text" id="essay_department" class="input-field" placeholder="예: 자연계, 공대">
+            </div>
+            <div class="form-group">
+              <label>연도 *</label>
+              <input type="number" id="essay_year" class="input-field" placeholder="예: 2024" min="2000" max="2030" required>
+            </div>
+            <div class="form-group">
+              <label>모집 시기</label>
+              <select id="essay_admissionPeriod" class="input-field">
+                <option value="수시">수시</option>
+                <option value="정시">정시</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>문제 번호</label>
+              <input type="text" id="essay_problemNumber" class="input-field" placeholder="예: 1, 1-1">
+            </div>
+            <div class="form-group">
+              <label>문항 유형</label>
+              <select id="essay_problemType" class="input-field">
+                <option value="descriptive">서술형</option>
+                <option value="proof">증명형</option>
+                <option value="calculation">계산형</option>
+                <option value="graph_analysis">그래프 해석</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>난이도</label>
+              <select id="essay_difficulty" class="input-field">
+                <option value="high">상</option>
+                <option value="killer">킬러</option>
+                <option value="medium">중</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>예상 소요 시간(분)</label>
+              <input type="number" id="essay_estimatedTime" class="input-field" placeholder="예: 30" min="0">
+            </div>
+            <div class="form-group">
+              <label>배점</label>
+              <input type="number" id="essay_score" class="input-field" placeholder="예: 25" min="0">
+            </div>
+            <div class="form-group">
+              <label>사고 과정</label>
+              <div class="checkbox-group-inline">
+                <label><input type="checkbox" name="essay_thinkingProcess" value="equation_setup"> 식 세우기</label>
+                <label><input type="checkbox" name="essay_thinkingProcess" value="condition_analysis"> 조건 분석</label>
+                <label><input type="checkbox" name="essay_thinkingProcess" value="limit_differentiation_integration"> 극한·미적분</label>
+                <label><input type="checkbox" name="essay_thinkingProcess" value="case_division"> 경우 나누기</label>
+                <label><input type="checkbox" name="essay_thinkingProcess" value="proof_by_contradiction"> 귀류법</label>
+                <label><input type="checkbox" name="essay_thinkingProcess" value="mathematical_induction"> 수학적 귀납법</label>
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <label>출제 단원 (쉼표로 구분)</label>
+              <input type="text" id="essay_units" class="input-field" placeholder="예: 미분법, 적분법, 수열의 극한">
+            </div>
+            <div class="form-group full-width">
+              <label>풀이 전략</label>
+              <textarea id="essay_solutionStrategy" class="input-field" rows="2" placeholder="핵심 아이디어 및 필수 정의/정리"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>자주 발생하는 오류</label>
+              <textarea id="essay_commonErrors" class="input-field" rows="2" placeholder="예: 단조성 판단 오류, 경계값 누락"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 대학 심층면접 메타데이터 폼 -->
+        <div id="metadataForm_university_interview" class="metadata-form" style="display: none;">
+          <h4>🎤 대학별 심층면접 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>대학명 *</label>
+              <input type="text" id="interview_universityName" class="input-field" placeholder="예: 서울대학교" required>
+            </div>
+            <div class="form-group">
+              <label>학과/전공 *</label>
+              <input type="text" id="interview_department" class="input-field" placeholder="예: 수학과" required>
+            </div>
+            <div class="form-group">
+              <label>전형명</label>
+              <input type="text" id="interview_admissionType" class="input-field" placeholder="예: 학종, 특기자">
+            </div>
+            <div class="form-group">
+              <label>연도 *</label>
+              <input type="number" id="interview_year" class="input-field" placeholder="예: 2024" min="2000" max="2030" required>
+            </div>
+            <div class="form-group">
+              <label>면접 유형</label>
+              <select id="interview_interviewType" class="input-field">
+                <option value="oral">구술 면접</option>
+                <option value="reading_material">제시문 면접</option>
+                <option value="mathematical">수리 면접</option>
+                <option value="mmi">다중미니면접(MMI)</option>
+                <option value="discussion">토론형</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>진행 방식</label>
+              <select id="interview_procedure" class="input-field">
+                <option value="individual">개별면접</option>
+                <option value="group">집단면접</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>면접 시간(분)</label>
+              <input type="number" id="interview_duration" class="input-field" placeholder="예: 15" min="0">
+            </div>
+            <div class="form-group">
+              <label>난이도/심층도</label>
+              <select id="interview_difficultyDepth" class="input-field">
+                <option value="intermediate">중</option>
+                <option value="killer">킬러</option>
+                <option value="high">상</option>
+                <option value="low">하</option>
+                <option value="concept">개념</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>평가 역량</label>
+              <div class="checkbox-group-inline">
+                <label><input type="checkbox" name="interview_competencies" value="mathematical_thinking"> 수리적 사고</label>
+                <label><input type="checkbox" name="interview_competencies" value="logical_reasoning"> 논리적 추론</label>
+                <label><input type="checkbox" name="interview_competencies" value="problem_solving"> 문제 해결</label>
+                <label><input type="checkbox" name="interview_competencies" value="expression"> 표현력</label>
+                <label><input type="checkbox" name="interview_competencies" value="attitude"> 태도</label>
+                <label><input type="checkbox" name="interview_competencies" value="major_fit"> 전공 적합성</label>
+              </div>
+            </div>
+            <div class="form-group full-width">
+              <label>질문 원문 *</label>
+              <textarea id="interview_originalQuestion" class="input-field" rows="3" placeholder="면접 질문을 입력하세요" required></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>꼬리 질문 (각 줄에 하나씩)</label>
+              <textarea id="interview_followUpSequence" class="input-field" rows="3" placeholder="꼬리질문 1&#10;꼬리질문 2&#10;꼬리질문 3"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>질문 의도</label>
+              <textarea id="interview_questionIntent" class="input-field" rows="2" placeholder="출제 의도를 입력하세요"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>모범 답변 요약</label>
+              <textarea id="interview_modelAnswer" class="input-field" rows="2" placeholder="모범 답변 요약"></textarea>
+            </div>
+            <div class="form-group full-width">
+              <label>평가 포인트 (쉼표로 구분)</label>
+              <input type="text" id="interview_evaluationPoints" class="input-field" placeholder="예: 논리적 일관성, 용어 정확성">
+            </div>
+            <div class="form-group full-width">
+              <label>감점 요소 (쉼표로 구분)</label>
+              <input type="text" id="interview_deductionFactors" class="input-field" placeholder="예: 제시문 왜곡, 논리적 비약">
+            </div>
+          </div>
+        </div>
+
+        <!-- 기타 문서 메타데이터 폼 -->
+        <div id="metadataForm_other" class="metadata-form" style="display: none;">
+          <h4>📄 기타 문서 정보</h4>
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>카테고리</label>
+              <input type="text" id="other_category" class="input-field" placeholder="예: 참고자료">
+            </div>
+            <div class="form-group full-width">
+              <label>태그 (쉼표로 구분)</label>
+              <input type="text" id="other_tags" class="input-field" placeholder="예: 수학, 공식집, 참고">
+            </div>
+            <div class="form-group full-width">
+              <label>설명</label>
+              <textarea id="other_description" class="input-field" rows="2" placeholder="문서 설명"></textarea>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -388,6 +1016,58 @@
       </div>
 
       <!-- 메타데이터 설정 (Files API Import만) -->
+
+      <!-- 표 처리 방식 설정 -->
+      <div class="collapsible">
+        <button onclick="toggleSection('tableProcessingSection')" class="collapsible-btn">
+          📊 표 처리 방식 (선택사항)
+        </button>
+        <div id="tableProcessingSection" class="collapsible-content">
+          <div class="form-group">
+            <label>표 렌더링 방식:</label>
+            <div class="radio-group-vertical">
+              <label class="radio-option">
+                <input type="radio" name="tableMode" value="html" checked>
+                <span class="radio-label">🌐 HTML 테이블</span>
+                <small>웹 표준 HTML로 렌더링 (편집 가능, 검색 가능)</small>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="tableMode" value="markdown">
+                <span class="radio-label">📝 마크다운 테이블</span>
+                <small>마크다운 문법으로 변환 (복사/붙여넣기 용이)</small>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="tableMode" value="image">
+                <span class="radio-label">🖼️ 이미지 테이블</span>
+                <small>표를 이미지로 캡처 (레이아웃 정확도 높음)</small>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="tableMode" value="latex">
+                <span class="radio-label">📐 LaTeX 테이블</span>
+                <small>수학 문서용 LaTeX 형식 (수식 호환)</small>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>표 스타일 옵션:</label>
+            <div class="checkbox-group">
+              <label><input type="checkbox" id="tableStriped" checked> 줄무늬 배경</label>
+              <label><input type="checkbox" id="tableBordered" checked> 테두리 표시</label>
+              <label><input type="checkbox" id="tableResponsive" checked> 반응형</label>
+              <label><input type="checkbox" id="tableHeaderSticky"> 헤더 고정</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="tableMaxWidth">최대 너비:</label>
+            <select id="tableMaxWidth" class="input-field">
+              <option value="100%">전체 너비 (100%)</option>
+              <option value="800px">800px</option>
+              <option value="600px">600px</option>
+              <option value="auto">자동 (내용에 맞춤)</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div id="metadataSection" class="collapsible" style="display: none;">
         <button onclick="toggleSection('metadataContent')" class="collapsible-btn">
           🏷️ 커스텀 메타데이터 (선택사항)
@@ -488,7 +1168,9 @@
             <span class="model-group-label">🟢 OpenAI</span>
             <select id="openaiModelSelect" class="model-select">
               <option value="">사용 안함</option>
-              <option value="gpt-4.1">GPT-4.1 (Preview)</option>
+              <option value="gpt-5.1">GPT-5.1 ✨</option>
+              <option value="gpt-5.1-mini">GPT-5.1 Mini</option>
+              <option value="gpt-4.1">GPT-4.1</option>
               <option value="gpt-4o">GPT-4o</option>
               <option value="gpt-4o-mini">GPT-4o Mini</option>
               <option value="o3">o3 (Reasoning)</option>
@@ -1299,10 +1981,10 @@
           <!-- Phase 4: 완전 처리 버튼 -->
           <div class="complete-processing-group">
             <button onclick="processVariationComplete(false)" class="btn btn-warning" title="라벨링 → 저장 → 검토 대기">
-              💾 완전 저장
+              💾 승인 대기 저장
             </button>
             <button onclick="processVariationComplete(true)" class="btn btn-success" id="approveBtn" title="라벨링 → 저장 → 자동 승인 → RAG">
-              ✅ 완전 승인
+              ✅ 완료 및 저장
             </button>
           </div>
 
@@ -1652,18 +2334,121 @@
           </div>
         </div>
 
-        <!-- RAG 문서 필터 -->
+        <!-- RAG 문서 필터 - 기본 필터 -->
         <div class="rag-filter">
           <input type="text" id="ragSearchInput" class="input-field" placeholder="문서 검색..." onkeyup="filterRAGDocuments()">
           <select id="ragTypeFilter" class="input-field" onchange="filterRAGDocuments()">
-            <option value="all">전체 유형</option>
-            <option value="variation">변형 문제</option>
-            <option value="asset">자료</option>
-            <option value="document">일반 문서</option>
+            <option value="all">📂 전체 유형</option>
+            <option value="textbook">📚 교과서</option>
+            <option value="supplementary">📖 부교재</option>
+            <option value="csat_past">📝 수능 기출</option>
+            <option value="csat_mock">📋 모의고사</option>
+            <option value="school_exam">🏫 내신 기출</option>
+            <option value="university_essay">✍️ 수리논술</option>
+            <option value="university_interview">🎤 심층면접</option>
+            <option value="other">📄 기타</option>
           </select>
+          <button onclick="toggleAdvancedSearch()" class="btn btn-outline" id="advancedSearchToggle" title="고급 검색 옵션">
+            🔎 고급 검색
+          </button>
           <button onclick="openChunkViewer()" class="btn btn-info" title="RAG 청크 상세 확인">
             🔍 청크 확인
           </button>
+          <button onclick="openEmbeddingVisualization()" class="btn btn-secondary" title="Embedding 벡터 시각화">
+            📊 벡터 시각화
+          </button>
+          <button onclick="openRechunkModal()" class="btn btn-secondary" title="청크 재생성">
+            🔄 청크 재생성
+          </button>
+        </div>
+
+        <!-- 고급 검색 패널 -->
+        <div id="advancedSearchPanel" class="advanced-search-panel" style="display: none;">
+          <div class="advanced-search-header">
+            <h4>🔎 메타데이터 기반 고급 검색</h4>
+            <button onclick="clearAdvancedSearch()" class="btn btn-small btn-outline">초기화</button>
+          </div>
+          <div class="advanced-search-grid">
+            <!-- 공통 필터 -->
+            <div class="filter-group">
+              <label>영역</label>
+              <select id="adv_domain" class="input-field" onchange="applyAdvancedSearch()">
+                <option value="">전체</option>
+                <option value="수학">수학</option>
+                <option value="국어">국어</option>
+                <option value="영어">영어</option>
+                <option value="과학">과학</option>
+                <option value="사회">사회</option>
+                <option value="과학탐구">과학탐구</option>
+                <option value="사회탐구">사회탐구</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>과목</label>
+              <input type="text" id="adv_subject" class="input-field" placeholder="예: 미적분" onchange="applyAdvancedSearch()">
+            </div>
+            <div class="filter-group">
+              <label>교육과정</label>
+              <select id="adv_curriculum" class="input-field" onchange="applyAdvancedSearch()">
+                <option value="">전체</option>
+                <option value="2022">2022 개정</option>
+                <option value="2015">2015 개정</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>연도</label>
+              <input type="number" id="adv_year" class="input-field" placeholder="예: 2024" onchange="applyAdvancedSearch()">
+            </div>
+            <!-- 난이도 필터 -->
+            <div class="filter-group">
+              <label>난이도</label>
+              <select id="adv_difficulty" class="input-field" onchange="applyAdvancedSearch()">
+                <option value="">전체</option>
+                <option value="killer">🔥 킬러</option>
+                <option value="high">⬆️ 상</option>
+                <option value="medium">➡️ 중</option>
+                <option value="low">⬇️ 하</option>
+                <option value="concept">📖 개념</option>
+              </select>
+            </div>
+            <!-- 지식 유형 필터 -->
+            <div class="filter-group">
+              <label>지식 유형</label>
+              <select id="adv_knowledgeType" class="input-field" onchange="applyAdvancedSearch()">
+                <option value="">전체</option>
+                <option value="concept">개념</option>
+                <option value="calculation">계산</option>
+                <option value="reasoning">추론</option>
+                <option value="data_interpretation">자료해석</option>
+                <option value="integration">통합</option>
+              </select>
+            </div>
+            <!-- 단원 필터 -->
+            <div class="filter-group">
+              <label>대단원</label>
+              <input type="text" id="adv_majorUnit" class="input-field" placeholder="예: 미분법" onchange="applyAdvancedSearch()">
+            </div>
+            <!-- 대학명 필터 (논술/면접용) -->
+            <div class="filter-group">
+              <label>대학명</label>
+              <input type="text" id="adv_universityName" class="input-field" placeholder="예: 서울대" onchange="applyAdvancedSearch()">
+            </div>
+          </div>
+          <!-- 특수 필터 (함정 요소, 출제 의도 등) -->
+          <div class="advanced-search-special">
+            <div class="filter-group wide">
+              <label>출제 의도 / 질문 의도 검색</label>
+              <input type="text" id="adv_intent" class="input-field" placeholder="출제 의도 키워드 입력..." onchange="applyAdvancedSearch()">
+            </div>
+            <div class="filter-group wide">
+              <label>함정 요소 검색</label>
+              <input type="text" id="adv_trapElements" class="input-field" placeholder="예: 이중부정, 조건 누락" onchange="applyAdvancedSearch()">
+            </div>
+          </div>
+          <div class="advanced-search-actions">
+            <button onclick="applyAdvancedSearch()" class="btn btn-primary">🔍 검색 적용</button>
+            <span id="advancedSearchResultCount" class="search-result-count"></span>
+          </div>
         </div>
 
         <!-- RAG 문서 목록 -->
@@ -1766,6 +2551,8 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="approval_dashboard.js"></script>
+  <script src="table_processor.js"></script>
 <!-- ==================== 문제 영역 선택 모달 ==================== -->
 <div id="regionSelectModal" class="modal" style="display: none;">
   <div class="modal-content modal-large">
@@ -2203,6 +2990,176 @@
     </div>
   </div>
 </div>
+
+
+<!-- 청크 편집 모달 -->
+<div id="chunkEditModal" class="modal" style="display: none;">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h3>✏️ 청크 편집</h3>
+      <button class="modal-close" onclick="closeChunkEditModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editChunkId">
+      <input type="hidden" id="editChunkSource">
+      <div class="form-group">
+        <label>📄 문서명:</label>
+        <input type="text" id="editChunkDocName" class="input-field" readonly>
+      </div>
+      <div class="form-group">
+        <label>📝 청크 내용:</label>
+        <textarea id="editChunkContent" class="input-field" rows="15" placeholder="청크 내용을 편집하세요..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>🏷️ 메타데이터 (JSON):</label>
+        <textarea id="editChunkMetadata" class="input-field" rows="3" placeholder='{"category": "...", "tags": [...]}'></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="deleteCurrentChunk()">🗑️ 삭제</button>
+      <button class="btn btn-secondary" onclick="closeChunkEditModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveEditedChunk()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Embedding 벡터 시각화 모달 -->
+<div id="embeddingVisualizationModal" class="modal" style="display: none;">
+  <div class="modal-content modal-xlarge">
+    <div class="modal-header">
+      <h3>📊 Embedding 벡터 시각화 (PCA 2D)</h3>
+      <button class="modal-close" onclick="closeEmbeddingVisualization()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="viz-controls">
+        <div class="form-group-inline">
+          <label>문서 필터:</label>
+          <select id="vizDocumentFilter" onchange="loadEmbeddingVisualization()">
+            <option value="">전체 문서</option>
+          </select>
+        </div>
+        <button class="btn btn-info" onclick="loadEmbeddingVisualization()">🔄 새로고침</button>
+      </div>
+      <div class="viz-stats" id="vizStats"></div>
+      <div class="viz-container">
+        <canvas id="embeddingCanvas" width="600" height="400"></canvas>
+        <div id="vizTooltip" class="viz-tooltip" style="display: none;"></div>
+      </div>
+      <div class="viz-legend" id="vizLegend"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 청크 재생성 모달 -->
+<div id="rechunkModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>🔄 청크 재생성</h3>
+      <button class="modal-close" onclick="closeRechunkModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>📄 문서 선택:</label>
+        <select id="rechunkDocumentSelect" class="input-field">
+          <option value="">문서를 선택하세요</option>
+        </select>
+      </div>
+      <div class="rechunk-info" id="rechunkInfo" style="display: none;">
+        <p>📦 현재 청크 수: <strong id="currentChunkCount">0</strong>개</p>
+      </div>
+      <div class="form-group">
+        <label>⚙️ 새 청킹 설정:</label>
+        <div class="chunking-config-grid">
+          <div>
+            <label>청크당 최대 토큰:</label>
+            <input type="number" id="rechunkMaxTokens" value="800" min="100" max="4000" class="input-field">
+          </div>
+          <div>
+            <label>오버랩 토큰:</label>
+            <input type="number" id="rechunkOverlap" value="100" min="0" max="500" class="input-field">
+          </div>
+        </div>
+      </div>
+      <div class="warning-box">
+        ⚠️ 주의: 기존 청크가 삭제되고 새로 생성됩니다. 임베딩도 다시 해야 할 수 있습니다.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRechunkModal()">취소</button>
+      <button class="btn btn-primary" onclick="executeRechunk()">🔄 재생성 실행</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* 통합 문서 관리 탭 스타일 */
+  .doc-management-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid #e0e0e0; padding-bottom: 0; }
+  .doc-tab { padding: 10px 20px; border: none; background: #f5f5f5; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; transition: all 0.2s; }
+  .doc-tab:hover { background: #e8e8e8; color: #333; }
+  .doc-tab.active { background: #3498db; color: white; }
+  .doc-tab-content { display: none; padding: 16px 0; }
+  .doc-tab-content.active { display: block; }
+  .chunk-management-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .chunk-search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+  .chunk-search-box input { flex: 1; }
+
+  .chunk-edit-btn { background: #3498db; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .chunk-edit-btn:hover { background: #2980b9; }
+  .chunk-delete-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .chunk-delete-btn:hover { background: #c0392b; }
+  .chunk-save-btn { background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .chunk-save-btn:hover { background: #219a52; }
+  .chunk-preview-item.editable { border: 2px dashed #3498db; position: relative; }
+  .chunk-preview-item .chunk-edit-overlay { position: absolute; top: 4px; right: 4px; display: flex; gap: 4px; }
+  .chunk-content-editable { background: #fff; border: 1px solid #ddd; padding: 8px; border-radius: 4px; min-height: 60px; white-space: pre-wrap; font-family: monospace; }
+  .chunk-content-editable:focus { outline: 2px solid #3498db; border-color: #3498db; }
+  .chunk-viewer-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .chunk-viewer-tab { padding: 8px 16px; border: none; background: #f0f0f0; border-radius: 4px 4px 0 0; cursor: pointer; }
+  .chunk-viewer-tab.active { background: #3498db; color: white; }
+
+  /* Embedding 시각화 스타일 */
+  .modal-xlarge { max-width: 900px; width: 95%; }
+  .viz-controls { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .form-group-inline { display: flex; align-items: center; gap: 8px; }
+  .form-group-inline label { margin: 0; white-space: nowrap; }
+  .form-group-inline select { min-width: 200px; }
+  .viz-stats { background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 16px; display: flex; gap: 24px; flex-wrap: wrap; }
+  .viz-stats .stat { display: flex; align-items: center; gap: 6px; }
+  .viz-stats .stat-value { font-weight: bold; color: #3498db; }
+  .viz-container { position: relative; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+  #embeddingCanvas { display: block; margin: 0 auto; background: linear-gradient(135deg, #667eea11 0%, #764ba211 100%); border-radius: 4px; }
+  .viz-tooltip { position: absolute; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; max-width: 300px; pointer-events: none; z-index: 1000; }
+  .viz-legend { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .viz-legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .viz-legend-color { width: 12px; height: 12px; border-radius: 50%; }
+
+  /* 청크 재생성 스타일 */
+  .chunking-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chunking-config-grid input { width: 100%; }
+  .rechunk-info { background: #e8f4fd; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+  .warning-box { background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 8px; color: #856404; margin-top: 16px; }
+
+  /* 검수/승인 대시보드 확장 스타일 */
+  .approval-stats-dashboard .stat-card .stat-icon { font-size: 24px; margin-bottom: 4px; }
+  .approval-stats-dashboard .stat-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+  .approval-filter-section { background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+  .approval-filter-section .filter-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .approval-filter-section .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+  .approval-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .approval-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+  .approval-history-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; }
+  .btn-info { background: #17a2b8; color: white; border: none; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+  /* 표 처리 방식 스타일 */
+  .radio-group-vertical { display: flex; flex-direction: column; gap: 12px; }
+  .radio-option { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+  .radio-option:hover { border-color: #3498db; background: #f8fbff; }
+  .radio-option input[type="radio"]:checked + .radio-label { color: #3498db; font-weight: 600; }
+  .radio-option small { color: #888; font-size: 12px; margin-left: 24px; }
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; }
+  .checkbox-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+</style>
 
 </body>
 </html>
