@@ -216,9 +216,9 @@
 
     /* Panel 3: LLM Chat */
     #chatPanel {
-      width: 350px;
-      min-width: 280px;
-      flex: 1;
+      width: 420px;
+      min-width: 350px;
+      flex: 1.2;
     }
 
     .chat-messages {
@@ -1689,45 +1689,177 @@
     }
 
     // ==================== Engine Tree ====================
+    // 엔진 폴더 구조: core + plugin 기반
+    // 교과/단원/개념은 레지스트리 태그로 관리
     const engineData = {
-      '수학': {
-        '다항식': ['인수분해.js', '항등식.js', '나머지정리.js'],
-        '방정식': ['이차방정식.js', '고차방정식.js', '연립방정식.js'],
-        '함수': ['이차함수.js', '유리함수.js', '무리함수.js']
+      'core': {
+        '핵심 엔진': [
+          'math_problem.md',
+          'graph_reasoning.md',
+          'proof_logic.md',
+          'table_analysis.md',
+          'science_experiment.md'
+        ]
       },
-      '물리': {
-        '역학': ['운동법칙.js', '에너지보존.js', '운동량.js'],
-        '전자기': ['전기장.js', '자기장.js', '전자기유도.js']
-      },
-      '화학': {
-        '화학결합': ['이온결합.js', '공유결합.js'],
-        '반응속도': ['반응차수.js', '활성화에너지.js']
+      'plugin': {
+        'no_asset': [],           // 에셋 없는 텍스트 전용
+        'diagram_2d': [           // 2D 다이어그램
+          'g2_c1u03j02_j77_seating_plugin_v1_0.py',
+          'g2_c1u03j02_j41_j42_booth_plugin_v1_0.py'
+        ],
+        'geometry_2d': [          // 2D 기하학
+          'g2_c1u03j06_regions_plugin_v1_0.py',
+          'g2_c1u03j02_j39_doors_plugin_v1_0.py'
+        ],
+        'graph_2d': [],           // 2D 그래프
+        'numberline_1d': [],      // 1D 수직선
+        'table': [],              // 표, 행렬
+        'chart_stat': [],         // 차트, 통계
+        'tree_graph': [           // 트리, 그래프
+          'g3_c1u03j07_treepaths_plugin_v1_0.py'
+        ],
+        'network_flow': [],       // 네트워크 흐름
+        'solid_3d': [],           // 3D 입체도형
+        'net_unfold': [],         // 전개도
+        'coordinate_3d': [],      // 3D 좌표
+        'mixed': []               // 복합/혼합
       }
+    };
+
+    // 플러그인 카테고리 설명
+    const pluginDescriptions = {
+      'no_asset': '에셋 없는 텍스트 전용',
+      'diagram_2d': '2D 다이어그램 (좌석, 부스 배치)',
+      'geometry_2d': '2D 기하학 (영역, 도형)',
+      'graph_2d': '2D 그래프 (함수, 좌표평면)',
+      'numberline_1d': '1D 수직선',
+      'table': '표, 행렬',
+      'chart_stat': '차트, 통계',
+      'tree_graph': '트리, 그래프',
+      'network_flow': '네트워크 흐름',
+      'solid_3d': '3D 입체도형',
+      'net_unfold': '전개도',
+      'coordinate_3d': '3D 좌표',
+      'mixed': '복합/혼합'
     };
 
     function renderEngineTree() {
       const container = document.getElementById('engineTree');
       let html = '';
 
-      for (const subject in engineData) {
-        html += `<div class="tree-item folder" onclick="toggleFolder(this)">📁 ${subject}</div>`;
+      // Core 엔진
+      if (engineData.core) {
+        html += `<div class="tree-item folder" onclick="toggleFolder(this)">🔧 core</div>`;
         html += '<div class="tree-children">';
-
-        for (const category in engineData[subject]) {
-          html += `<div class="tree-item folder" onclick="toggleFolder(this)">📂 ${category}</div>`;
-          html += '<div class="tree-children">';
-
-          for (const file of engineData[subject][category]) {
-            html += `<div class="tree-item" onclick="selectEngineFile('${subject}', '${category}', '${file}')"">📄 ${file}</div>`;
+        for (const category in engineData.core) {
+          const files = engineData.core[category];
+          if (files.length > 0) {
+            html += `<div class="tree-item folder" onclick="toggleFolder(this)">📂 ${category}</div>`;
+            html += '<div class="tree-children">';
+            for (const file of files) {
+              html += `<div class="tree-item" onclick="selectEngineFile('core', '${category}', '${file}')">📄 ${file}</div>`;
+            }
+            html += '</div>';
           }
+        }
+        html += '</div>';
+      }
 
+      // Plugin 엔진
+      if (engineData.plugin) {
+        html += `<div class="tree-item folder" onclick="toggleFolder(this)">🔌 plugin</div>`;
+        html += '<div class="tree-children">';
+        for (const pluginType in engineData.plugin) {
+          const files = engineData.plugin[pluginType];
+          const desc = pluginDescriptions[pluginType] || pluginType;
+          const icon = files.length > 0 ? '📂' : '📁';
+          html += `<div class="tree-item folder" onclick="toggleFolder(this)" title="${desc}">${icon} ${pluginType}</div>`;
+          html += '<div class="tree-children">';
+          if (files.length > 0) {
+            for (const file of files) {
+              html += `<div class="tree-item" onclick="selectEngineFile('plugin', '${pluginType}', '${file}')">📄 ${file}</div>`;
+            }
+          } else {
+            html += `<div class="tree-item" style="color: #666; font-style: italic;">  (비어있음)</div>`;
+          }
           html += '</div>';
         }
-
         html += '</div>';
       }
 
       container.innerHTML = html;
+    }
+
+    // Populate engine dropdown with all engines from engineData
+    function populateEngineDropdown() {
+      const select = document.getElementById('engineSelect');
+      if (!select) return;
+
+      // Clear existing options except "자동 선택"
+      select.innerHTML = '<option value="auto">🤖 자동 선택</option>';
+
+      // Core 엔진 그룹
+      if (engineData.core) {
+        const coreGroup = document.createElement('optgroup');
+        coreGroup.label = '🔧 core';
+
+        for (const category in engineData.core) {
+          const files = engineData.core[category];
+          if (files.length > 0) {
+            for (const file of files) {
+              const option = document.createElement('option');
+              option.value = JSON.stringify({ subject: 'core', category, file });
+              option.textContent = `  📄 ${file}`;
+              coreGroup.appendChild(option);
+            }
+          }
+        }
+
+        if (coreGroup.children.length > 0) {
+          select.appendChild(coreGroup);
+        }
+      }
+
+      // Plugin 엔진 그룹
+      if (engineData.plugin) {
+        const pluginGroup = document.createElement('optgroup');
+        pluginGroup.label = '🔌 plugin';
+
+        for (const pluginType in engineData.plugin) {
+          const files = engineData.plugin[pluginType];
+          if (files.length > 0) {
+            // 플러그인 카테고리 헤더
+            const header = document.createElement('option');
+            header.disabled = true;
+            header.textContent = `  📂 ${pluginType}`;
+            header.style.fontWeight = 'bold';
+            header.style.color = '#888';
+            pluginGroup.appendChild(header);
+
+            // 플러그인 파일들
+            for (const file of files) {
+              const option = document.createElement('option');
+              option.value = JSON.stringify({ subject: 'plugin', category: pluginType, file });
+              option.textContent = `    📄 ${file}`;
+              pluginGroup.appendChild(option);
+            }
+          }
+        }
+
+        if (pluginGroup.children.length > 0) {
+          select.appendChild(pluginGroup);
+        }
+      }
+
+      // If an engine was previously selected, restore selection
+      if (studioState.selectedEngine && !studioState.autoEngineMode) {
+        const value = JSON.stringify({
+          subject: studioState.selectedEngine.subject,
+          category: studioState.selectedEngine.category,
+          file: studioState.selectedEngine.file
+        });
+        select.value = value;
+      }
     }
 
     function toggleFolder(element) {
@@ -1847,34 +1979,35 @@ module.exports = engine;`;
       try {
         const engines = await StudioAPI.fetchEngines();
         if (engines && engines.length > 0) {
-          // Group by subject and category
-          const grouped = {};
+          // DB에서 가져온 엔진을 core/plugin 구조에 맞게 분류
           engines.forEach(engine => {
-            const subject = engine.subject || '기타';
-            const category = engine.category || '일반';
-            if (!grouped[subject]) grouped[subject] = {};
-            if (!grouped[subject][category]) grouped[subject][category] = [];
-            grouped[subject][category].push({
-              ...engine,
-              file: engine.name + '.js'
-            });
+            const engineType = engine.engineType || 'plugin'; // 'core' 또는 'plugin'
+            const category = engine.category || 'mixed';
+            const fileName = engine.name + (engine.name.endsWith('.py') ? '' : '.py');
+
+            if (engineType === 'core') {
+              // Core 엔진
+              if (!engineData.core['핵심 엔진'].includes(fileName)) {
+                engineData.core['핵심 엔진'].push(fileName);
+              }
+            } else {
+              // Plugin 엔진 - 해당 카테고리에 추가
+              if (engineData.plugin[category]) {
+                if (!engineData.plugin[category].includes(fileName)) {
+                  engineData.plugin[category].push(fileName);
+                }
+              } else {
+                // 알 수 없는 카테고리는 mixed에 추가
+                if (!engineData.plugin['mixed'].includes(fileName)) {
+                  engineData.plugin['mixed'].push(fileName);
+                }
+              }
+            }
           });
 
-          // Merge with default engine data
-          for (const subject in grouped) {
-            if (!engineData[subject]) engineData[subject] = {};
-            for (const category in grouped[subject]) {
-              if (!engineData[subject][category]) engineData[subject][category] = [];
-              grouped[subject][category].forEach(eng => {
-                if (!engineData[subject][category].includes(eng.file)) {
-                  engineData[subject][category].push(eng.file);
-                }
-              });
-            }
-          }
-
-          // Re-render tree
+          // Re-render tree and dropdown
           renderEngineTree();
+          populateEngineDropdown();
         }
       } catch (error) {
         console.error('DB 엔진 로드 오류:', error);
@@ -2135,20 +2268,58 @@ module.exports = engine;`;
       reader.readAsDataURL(file);
     }
 
+    // 마지막으로 포커스된 텍스트 영역 추적
+    let lastFocusedTextarea = null;
+
+    // 모든 문제 편집 텍스트 영역에 포커스 이벤트 리스너 추가
+    function initFormulaInsertListeners() {
+      const textareas = document.querySelectorAll('#problemPanel textarea');
+      textareas.forEach(textarea => {
+        textarea.addEventListener('focus', function() {
+          lastFocusedTextarea = this;
+        });
+      });
+    }
+
     function insertFormula() {
       const formula = document.getElementById('formulaInput').value;
-      if (!formula) return;
+      if (!formula) {
+        alert('삽입할 수식을 입력해주세요.');
+        return;
+      }
 
-      const editor = document.getElementById('problemTextEditor');
-      const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      const text = editor.value;
+      // 마지막으로 포커스된 텍스트 영역 또는 제시문 영역에 삽입
+      let editor = lastFocusedTextarea;
+      if (!editor) {
+        // 기본값: 제시문 영역
+        editor = document.querySelector('#problemPanel textarea');
+      }
 
-      editor.value = text.substring(0, start) + '$' + formula + '$' + text.substring(end);
+      if (!editor) {
+        alert('수식을 삽입할 텍스트 영역을 먼저 클릭해주세요.');
+        return;
+      }
+
+      const start = editor.selectionStart || 0;
+      const end = editor.selectionEnd || 0;
+      const text = editor.value || '';
+
+      // LaTeX 인라인 수식 형태로 삽입: $수식$
+      const formulaText = '$' + formula + '$';
+      editor.value = text.substring(0, start) + formulaText + text.substring(end);
+
+      // 커서 위치 조정
+      editor.selectionStart = editor.selectionEnd = start + formulaText.length;
+      editor.focus();
+
+      // 입력 필드 초기화
       document.getElementById('formulaInput').value = '';
 
-      // Update current problem
-      studioState.problems[studioState.currentProblemIndex].content = editor.value;
+      // 내용 동기화
+      syncProblemContent();
+
+      // 사용자에게 피드백
+      addChatMessage(`✅ 수식 삽입: ${formulaText}`, 'assistant');
     }
 
     // ==================== Problem Navigation ====================
@@ -2547,12 +2718,35 @@ module.exports = engine;`;
       const badge = document.getElementById('autoEngineBadge');
       if (this.value === 'auto') {
         studioState.autoEngineMode = true;
+        studioState.selectedEngine = null;
         badge.textContent = '자동';
         badge.style.background = 'var(--accent-green)';
+        addChatMessage('🤖 엔진이 자동 선택 모드로 변경되었습니다.', 'assistant');
       } else {
         studioState.autoEngineMode = false;
         badge.textContent = '수동';
         badge.style.background = 'var(--accent-orange)';
+
+        // Parse the selected engine value
+        try {
+          const engineInfo = JSON.parse(this.value);
+          studioState.selectedEngine = engineInfo;
+
+          // Also highlight in the engine tree
+          document.querySelectorAll('#engineTree .tree-item').forEach(item => {
+            item.classList.remove('selected');
+            if (item.textContent.includes(engineInfo.file)) {
+              item.classList.add('selected');
+            }
+          });
+
+          // Load the engine code in the code editor
+          selectEngineFile(engineInfo.subject, engineInfo.category, engineInfo.file);
+
+          addChatMessage(`✅ 엔진 선택: ${engineInfo.subject} > ${engineInfo.category} > ${engineInfo.file}`, 'assistant');
+        } catch (e) {
+          console.error('엔진 파싱 오류:', e);
+        }
       }
     });
 
@@ -2847,6 +3041,7 @@ module.exports = engine;`;
     document.addEventListener('DOMContentLoaded', async function() {
       // Initial render with default data
       renderEngineTree();
+      populateEngineDropdown();
       updateProblemNav();
 
       // Load engines from DB and merge with defaults
@@ -2856,6 +3051,8 @@ module.exports = engine;`;
       } catch (error) {
         console.error('초기 엔진 로드 실패:', error);
         addChatMessage('⚠️ DB 엔진 로드 실패. 기본 엔진을 사용합니다.', 'assistant');
+        // DB 로드 실패해도 기본 엔진 드롭다운은 유지
+        populateEngineDropdown();
       }
 
       // Auto-render math on text change
@@ -2874,6 +3071,9 @@ module.exports = engine;`;
 
       // Initialize sub-panel listeners
       initSubPanelListeners();
+
+      // Initialize formula insert listeners
+      initFormulaInsertListeners();
 
       // Initialize new integrated modules
       initIntegratedModules();
@@ -3237,7 +3437,7 @@ module.exports = engine;`;
         const defaults = {
           enginePanel: { width: '220px', minWidth: '180px', flex: '' },
           codePanel: { width: '300px', minWidth: '200px', flex: '' },
-          chatPanel: { width: '350px', minWidth: '280px', flex: '1' },
+          chatPanel: { width: '420px', minWidth: '350px', flex: '1.2' },
           problemPanel: { width: '450px', minWidth: '350px', flex: '1.5' }
         };
 
