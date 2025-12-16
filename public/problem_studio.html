@@ -10,9 +10,28 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
+
+  <!-- Gridstack.js for draggable/resizable panels -->
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@10.0.0/dist/gridstack.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@10.0.0/dist/gridstack-extra.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10.0.0/dist/gridstack-all.js"></script>
 
   <!-- API Integration -->
   <script src="problem_studio_api.js"></script>
+  <script src="science_table_generator.js"></script>
+
+  <!-- Core Modules -->
+  <script src="engines/js/core/store-manager.js"></script>
+  <script src="engines/js/core/document-manager.js"></script>
+  <script src="engines/js/core/rag-manager.js"></script>
+  <script src="engines/js/core/label-manager.js"></script>
+  <script src="engines/js/core/panel-controller.js"></script>
+
+  <!-- Plugins -->
+  <script src="engines/js/plugins/llm-chat-plugin.js"></script>
+  <script src="engines/js/plugins/imagen-plugin.js"></script>
+  <script src="engines/js/plugins/table-generator.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -345,6 +364,275 @@
       background: var(--bg-input);
       color: var(--text-primary);
       font-family: monospace;
+    }
+
+    /* ==================== Gridstack Editor Panels ==================== */
+    .grid-editor-container {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+      background: var(--bg-dark);
+    }
+
+    .grid-stack {
+      background: var(--bg-dark);
+    }
+
+    .grid-stack-item-content {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .grid-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border-color);
+      cursor: move;
+      user-select: none;
+      min-height: 32px;
+    }
+
+    .grid-panel-header h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+
+    .grid-panel-header .panel-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .grid-panel-header .panel-actions button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 11px;
+      border-radius: 3px;
+    }
+
+    .grid-panel-header .panel-actions button:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .grid-panel-body {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .grid-panel-body textarea {
+      flex: 1;
+      width: 100%;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: none;
+      font-family: inherit;
+    }
+
+    .grid-panel-body textarea:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    /* 자료 창 - 이미지/표 업로드 */
+    .media-upload-zone {
+      flex: 1;
+      border: 2px dashed var(--border-color);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 80px;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .media-upload-zone:hover {
+      border-color: var(--accent-blue);
+      background: rgba(74, 158, 255, 0.1);
+    }
+
+    .media-upload-zone.has-content {
+      border-style: solid;
+      border-color: var(--accent-green);
+    }
+
+    .media-upload-zone img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
+    .media-upload-zone .upload-placeholder {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .media-upload-zone .upload-placeholder span {
+      font-size: 24px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* 배점 입력 */
+    .score-input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .score-input-group label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .score-input-group input {
+      width: 60px;
+      padding: 6px 10px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .score-input-group input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .score-input-group span {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 선지 조건 박스 */
+    .choice-condition-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .choice-condition-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .choice-condition-item .choice-label {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-blue);
+      color: white;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .choice-condition-item input {
+      flex: 1;
+      padding: 6px 10px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .choice-condition-item input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .add-choice-btn {
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: var(--bg-input);
+      border: 1px dashed var(--border-color);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .add-choice-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    /* 레이아웃 컨트롤 */
+    .layout-controls {
+      display: flex;
+      gap: 4px;
+      padding: 6px 8px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .layout-controls button {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .layout-controls button:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .layout-controls button.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    /* Gridstack 드래그 핸들 스타일 */
+    .gs-item-dragging {
+      opacity: 0.8;
+    }
+
+    .grid-stack > .grid-stack-item > .grid-stack-item-content {
+      inset: 4px;
+    }
+
+    .grid-stack-placeholder > .placeholder-content {
+      background: var(--accent-blue) !important;
+      opacity: 0.2 !important;
+      border-radius: 6px;
     }
 
     /* Problem Navigation */
@@ -690,6 +978,248 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-secondary);
     }
+
+    /* ==================== Multi-Tab Chat Styles ==================== */
+    .chat-tabs-container {
+      display: flex;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+      min-height: 36px;
+    }
+
+    .chat-tab {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .chat-tab:hover {
+      background: var(--bg-panel);
+      color: var(--text-primary);
+    }
+
+    .chat-tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+      background: var(--bg-panel);
+    }
+
+    .chat-tab .tab-close {
+      font-size: 14px;
+      margin-left: 4px;
+      opacity: 0.5;
+    }
+
+    .chat-tab .tab-close:hover {
+      opacity: 1;
+      color: var(--accent-red);
+    }
+
+    .chat-tab.add-tab {
+      padding: 8px 12px;
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+
+    .chat-tab.add-tab:hover {
+      color: var(--accent-green);
+    }
+
+    /* ==================== Management Sidebar Styles ==================== */
+    .management-sidebar {
+      width: 100%;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      overflow-y: auto;
+      max-height: 200px;
+      display: none;
+    }
+
+    .management-sidebar.expanded {
+      display: block;
+    }
+
+    .mgmt-accordion {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .mgmt-accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+      background: var(--bg-input);
+      transition: background 0.2s;
+    }
+
+    .mgmt-accordion-header:hover {
+      background: var(--border-color);
+    }
+
+    .mgmt-accordion-header h5 {
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mgmt-accordion-header .toggle-icon {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .mgmt-accordion.open .toggle-icon {
+      transform: rotate(90deg);
+    }
+
+    .mgmt-accordion-content {
+      display: none;
+      padding: 8px;
+      background: var(--bg-dark);
+    }
+
+    .mgmt-accordion.open .mgmt-accordion-content {
+      display: block;
+    }
+
+    .mgmt-select {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .mgmt-btn {
+      padding: 4px 8px;
+      font-size: 10px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    .mgmt-btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .mgmt-btn-secondary {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .mgmt-list {
+      max-height: 100px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .mgmt-list-item {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: var(--bg-input);
+      border-radius: 3px;
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mgmt-list-item:hover {
+      background: var(--border-color);
+    }
+
+    .sidebar-toggle-btn {
+      width: 100%;
+      padding: 6px;
+      background: var(--bg-input);
+      border: none;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    /* ==================== Image Gallery Styles ==================== */
+    .image-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .image-item {
+      position: relative;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .image-item img {
+      width: 100%;
+      height: 60px;
+      object-fit: cover;
+    }
+
+    .image-item .image-actions {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      padding: 2px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .image-item:hover .image-actions {
+      opacity: 1;
+    }
+
+    .image-item .image-actions button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px;
+    }
+
+    .no-images, .no-messages {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 20px;
+    }
   </style>
 </head>
 <body>
@@ -745,13 +1275,101 @@
     <!-- Resizer 2 -->
     <div class="panel-resizer" data-resize="codePanel-chatPanel"></div>
 
-    <!-- Panel 3: LLM Chat -->
+    <!-- Panel 3: LLM Chat with Multi-Tab and Management -->
     <div id="chatPanel" class="panel resizable">
       <div class="panel-header">
         <h2>🤖 LLM 대화</h2>
         <button class="panel-toggle" onclick="togglePanel('chatPanel')">◀</button>
       </div>
       <div class="panel-content" style="padding: 0; display: flex; flex-direction: column;">
+        <!-- Management Sidebar Toggle -->
+        <button class="sidebar-toggle-btn" onclick="toggleManagementSidebar()">
+          <span id="sidebarToggleIcon">▼</span>
+          <span>관리 패널</span>
+        </button>
+
+        <!-- Management Sidebar (Accordion) -->
+        <div class="management-sidebar" id="managementSidebar">
+          <!-- Store Management -->
+          <div class="mgmt-accordion" id="storeAccordion">
+            <div class="mgmt-accordion-header" onclick="toggleMgmtAccordion('storeAccordion')">
+              <h5>📦 저장소 관리</h5>
+              <span class="toggle-icon">▶</span>
+            </div>
+            <div class="mgmt-accordion-content">
+              <select id="studioStoreSelect" class="mgmt-select" onchange="handleStudioStoreChange()">
+                <option value="">-- 저장소 선택 --</option>
+              </select>
+              <button class="mgmt-btn mgmt-btn-primary" onclick="loadStudioStores()">🔄 새로고침</button>
+              <button class="mgmt-btn mgmt-btn-secondary" onclick="openCreateStoreModal()">➕ 생성</button>
+            </div>
+          </div>
+
+          <!-- Document Management -->
+          <div class="mgmt-accordion" id="docAccordion">
+            <div class="mgmt-accordion-header" onclick="toggleMgmtAccordion('docAccordion')">
+              <h5>📄 문서 관리</h5>
+              <span class="toggle-icon">▶</span>
+            </div>
+            <div class="mgmt-accordion-content">
+              <div class="mgmt-list" id="studioDocList">
+                <div class="mgmt-list-item">문서 없음</div>
+              </div>
+              <button class="mgmt-btn mgmt-btn-primary" onclick="loadStudioDocuments()">🔄 새로고침</button>
+            </div>
+          </div>
+
+          <!-- RAG Management -->
+          <div class="mgmt-accordion" id="ragAccordion">
+            <div class="mgmt-accordion-header" onclick="toggleMgmtAccordion('ragAccordion')">
+              <h5>🔗 RAG 관리</h5>
+              <span class="toggle-icon">▶</span>
+            </div>
+            <div class="mgmt-accordion-content">
+              <input type="text" id="ragSearchInput" class="mgmt-select" placeholder="RAG 검색..." style="margin-bottom: 6px;">
+              <button class="mgmt-btn mgmt-btn-primary" onclick="searchRAGChunks()">🔍 검색</button>
+              <div class="mgmt-list" id="studioRAGList">
+                <div class="mgmt-list-item">검색 결과 없음</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Label Management -->
+          <div class="mgmt-accordion" id="labelAccordion">
+            <div class="mgmt-accordion-header" onclick="toggleMgmtAccordion('labelAccordion')">
+              <h5>🏷️ 라벨 관리</h5>
+              <span class="toggle-icon">▶</span>
+            </div>
+            <div class="mgmt-accordion-content">
+              <select id="studioLabelSelect" class="mgmt-select">
+                <option value="all">모든 라벨</option>
+              </select>
+              <div class="mgmt-list" id="studioLabelList">
+                <div class="mgmt-list-item">라벨 없음</div>
+              </div>
+              <button class="mgmt-btn mgmt-btn-primary" onclick="loadStudioLabels()">🔄 새로고침</button>
+            </div>
+          </div>
+
+          <!-- Image Generation -->
+          <div class="mgmt-accordion" id="imagenAccordion">
+            <div class="mgmt-accordion-header" onclick="toggleMgmtAccordion('imagenAccordion')">
+              <h5>🎨 이미지 생성</h5>
+              <span class="toggle-icon">▶</span>
+            </div>
+            <div class="mgmt-accordion-content">
+              <input type="text" id="imagenPrompt" class="mgmt-select" placeholder="이미지 프롬프트..." style="margin-bottom: 6px;">
+              <button class="mgmt-btn mgmt-btn-primary" onclick="generateStudioImage()">🖼️ 생성</button>
+              <div class="image-gallery" id="imagenGallery"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-Tab Chat Container -->
+        <div class="chat-tabs-container" id="chatTabsContainer">
+          <!-- Tabs will be rendered dynamically -->
+        </div>
+
         <!-- Engine Selector -->
         <div class="engine-selector">
           <span>엔진:</span>
@@ -767,11 +1385,13 @@
             안녕하세요! 문제 출제를 도와드리겠습니다.
             <br><br>
             📎 오른쪽 패널에서 문제를 입력하거나, "이 문제와 유사한 변형 문제 3개 만들어줘" 같은 요청을 해주세요.
+            <br><br>
+            💡 패널 제어: "자료 패널 크기 키워줘", "레이아웃 초기화" 등의 명령도 사용할 수 있습니다.
           </div>
         </div>
 
         <div class="chat-input-area">
-          <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력..." onkeypress="handleChatKeypress(event)">
+          <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력... (패널 제어 명령 가능)" onkeypress="handleChatKeypress(event)">
           <button class="btn btn-primary btn-icon" onclick="sendChatMessage()">➤</button>
         </div>
       </div>
@@ -812,18 +1432,156 @@
 
         <!-- Editor Content -->
         <div class="editor-content">
+          <!-- 편집 탭 - Gridstack 기반 서브창 -->
           <div id="editTab" class="tab-content" style="flex: 1; display: flex; flex-direction: column;">
-            <textarea id="problemTextEditor" class="problem-text-editor" placeholder="문제 내용을 입력하세요...
+            <!-- 레이아웃 컨트롤 -->
+            <div class="layout-controls">
+              <button onclick="resetGridLayout()" title="레이아웃 초기화">🔄 초기화</button>
+              <button onclick="saveGridLayout()" title="레이아웃 저장">💾 저장</button>
+              <button onclick="toggleGridLock()" id="gridLockBtn" title="편집 잠금">🔓 잠금해제</button>
+              <span style="margin-left: auto; font-size: 11px; color: var(--text-secondary);">💡 패널을 드래그하여 배치 변경</span>
+            </div>
 
-수식은 $x^2 + y^2 = r^2$ 형태로 입력합니다.
-블록 수식은 $$로 감싸세요:
-$$\int_0^1 x^2 dx = \frac{1}{3}$$"></textarea>
+            <!-- Gridstack 컨테이너 -->
+            <div class="grid-editor-container">
+              <div class="grid-stack" id="problemGridStack">
+                <!-- 1. 문제 제시문 창 -->
+                <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="3" gs-id="statement">
+                  <div class="grid-stack-item-content">
+                    <div class="grid-panel-header">
+                      <h4>📄 제시문</h4>
+                      <div class="panel-actions">
+                        <button onclick="expandPanel('statement')" title="확대">⤢</button>
+                      </div>
+                    </div>
+                    <div class="grid-panel-body">
+                      <textarea id="statementEditor" placeholder="문제의 제시문을 입력하세요...
+
+예: 다음은 이차함수 f(x)에 대한 설명이다."></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 2. 자료(그림/표) 창 -->
+                <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="3" gs-id="media">
+                  <div class="grid-stack-item-content">
+                    <div class="grid-panel-header">
+                      <h4>🖼️ 자료 (그림/표)</h4>
+                      <div class="panel-actions">
+                        <button onclick="clearMediaPanel()" title="지우기">🗑️</button>
+                        <button onclick="expandPanel('media')" title="확대">⤢</button>
+                      </div>
+                    </div>
+                    <div class="grid-panel-body">
+                      <div class="media-upload-zone" id="mediaUploadZone" onclick="triggerMediaUpload()">
+                        <div class="upload-placeholder">
+                          <span>📷</span>
+                          이미지/표를 드래그하거나 클릭
+                          <br><small>Ctrl+V 붙여넣기 가능</small>
+                        </div>
+                      </div>
+                      <input type="file" id="mediaFileInput" accept="image/*" style="display:none" onchange="handleMediaUpload(event)">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. 보기/조건 박스 -->
+                <div class="grid-stack-item" gs-x="0" gs-y="3" gs-w="6" gs-h="2" gs-id="condition">
+                  <div class="grid-stack-item-content">
+                    <div class="grid-panel-header">
+                      <h4>📋 보기/조건 박스</h4>
+                      <div class="panel-actions">
+                        <button onclick="expandPanel('condition')" title="확대">⤢</button>
+                      </div>
+                    </div>
+                    <div class="grid-panel-body">
+                      <textarea id="conditionEditor" placeholder="보기 또는 조건을 입력하세요...
+
+예:
+(가) f(1) = 3
+(나) f'(2) = 0
+(다) f(x)의 최고차항의 계수는 1이다."></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4. 배점 + 선지 조건 (작은 영역) -->
+                <div class="grid-stack-item" gs-x="6" gs-y="3" gs-w="6" gs-h="2" gs-id="score-choice">
+                  <div class="grid-stack-item-content">
+                    <div class="grid-panel-header">
+                      <h4>⭐ 배점 & 🔢 선지 조건</h4>
+                    </div>
+                    <div class="grid-panel-body" style="gap: 12px;">
+                      <!-- 배점 입력 -->
+                      <div class="score-input-group">
+                        <label>배점:</label>
+                        <input type="number" id="scoreInput" value="3" min="1" max="10">
+                        <span>점</span>
+                        <select id="difficultySelect" style="margin-left: 12px; padding: 4px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 12px;">
+                          <option value="하">난이도: 하</option>
+                          <option value="중" selected>난이도: 중</option>
+                          <option value="상">난이도: 상</option>
+                          <option value="킬러">난이도: 킬러</option>
+                        </select>
+                      </div>
+                      <!-- 선지 조건 -->
+                      <div class="choice-condition-list" id="choiceConditionList">
+                        <div class="choice-condition-item">
+                          <span class="choice-label">①</span>
+                          <input type="text" placeholder="선지 ① 조건" data-choice="1">
+                        </div>
+                        <div class="choice-condition-item">
+                          <span class="choice-label">②</span>
+                          <input type="text" placeholder="선지 ② 조건" data-choice="2">
+                        </div>
+                        <div class="choice-condition-item">
+                          <span class="choice-label">③</span>
+                          <input type="text" placeholder="선지 ③ 조건" data-choice="3">
+                        </div>
+                        <div class="choice-condition-item">
+                          <span class="choice-label">④</span>
+                          <input type="text" placeholder="선지 ④ 조건" data-choice="4">
+                        </div>
+                        <div class="choice-condition-item">
+                          <span class="choice-label">⑤</span>
+                          <input type="text" placeholder="선지 ⑤ 조건" data-choice="5">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 5. 문제 지문 박스 -->
+                <div class="grid-stack-item" gs-x="0" gs-y="5" gs-w="12" gs-h="2" gs-id="question">
+                  <div class="grid-stack-item-content">
+                    <div class="grid-panel-header">
+                      <h4>❓ 문제 지문</h4>
+                      <div class="panel-actions">
+                        <button onclick="expandPanel('question')" title="확대">⤢</button>
+                      </div>
+                    </div>
+                    <div class="grid-panel-body">
+                      <textarea id="questionEditor" placeholder="실제 물어보는 문제 지문을 입력하세요...
+
+예: 위 조건을 만족시키는 f(x)에 대하여 f(5)의 값을 구하시오."></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 기존 textarea (숨김 - 데이터 동기화용) -->
+            <textarea id="problemTextEditor" class="problem-text-editor" style="display: none;"></textarea>
           </div>
+
+          <!-- 미리보기 탭 -->
           <div id="previewTab" class="tab-content" style="flex: 1; display: none;">
             <div id="problemPreview" class="problem-preview">
               <p style="color: #999; text-align: center;">문제를 입력하면 여기에 미리보기가 표시됩니다.</p>
             </div>
           </div>
+
+          <!-- 원본 이미지 탭 -->
           <div id="imageTab" class="tab-content" style="flex: 1; display: none; padding: 12px;">
             <div class="image-upload-area" id="imageDropZone" onclick="triggerImageUpload()">
               <div>📷</div>
@@ -1145,6 +1903,15 @@ module.exports = engine;`;
         return;
       }
 
+      // Check for panel control commands (works without LLM API)
+      if (window.studioPanelController) {
+        const panelResult = window.studioPanelController.parseAndExecute(message);
+        if (panelResult.success) {
+          addChatMessage(`✅ ${panelResult.message}`, 'assistant');
+          return;
+        }
+      }
+
       // General chat - use LLM API
       try {
         addChatMessage('🤔 생각 중...', 'assistant');
@@ -1262,14 +2029,70 @@ module.exports = engine;`;
     }
 
     function updatePreview() {
-      const content = document.getElementById('problemTextEditor').value;
       const preview = document.getElementById('problemPreview');
+      const problem = studioState.problems[studioState.currentProblemIndex];
 
-      // Simple markdown-like rendering
-      let html = content
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+      // 구조화된 데이터로 미리보기 생성
+      const statement = document.getElementById('statementEditor')?.value || '';
+      const condition = document.getElementById('conditionEditor')?.value || '';
+      const question = document.getElementById('questionEditor')?.value || '';
+      const score = document.getElementById('scoreInput')?.value || '3';
+      const difficulty = document.getElementById('difficultySelect')?.value || '중';
+
+      let html = '';
+
+      // 배점 표시
+      html += `<div style="text-align: right; margin-bottom: 10px; font-size: 14px; color: #666;">
+        <span style="background: #f0f0f0; padding: 2px 8px; border-radius: 4px;">${score}점</span>
+        <span style="background: #e3f2fd; padding: 2px 8px; border-radius: 4px; margin-left: 4px;">${difficulty}</span>
+      </div>`;
+
+      // 제시문
+      if (statement) {
+        html += `<div style="margin-bottom: 16px; padding: 12px; background: #fafafa; border-left: 3px solid #2196f3; border-radius: 4px;">
+          ${statement.replace(/\n/g, '<br>')}
+        </div>`;
+      }
+
+      // 자료 이미지
+      if (problem.mediaImage) {
+        html += `<div style="text-align: center; margin: 16px 0;">
+          <img src="${problem.mediaImage}" style="max-width: 100%; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>`;
+      }
+
+      // 조건/보기 박스
+      if (condition) {
+        html += `<div style="margin: 16px 0; padding: 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+          <div style="font-size: 12px; color: #666; margin-bottom: 8px;">〈보기〉</div>
+          ${condition.replace(/\n/g, '<br>')}
+        </div>`;
+      }
+
+      // 문제 지문
+      if (question) {
+        html += `<div style="margin-top: 16px; font-size: 15px; line-height: 1.8;">
+          ${question.replace(/\n/g, '<br>')}
+        </div>`;
+      }
+
+      // 선지
+      const choices = [];
+      document.querySelectorAll('#choiceConditionList input').forEach((input, i) => {
+        if (input.value.trim()) {
+          choices.push({ num: ['①','②','③','④','⑤'][i], text: input.value.trim() });
+        }
+      });
+
+      if (choices.length > 0) {
+        html += `<div style="margin-top: 16px;">`;
+        choices.forEach(c => {
+          html += `<div style="margin: 6px 0; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+            <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+          </div>`;
+        });
+        html += `</div>`;
+      }
 
       preview.innerHTML = html || '<p style="color: #999; text-align: center;">문제를 입력하면 여기에 미리보기가 표시됩니다.</p>';
 
@@ -1345,13 +2168,16 @@ module.exports = engine;`;
     }
 
     function goToProblem(index) {
-      // Save current
-      studioState.problems[studioState.currentProblemIndex].content = document.getElementById('problemTextEditor').value;
+      // Save current - 서브패널 동기화
+      syncProblemContent();
 
       // Load new
       studioState.currentProblemIndex = index;
       const problem = studioState.problems[index];
       document.getElementById('problemTextEditor').value = problem.content || '';
+
+      // 서브패널에 내용 로드
+      loadContentToSubPanels(problem);
 
       if (problem.image) {
         document.getElementById('uploadedImagePreview').src = problem.image;
@@ -1756,6 +2582,267 @@ module.exports = engine;`;
       }
     });
 
+    // ==================== Gridstack 초기화 및 관리 ====================
+    let problemGrid = null;
+    let isGridLocked = false;
+
+    const defaultGridLayout = [
+      { id: 'statement', x: 0, y: 0, w: 6, h: 3 },
+      { id: 'media', x: 6, y: 0, w: 6, h: 3 },
+      { id: 'condition', x: 0, y: 3, w: 6, h: 2 },
+      { id: 'score-choice', x: 6, y: 3, w: 6, h: 2 },
+      { id: 'question', x: 0, y: 5, w: 12, h: 2 }
+    ];
+
+    function initGridStack() {
+      const gridEl = document.getElementById('problemGridStack');
+      if (!gridEl || typeof GridStack === 'undefined') {
+        console.warn('GridStack not available, retrying...');
+        setTimeout(initGridStack, 100);
+        return;
+      }
+
+      // 저장된 레이아웃 불러오기
+      const savedLayout = localStorage.getItem('problemGridLayout');
+
+      problemGrid = GridStack.init({
+        column: 12,
+        cellHeight: 60,
+        margin: 4,
+        animate: true,
+        float: false,
+        draggable: {
+          handle: '.grid-panel-header'
+        },
+        resizable: {
+          handles: 'e, se, s, sw, w'
+        }
+      }, gridEl);
+
+      // 저장된 레이아웃 적용
+      if (savedLayout) {
+        try {
+          const layout = JSON.parse(savedLayout);
+          problemGrid.load(layout);
+        } catch (e) {
+          console.error('레이아웃 로드 오류:', e);
+        }
+      }
+
+      // 레이아웃 변경 이벤트 자동 저장
+      problemGrid.on('change', function(event, items) {
+        saveGridLayout();
+      });
+
+      // Expose problemGrid globally for PanelController
+      window.problemGrid = problemGrid;
+      console.log('✅ GridStack 초기화 완료');
+    }
+
+    function saveGridLayout() {
+      if (!problemGrid) return;
+      const layout = problemGrid.save();
+      localStorage.setItem('problemGridLayout', JSON.stringify(layout));
+    }
+
+    function resetGridLayout(skipConfirm = false) {
+      if (!problemGrid) return;
+      if (!skipConfirm && !confirm('레이아웃을 초기화하시겠습니까?')) return;
+
+      // 모든 아이템 초기 위치로
+      defaultGridLayout.forEach(item => {
+        const el = problemGrid.getGridItems().find(
+          gridItem => gridItem.getAttribute('gs-id') === item.id
+        );
+        if (el) {
+          problemGrid.update(el, { x: item.x, y: item.y, w: item.w, h: item.h });
+        }
+      });
+
+      localStorage.removeItem('problemGridLayout');
+      if (!skipConfirm) {
+        addChatMessage('🔄 레이아웃이 초기화되었습니다.', 'assistant');
+      }
+    }
+    // Expose grid functions globally for PanelController
+    window.resetGridLayout = resetGridLayout;
+    window.problemGrid = null; // Will be set after GridStack init
+
+    function toggleGridLock() {
+      if (!problemGrid) return;
+
+      isGridLocked = !isGridLocked;
+      const btn = document.getElementById('gridLockBtn');
+
+      if (isGridLocked) {
+        problemGrid.disable();
+        btn.textContent = '🔒 잠금';
+        btn.classList.add('active');
+      } else {
+        problemGrid.enable();
+        btn.textContent = '🔓 잠금해제';
+        btn.classList.remove('active');
+      }
+    }
+
+    function expandPanel(panelId) {
+      // 간단한 확대 기능 - 모달로 표시
+      const panel = document.querySelector(`[gs-id="${panelId}"]`);
+      if (!panel) return;
+
+      const content = panel.querySelector('.grid-panel-body').innerHTML;
+      const title = panel.querySelector('h4').textContent;
+
+      // 모달 생성
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay active';
+      modal.style.zIndex = '2000';
+      modal.innerHTML = `
+        <div class="modal" style="width: 90%; max-width: 1200px; height: 80vh;">
+          <div class="modal-header">
+            <h3>${title} (확대)</h3>
+            <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">✕ 닫기</button>
+          </div>
+          <div class="modal-body" style="flex: 1; display: flex; flex-direction: column;">
+            ${content}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // 모달 내 textarea 동기화
+      const originalTextarea = panel.querySelector('textarea');
+      const modalTextarea = modal.querySelector('textarea');
+      if (originalTextarea && modalTextarea) {
+        modalTextarea.value = originalTextarea.value;
+        modalTextarea.style.height = '100%';
+        modalTextarea.addEventListener('input', () => {
+          originalTextarea.value = modalTextarea.value;
+          syncProblemContent();
+        });
+      }
+    }
+
+    // 자료 창 관련 함수
+    function triggerMediaUpload() {
+      document.getElementById('mediaFileInput').click();
+    }
+
+    function handleMediaUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const zone = document.getElementById('mediaUploadZone');
+        zone.classList.add('has-content');
+        zone.innerHTML = `<img src="${e.target.result}" alt="업로드된 자료">`;
+
+        // 현재 문제에 저장
+        studioState.problems[studioState.currentProblemIndex].mediaImage = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearMediaPanel() {
+      const zone = document.getElementById('mediaUploadZone');
+      zone.classList.remove('has-content');
+      zone.innerHTML = `
+        <div class="upload-placeholder">
+          <span>📷</span>
+          이미지/표를 드래그하거나 클릭
+          <br><small>Ctrl+V 붙여넣기 가능</small>
+        </div>
+      `;
+      studioState.problems[studioState.currentProblemIndex].mediaImage = null;
+    }
+
+    // 서브창 내용 동기화 - 기존 problemTextEditor와 연동
+    function syncProblemContent() {
+      const statement = document.getElementById('statementEditor')?.value || '';
+      const condition = document.getElementById('conditionEditor')?.value || '';
+      const question = document.getElementById('questionEditor')?.value || '';
+      const score = document.getElementById('scoreInput')?.value || '3';
+      const difficulty = document.getElementById('difficultySelect')?.value || '중';
+
+      // 선지 조건 수집
+      const choices = [];
+      document.querySelectorAll('#choiceConditionList input').forEach(input => {
+        if (input.value.trim()) {
+          choices.push(input.value.trim());
+        }
+      });
+
+      // 통합 텍스트 생성
+      let fullContent = '';
+      if (statement) fullContent += `[제시문]\n${statement}\n\n`;
+      if (condition) fullContent += `[조건]\n${condition}\n\n`;
+      if (question) fullContent += `[문제]\n${question}\n\n`;
+      if (choices.length > 0) {
+        fullContent += `[선지]\n`;
+        choices.forEach((c, i) => {
+          fullContent += `${['①','②','③','④','⑤'][i]} ${c}\n`;
+        });
+        fullContent += '\n';
+      }
+      fullContent += `[배점] ${score}점 / [난이도] ${difficulty}`;
+
+      document.getElementById('problemTextEditor').value = fullContent;
+      studioState.problems[studioState.currentProblemIndex].content = fullContent;
+
+      // 구조화된 데이터도 저장
+      studioState.problems[studioState.currentProblemIndex].structured = {
+        statement, condition, question, score, difficulty, choices
+      };
+    }
+
+    // 서브창에서 기존 content 로드
+    function loadContentToSubPanels(problem) {
+      // 구조화된 데이터가 있으면 사용
+      if (problem.structured) {
+        document.getElementById('statementEditor').value = problem.structured.statement || '';
+        document.getElementById('conditionEditor').value = problem.structured.condition || '';
+        document.getElementById('questionEditor').value = problem.structured.question || '';
+        document.getElementById('scoreInput').value = problem.structured.score || '3';
+        document.getElementById('difficultySelect').value = problem.structured.difficulty || '중';
+
+        // 선지 조건
+        const inputs = document.querySelectorAll('#choiceConditionList input');
+        inputs.forEach((input, i) => {
+          input.value = problem.structured.choices?.[i] || '';
+        });
+      }
+
+      // 미디어 이미지
+      if (problem.mediaImage) {
+        const zone = document.getElementById('mediaUploadZone');
+        zone.classList.add('has-content');
+        zone.innerHTML = `<img src="${problem.mediaImage}" alt="업로드된 자료">`;
+      } else {
+        clearMediaPanel();
+      }
+    }
+
+    // 서브창 입력 이벤트 리스너
+    function initSubPanelListeners() {
+      const editors = ['statementEditor', 'conditionEditor', 'questionEditor'];
+      editors.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', syncProblemContent);
+        }
+      });
+
+      // 배점, 난이도
+      document.getElementById('scoreInput')?.addEventListener('change', syncProblemContent);
+      document.getElementById('difficultySelect')?.addEventListener('change', syncProblemContent);
+
+      // 선지 조건
+      document.querySelectorAll('#choiceConditionList input').forEach(input => {
+        input.addEventListener('input', syncProblemContent);
+      });
+    }
+
     // ==================== Initialize ====================
     document.addEventListener('DOMContentLoaded', async function() {
       // Initial render with default data
@@ -1777,11 +2864,263 @@ module.exports = engine;`;
       });
 
       // Welcome message
-      addChatMessage('👋 문제 출제 스튜디오에 오신 것을 환영합니다! 이미지를 업로드하거나 직접 문제를 입력해주세요.', 'assistant');
+      addChatMessage('👋 문제 출제 스튜디오에 오신 것을 환영합니다! 각 패널을 드래그하여 자유롭게 배치할 수 있습니다.', 'assistant');
 
       // Initialize panel resizers
       initPanelResizers();
+
+      // Initialize GridStack
+      initGridStack();
+
+      // Initialize sub-panel listeners
+      initSubPanelListeners();
+
+      // Initialize new integrated modules
+      initIntegratedModules();
     });
+
+    // ==================== Integrated Modules Initialization ====================
+    let storeManager, documentManager, ragManager, labelManager;
+    let panelController, llmChatPlugin, imagenPlugin, tableGenerator;
+
+    function initIntegratedModules() {
+      // Initialize Core Managers
+      storeManager = new StoreManager({
+        onStoreChange: (storeName) => {
+          addChatMessage(`📦 저장소 변경: ${storeName || '없음'}`, 'assistant');
+          loadStudioDocuments();
+        },
+        onError: (msg) => addChatMessage(`❌ ${msg}`, 'assistant'),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant')
+      });
+
+      documentManager = new DocumentManager({
+        onDocumentsLoaded: (docs) => renderStudioDocuments(docs),
+        onError: (msg) => console.error(msg),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant')
+      });
+
+      ragManager = new RAGManager({
+        onDocumentsLoaded: (docs, info) => renderStudioRAG(docs, info),
+        onError: (msg) => console.error(msg),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant')
+      });
+
+      labelManager = new LabelManager({
+        onLabelsLoaded: (labels) => renderStudioLabels(labels),
+        onError: (msg) => console.error(msg),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant')
+      });
+
+      // Initialize Panel Controller (connect to GridStack after it's ready)
+      panelController = new PanelController({
+        onError: (msg) => addChatMessage(`❌ ${msg}`, 'assistant'),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant'),
+        onCommand: (type, result) => {
+          console.log('Panel command executed:', type, result);
+        }
+      });
+      window.studioPanelController = panelController; // Expose globally for sendChatMessage
+
+      // Wait for GridStack and connect
+      setTimeout(() => {
+        if (problemGrid) {
+          panelController.setGridStack(problemGrid);
+          console.log('✅ PanelController connected to GridStack');
+        }
+      }, 500);
+
+      // Initialize LLM Chat Plugin with multi-tab support
+      llmChatPlugin = new LLMChatPlugin({
+        panelController: panelController,
+        maxTabs: 5,
+        onTabChange: (index, tab) => {
+          renderChatTabs();
+          if (tab) renderChatMessages(tab.messages);
+        },
+        onMessageReceived: (tabId, message) => {
+          renderChatMessages(llmChatPlugin.getActiveTab()?.messages || []);
+        },
+        onError: (msg) => addChatMessage(`❌ ${msg}`, 'assistant'),
+        onSuccess: (msg) => console.log(msg)
+      });
+
+      // Initialize Imagen Plugin
+      imagenPlugin = new ImagenPlugin({
+        panelController: panelController,
+        onError: (msg) => addChatMessage(`❌ ${msg}`, 'assistant'),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant'),
+        onProgress: (msg) => addChatMessage(`⏳ ${msg}`, 'assistant'),
+        onProgressHide: () => {}
+      });
+
+      // Initialize Table Generator
+      tableGenerator = new TableGeneratorPlugin({
+        panelController: panelController,
+        onError: (msg) => addChatMessage(`❌ ${msg}`, 'assistant'),
+        onSuccess: (msg) => addChatMessage(`✅ ${msg}`, 'assistant')
+      });
+
+      // Render initial chat tabs
+      renderChatTabs();
+
+      // Load initial data
+      loadStudioStores();
+
+      console.log('✅ 통합 모듈 초기화 완료');
+    }
+
+    // ==================== Management Sidebar Functions ====================
+    function toggleManagementSidebar() {
+      const sidebar = document.getElementById('managementSidebar');
+      const icon = document.getElementById('sidebarToggleIcon');
+      sidebar.classList.toggle('expanded');
+      icon.textContent = sidebar.classList.contains('expanded') ? '▲' : '▼';
+    }
+
+    function toggleMgmtAccordion(id) {
+      const accordion = document.getElementById(id);
+      accordion.classList.toggle('open');
+    }
+
+    // Store Management Functions
+    async function loadStudioStores() {
+      if (!storeManager) return;
+      const stores = await storeManager.loadStores();
+      const select = document.getElementById('studioStoreSelect');
+      select.innerHTML = '<option value="">-- 저장소 선택 --</option>';
+      stores.forEach(store => {
+        const opt = document.createElement('option');
+        opt.value = store.name;
+        opt.textContent = `${store.displayName} (${store.documentCount}개)`;
+        select.appendChild(opt);
+      });
+    }
+
+    async function handleStudioStoreChange() {
+      const storeName = document.getElementById('studioStoreSelect').value;
+      if (storeName && storeManager) {
+        await storeManager.selectStore(storeName);
+        loadStudioDocuments();
+        loadStudioLabels();
+      }
+    }
+
+    function openCreateStoreModal() {
+      const name = prompt('새 저장소 이름을 입력하세요:');
+      if (name && storeManager) {
+        storeManager.createStore(name).then(() => loadStudioStores());
+      }
+    }
+
+    // Document Management Functions
+    async function loadStudioDocuments() {
+      if (!documentManager) return;
+      const docs = await documentManager.loadDocuments();
+      renderStudioDocuments(docs);
+    }
+
+    function renderStudioDocuments(docs) {
+      const list = document.getElementById('studioDocList');
+      if (!docs || docs.length === 0) {
+        list.innerHTML = '<div class="mgmt-list-item">문서 없음</div>';
+        return;
+      }
+      list.innerHTML = docs.slice(0, 10).map(doc => `
+        <div class="mgmt-list-item">
+          <span>${doc.displayName || doc.name}</span>
+        </div>
+      `).join('');
+    }
+
+    // RAG Management Functions
+    async function searchRAGChunks() {
+      const query = document.getElementById('ragSearchInput').value;
+      if (!query || !ragManager) return;
+      try {
+        const chunks = await ragManager.searchChunks(query);
+        renderStudioRAG(chunks);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderStudioRAG(chunks) {
+      const list = document.getElementById('studioRAGList');
+      if (!chunks || chunks.length === 0) {
+        list.innerHTML = '<div class="mgmt-list-item">검색 결과 없음</div>';
+        return;
+      }
+      list.innerHTML = chunks.slice(0, 5).map(chunk => `
+        <div class="mgmt-list-item">
+          <span title="${chunk.content || ''}">${(chunk.content || '').substring(0, 30)}...</span>
+        </div>
+      `).join('');
+    }
+
+    // Label Management Functions
+    async function loadStudioLabels() {
+      if (!labelManager) return;
+      const labels = await labelManager.loadLabels();
+      renderStudioLabels(labels);
+    }
+
+    function renderStudioLabels(labels) {
+      const list = document.getElementById('studioLabelList');
+      if (!labels || labels.length === 0) {
+        list.innerHTML = '<div class="mgmt-list-item">라벨 없음</div>';
+        return;
+      }
+      list.innerHTML = labels.slice(0, 10).map(label => `
+        <div class="mgmt-list-item">
+          <span>${label.name}</span>
+          <span style="font-size:10px;color:var(--text-secondary)">${label.category}</span>
+        </div>
+      `).join('');
+    }
+
+    // Image Generation Functions
+    async function generateStudioImage() {
+      const prompt = document.getElementById('imagenPrompt').value;
+      if (!prompt || !imagenPlugin) return;
+      try {
+        const imageData = await imagenPlugin.generateImage(prompt);
+        imagenPlugin.renderGallery(document.getElementById('imagenGallery'));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ==================== Multi-Tab Chat Functions ====================
+    function renderChatTabs() {
+      if (!llmChatPlugin) return;
+      const container = document.getElementById('chatTabsContainer');
+      llmChatPlugin.renderTabs(container);
+    }
+
+    function renderChatMessages(messages) {
+      const container = document.getElementById('chatMessages');
+      if (!messages || messages.length === 0) {
+        return;
+      }
+      container.innerHTML = messages.map(msg => `
+        <div class="chat-message ${msg.role}">
+          ${formatChatMessage(msg.content)}
+        </div>
+      `).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function formatChatMessage(content) {
+      return content
+        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+    }
+
+    // Override sendChatMessage to use new plugin
+    const originalSendChatMessage = typeof sendChatMessage === 'function' ? sendChatMessage : null;
 
     // ==================== Panel Resize Functionality ====================
     function initPanelResizers() {

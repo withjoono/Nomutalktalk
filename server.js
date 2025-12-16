@@ -1289,6 +1289,32 @@ ${instructions ? `- 추가 지시사항: ${instructions}` : ''}
 5. 각 문제에 **정답**을 포함하세요.
 6. 객관식인 경우 **4~5개의 선지**를 제공하세요.
 
+## 표(Table) 생성 규칙
+참조 문제에 표가 포함된 경우, 반드시 다음 JSON 형식으로 표 데이터를 생성하세요:
+
+\`\`\`json:table
+{
+  "type": "science-table",
+  "headers": [
+    [{"content": "헤더1", "colspan": 2}, "헤더2", "헤더3"]
+  ],
+  "rows": [
+    [{"content": "행제목", "rowspan": 2}, "$수식$", "값1", "값2"],
+    ["$x\\\\text{ M H}_2\\\\text{O}$", "$a$", "$b$"]
+  ],
+  "ionRatios": [
+    {"condition": "(가)", "fractions": [{"n": 1, "d": 5}, {"n": 3, "d": 5}, {"n": 1, "d": 5}]}
+  ]
+}
+\`\`\`
+
+### 표 작성 시 주의사항:
+- 화학식: "$x\\\\text{ M H}_2\\\\text{B}(aq)$" 형식 (아래첨자는 _{} 사용)
+- 수학 변수: "$a$", "$b$", "$x$" 등 LaTeX 형식
+- 셀 병합: rowspan, colspan 속성 사용
+- 파이차트가 필요한 경우 ionRatios 배열에 분수 정보 포함 (n: 분자, d: 분모)
+- 빈 셀: "" 또는 "0"
+
 ## 출력 형식
 각 변형 문제는 다음 형식으로 작성하세요:
 
@@ -4969,6 +4995,361 @@ app.post('/api/rag/chunks/search', async (req, res) => {
   }
 });
 
+// ==================== 파일 기반 엔진 시스템 API ====================
+
+// fs.promises 사용 (fs는 이미 상단에 선언됨)
+const fsPromises = fs.promises;
+
+/**
+ * GET /api/file-engines
+ * 파일 기반 엔진 목록 조회
+ */
+app.get('/api/file-engines', async (req, res) => {
+  try {
+    const enginesPath = path.join(__dirname, 'public', 'engines');
+    const categories = ['core', 'styles', 'templates'];
+    const engines = {};
+
+    for (const category of categories) {
+      const categoryPath = path.join(enginesPath, category);
+      try {
+        const files = await fsPromises.readdir(categoryPath);
+        engines[category] = files
+          .filter(f => f.endsWith('.md'))
+          .map(f => ({
+            id: f.replace('.md', ''),
+            name: f.replace('.md', '').replace(/_/g, ' '),
+            file: f,
+            category
+          }));
+      } catch (err) {
+        engines[category] = [];
+      }
+    }
+
+    // index.md 파일 존재 확인
+    let indexContent = null;
+    try {
+      indexContent = await fsPromises.readFile(path.join(enginesPath, 'index.md'), 'utf-8');
+    } catch (err) {
+      indexContent = null;
+    }
+
+    res.json({
+      success: true,
+      engines,
+      hasIndex: !!indexContent,
+      totalCount: Object.values(engines).reduce((sum, arr) => sum + arr.length, 0)
+    });
+  } catch (error) {
+    console.error('파일 엔진 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/file-engines/:category/:id
+ * 특정 파일 기반 엔진 로드
+ */
+app.get('/api/file-engines/:category/:id', async (req, res) => {
+  try {
+    const { category, id } = req.params;
+    const validCategories = ['core', 'styles', 'templates'];
+
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 카테고리입니다. (core, styles, templates)'
+      });
+    }
+
+    const filePath = path.join(__dirname, 'public', 'engines', category, `${id}.md`);
+
+    try {
+      const content = await fsPromises.readFile(filePath, 'utf-8');
+
+      // 마크다운에서 메타데이터 추출
+      const metadata = parseEngineMetadata(content);
+
+      res.json({
+        success: true,
+        engine: {
+          id,
+          category,
+          content,
+          metadata,
+          filePath: `/engines/${category}/${id}.md`
+        }
+      });
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        return res.status(404).json({
+          success: false,
+          error: `엔진을 찾을 수 없습니다: ${category}/${id}`
+        });
+      }
+      throw err;
+    }
+  } catch (error) {
+    console.error('파일 엔진 로드 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 엔진 마크다운에서 메타데이터 추출
+ */
+function parseEngineMetadata(content) {
+  const metadata = {
+    title: '',
+    id: '',
+    version: '',
+    description: '',
+    ragPatterns: [],
+    rules: []
+  };
+
+  // 제목 추출 (첫 번째 # 헤딩)
+  const titleMatch = content.match(/^#\s+(.+?)(?:\s*\(|$)/m);
+  if (titleMatch) {
+    metadata.title = titleMatch[1].trim();
+  }
+
+  // 엔진 정보 테이블에서 ID, 버전 추출
+  const idMatch = content.match(/\*\*ID\*\*\s*\|\s*`([^`]+)`/);
+  if (idMatch) {
+    metadata.id = idMatch[1];
+  }
+
+  const versionMatch = content.match(/\*\*버전\*\*\s*\|\s*([^\n|]+)/);
+  if (versionMatch) {
+    metadata.version = versionMatch[1].trim();
+  }
+
+  // RAG 검색 쿼리 패턴 추출
+  const ragSection = content.match(/## RAG 검색 쿼리 패턴[\s\S]*?(?=##|$)/);
+  if (ragSection) {
+    const patternMatches = ragSection[0].matchAll(/"([^"]+)"/g);
+    for (const match of patternMatches) {
+      if (!metadata.ragPatterns.includes(match[1])) {
+        metadata.ragPatterns.push(match[1]);
+      }
+    }
+  }
+
+  // 규칙 섹션 추출
+  const rulesSection = content.match(/## 문제 생성 규칙[\s\S]*?(?=##|$)/);
+  if (rulesSection) {
+    metadata.hasRules = true;
+  }
+
+  return metadata;
+}
+
+/**
+ * POST /api/generate-with-file-engine
+ * 파일 기반 엔진 + RAG를 사용한 문제 생성
+ */
+app.post('/api/generate-with-file-engine', async (req, res) => {
+  try {
+    const {
+      engineId,
+      engineCategory = 'core',
+      templateId = 'multiple_choice',
+      styleId = 'exam_style',
+      subject,
+      chapter,
+      difficulty = '중',
+      problemCount = 3,
+      ragQuery,
+      additionalInstructions = '',
+      referenceImage,
+      referenceProblem
+    } = req.body;
+
+    if (!engineId) {
+      return res.status(400).json({
+        success: false,
+        error: '엔진 ID는 필수입니다.'
+      });
+    }
+
+    console.log(`🔧 파일 기반 엔진으로 문제 생성: ${engineCategory}/${engineId}`);
+
+    // 1. 엔진 파일 로드
+    const enginePath = path.join(__dirname, 'public', 'engines', engineCategory, `${engineId}.md`);
+    let engineContent;
+    try {
+      engineContent = await fsPromises.readFile(enginePath, 'utf-8');
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        error: `엔진을 찾을 수 없습니다: ${engineCategory}/${engineId}`
+      });
+    }
+
+    // 2. 템플릿 로드
+    let templateContent = '';
+    try {
+      const templatePath = path.join(__dirname, 'public', 'engines', 'templates', `${templateId}.md`);
+      templateContent = await fsPromises.readFile(templatePath, 'utf-8');
+    } catch (err) {
+      console.log(`템플릿 ${templateId} 로드 실패, 기본 형식 사용`);
+    }
+
+    // 3. 스타일 로드
+    let styleContent = '';
+    try {
+      const stylePath = path.join(__dirname, 'public', 'engines', 'styles', `${styleId}.md`);
+      styleContent = await fsPromises.readFile(stylePath, 'utf-8');
+    } catch (err) {
+      console.log(`스타일 ${styleId} 로드 실패, 기본 형식 사용`);
+    }
+
+    // 4. RAG 검색 (agent가 있는 경우)
+    let ragContext = '';
+    if (ragQuery && agent) {
+      try {
+        const ragResult = await agent.query(ragQuery);
+        ragContext = ragResult.answer || '';
+        console.log(`📚 RAG 검색 완료: ${ragQuery.substring(0, 50)}...`);
+      } catch (err) {
+        console.log('RAG 검색 실패:', err.message);
+      }
+    }
+
+    // 5. 프롬프트 구성
+    const systemPrompt = `당신은 전문 문제 출제자입니다.
+
+## 사용 엔진
+${engineContent}
+
+## 출력 템플릿
+${templateContent || '표준 JSON 형식으로 출력'}
+
+## 출력 스타일
+${styleContent || '시험지 형식'}
+
+## RAG 참조 자료
+${ragContext || '(참조 자료 없음)'}
+
+## 출제 조건
+- 과목: ${subject || '미지정'}
+- 단원: ${chapter || '미지정'}
+- 난이도: ${difficulty}
+- 문항 수: ${problemCount}
+${additionalInstructions ? `- 추가 지시: ${additionalInstructions}` : ''}
+
+## 출력 형식
+다음 JSON 형식으로 출력하세요:
+{
+  "problems": [
+    {
+      "number": 1,
+      "content": "문제 본문 (LaTeX 수식 포함 가능)",
+      "choices": ["① ...", "② ...", "③ ...", "④ ...", "⑤ ..."],
+      "answer": "정답",
+      "solution": "풀이 과정",
+      "concepts": ["관련 개념"],
+      "difficulty": "상/중/하"
+    }
+  ],
+  "metadata": {
+    "engine": "${engineId}",
+    "template": "${templateId}",
+    "subject": "${subject || ''}",
+    "chapter": "${chapter || ''}"
+  }
+}`;
+
+    // 6. Gemini API 호출
+    const parts = [{ text: systemPrompt }];
+
+    // 참조 이미지가 있는 경우
+    if (referenceImage) {
+      const base64Data = referenceImage.replace(/^data:image\/\w+;base64,/, '');
+      parts.push({
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: base64Data
+        }
+      });
+      parts.push({ text: '위 이미지의 문제를 참고하여 유사한 변형 문제를 생성하세요.' });
+    }
+
+    // 참조 문제 텍스트가 있는 경우
+    if (referenceProblem) {
+      parts.push({ text: `\n\n참조 문제:\n${referenceProblem}\n\n이 문제를 참고하여 변형 문제를 생성하세요.` });
+    }
+
+    const result = await model.generateContent({ contents: [{ parts }] });
+    const responseText = result.response.text();
+
+    // 7. JSON 파싱
+    let generatedProblems;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        generatedProblems = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('JSON 응답을 찾을 수 없습니다.');
+      }
+    } catch (parseErr) {
+      generatedProblems = {
+        problems: [{
+          number: 1,
+          content: responseText,
+          raw: true
+        }],
+        parseError: parseErr.message
+      };
+    }
+
+    console.log(`✅ 문제 생성 완료: ${generatedProblems.problems?.length || 0}개`);
+
+    res.json({
+      success: true,
+      result: generatedProblems,
+      engineUsed: {
+        id: engineId,
+        category: engineCategory,
+        template: templateId,
+        style: styleId
+      },
+      ragUsed: !!ragContext
+    });
+
+  } catch (error) {
+    console.error('파일 기반 엔진 문제 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/file-engines/index
+ * 엔진 인덱스 파일 조회
+ */
+app.get('/api/file-engines/index', async (req, res) => {
+  try {
+    const indexPath = path.join(__dirname, 'public', 'engines', 'index.md');
+    const content = await fsPromises.readFile(indexPath, 'utf-8');
+
+    res.json({
+      success: true,
+      content,
+      path: '/engines/index.md'
+    });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({
+        success: false,
+        error: '엔진 인덱스 파일을 찾을 수 없습니다.'
+      });
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==================== 로컬 청크 관리 API ====================
 
 /**
@@ -6272,6 +6653,130 @@ app.get('/api/rag/chunking-config', (req, res) => {
       configs[type] = chunkingService.getRecommendedConfig(type);
     }
     res.json({ success: true, configs });
+  }
+});
+
+// ==================== Gemini Imagen API ====================
+
+/**
+ * POST /api/imagen/generate
+ * Gemini Imagen을 사용한 이미지 생성
+ */
+app.post('/api/imagen/generate', async (req, res) => {
+  try {
+    const { prompt, width = 1024, height = 1024, numberOfImages = 1 } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: '프롬프트가 필요합니다.' });
+    }
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    // Imagen 모델 사용 (또는 대체 모델)
+    // 참고: Gemini 2.0 Flash에서 이미지 생성이 지원되는 경우 사용
+    // 현재는 텍스트로 이미지 설명을 반환하는 대체 구현
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    const result = await model.generateContent(`
+      다음 프롬프트에 기반한 교육용 이미지를 설명해주세요.
+      이미지 프롬프트: ${prompt}
+
+      다음 형식으로 응답해주세요:
+      1. 이미지 설명
+      2. SVG 코드 (가능한 경우)
+    `);
+
+    const response = await result.response;
+    const text = response.text();
+
+    // SVG 추출 시도
+    const svgMatch = text.match(/<svg[\s\S]*?<\/svg>/i);
+
+    if (svgMatch) {
+      // SVG를 Base64로 인코딩
+      const svgBase64 = Buffer.from(svgMatch[0]).toString('base64');
+      res.json({
+        success: true,
+        imageUrl: `data:image/svg+xml;base64,${svgBase64}`,
+        base64: svgBase64,
+        type: 'svg',
+        description: text
+      });
+    } else {
+      // 이미지 설명만 반환 (실제 Imagen API 사용 시 이미지 반환)
+      res.json({
+        success: true,
+        description: text,
+        type: 'description',
+        message: 'Gemini Imagen API 호출 대신 이미지 설명이 생성되었습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('Imagen 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/imagen/edit
+ * 이미지 편집 (현재는 설명 기반 편집)
+ */
+app.post('/api/imagen/edit', async (req, res) => {
+  try {
+    const { image, prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ success: false, error: '편집 프롬프트가 필요합니다.' });
+    }
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+    // 이미지가 Base64인 경우
+    let imageDescription = '';
+    if (image && image.startsWith('data:')) {
+      // 이미지 분석 시도 (Vision 모델 사용)
+      const base64Data = image.split(',')[1];
+      const visionModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const visionResult = await visionModel.generateContent([
+        '이 이미지를 간략히 설명해주세요.',
+        { inlineData: { mimeType: 'image/png', data: base64Data } }
+      ]);
+      imageDescription = (await visionResult.response).text();
+    }
+
+    const result = await model.generateContent(`
+      원본 이미지 설명: ${imageDescription || '(원본 이미지 없음)'}
+      편집 요청: ${prompt}
+
+      수정된 이미지를 SVG 형식으로 생성해주세요.
+    `);
+
+    const response = await result.response;
+    const text = response.text();
+
+    const svgMatch = text.match(/<svg[\s\S]*?<\/svg>/i);
+
+    if (svgMatch) {
+      const svgBase64 = Buffer.from(svgMatch[0]).toString('base64');
+      res.json({
+        success: true,
+        imageUrl: `data:image/svg+xml;base64,${svgBase64}`,
+        base64: svgBase64,
+        type: 'svg'
+      });
+    } else {
+      res.json({
+        success: true,
+        description: text,
+        type: 'description'
+      });
+    }
+  } catch (error) {
+    console.error('이미지 편집 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -2161,6 +2161,104 @@ function formatAnswer(answer) {
     return placeholder;
   });
 
+  // 📊 Science Table: 과학 문제용 표 (```json:table ... ``` 또는 ```table ... ```)
+  processed = processed.replace(/```(?:json:table|table)\n([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `___SCIENCETABLE_${graphPlaceholders.length}___`;
+    try {
+      const tableData = JSON.parse(code.trim());
+      let tableHtml = '';
+
+      if (window.ScienceTableGenerator) {
+        // 혼합 수용액 표 (ionRatios와 solutions가 있는 경우)
+        if (tableData.solutions && tableData.ionRatios) {
+          tableHtml = window.ScienceTableGenerator.createMixtureSolutionTable({
+            solutions: tableData.solutions || [],
+            conditions: tableData.conditions || [],
+            ionRatios: tableData.ionRatios || [],
+            rowHeader: tableData.rowHeader,
+            colHeader: tableData.colHeader,
+            ionRowHeader: tableData.ionRowHeader
+          });
+        }
+        // 일반 과학 표
+        else if (tableData.headers || tableData.rows) {
+          // AI 응답 형식 → ScienceTableGenerator 형식 변환
+          let normalizedHeaders = [];
+          let normalizedRows = [];
+
+          // headers 정규화: 1차원 배열 → 2차원 배열
+          if (tableData.headers && tableData.headers.length > 0) {
+            if (Array.isArray(tableData.headers[0])) {
+              // 이미 2차원 배열인 경우
+              normalizedHeaders = tableData.headers;
+            } else {
+              // 1차원 배열인 경우 2차원으로 변환
+              normalizedHeaders = [tableData.headers];
+            }
+          }
+
+          // rows 정규화: 객체 배열 → 2차원 배열
+          if (tableData.rows && tableData.rows.length > 0) {
+            normalizedRows = tableData.rows.map(row => {
+              if (Array.isArray(row)) {
+                // 이미 배열인 경우
+                return row;
+              } else if (typeof row === 'object' && row !== null) {
+                // 객체인 경우: headers 순서대로 값 추출
+                const headerKeys = Array.isArray(tableData.headers[0])
+                  ? tableData.headers[0]
+                  : tableData.headers;
+                return headerKeys.map(key => row[key] || '');
+              }
+              return [row];
+            });
+          }
+
+          // ionRatios가 있으면 파이차트 행 추가
+          if (tableData.ionRatios && tableData.conditions) {
+            const ionRow = [
+              { content: tableData.ionRowHeader || '이온 수의 비율', colspan: 2 }
+            ];
+            tableData.conditions.forEach(cond => {
+              const ratio = tableData.ionRatios.find(r => r.condition === cond);
+              if (ratio && ratio.fractions) {
+                ionRow.push({
+                  content: {
+                    type: 'pie',
+                    fractions: ratio.fractions.map(f => ({ numerator: f.n, denominator: f.d })),
+                    options: { size: 80 }
+                  }
+                });
+              } else {
+                ionRow.push({ content: '' });
+              }
+            });
+            normalizedRows.push(ionRow);
+          }
+
+          tableHtml = window.ScienceTableGenerator.create({
+            headers: normalizedHeaders,
+            rows: normalizedRows,
+            style: tableData.style || 'exam',
+            borderStyle: tableData.borderStyle || 'all'
+          });
+        }
+      }
+
+      graphPlaceholders.push({
+        type: 'sciencetable',
+        content: `<div class="ai-generated-table science-table-wrapper">${tableHtml}</div>`
+      });
+    } catch (e) {
+      console.error('표 JSON 파싱 오류:', e);
+      graphPlaceholders.push({
+        type: 'sciencetable',
+        content: `<pre class="table-parse-error">표 파싱 오류: ${e.message}\n${code}</pre>`
+      });
+    }
+    return placeholder;
+  });
+
   // 🧪 Chemistry: 3Dmol.js 분자 구조 (```mol3d ... ```)
   processed = processed.replace(/```mol3d\n([\s\S]*?)```/g, (match, code) => {
     const placeholder = `___MOL3D_${graphPlaceholders.length}___`;
@@ -2249,6 +2347,7 @@ function formatAnswer(answer) {
       'plotly': `___PLOTLY_${index}___`,
       'chartjs': `___CHARTJS_${index}___`,
       'jsxgraph': `___JSXGRAPH_${index}___`,
+      'sciencetable': `___SCIENCETABLE_${index}___`,
       'mol3d': `___MOL3D_${index}___`,
       'matter': `___MATTER_${index}___`,
       'p5': `___P5_${index}___`,

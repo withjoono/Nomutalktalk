@@ -7257,3 +7257,180 @@ kbd {
   }
 }
 
+/* ==================== 과학 테이블 & 파이 차트 스타일 ==================== */
+
+/* 과학 테이블 기본 스타일 */
+.science-table {
+  border-collapse: collapse;
+  margin: 1rem auto;
+  font-family: 'Batang', 'Times New Roman', 'Noto Serif KR', serif;
+  font-size: 14px;
+  background: #fff;
+  color: #000;
+}
+
+.science-table th,
+.science-table td {
+  padding: 10px 14px;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+/* 테두리 스타일 - 전체 */
+.science-table--border-all th,
+.science-table--border-all td {
+  border: 1.5px solid #000;
+}
+
+/* 테두리 스타일 - 가로선만 */
+.science-table--border-horizontal {
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+}
+
+.science-table--border-horizontal th,
+.science-table--border-horizontal td {
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+}
+
+.science-table--border-horizontal thead tr:first-child th {
+  border-top: 2px solid #000;
+}
+
+.science-table--border-horizontal tbody tr:last-child td {
+  border-bottom: 2px solid #000;
+}
+
+/* 시험지 스타일 (수능/내신) */
+.science-table--exam {
+  font-family: 'Batang', 'Times New Roman', serif;
+  border: 2px solid #000;
+}
+
+.science-table--exam th {
+  background: #f5f5f5;
+  font-weight: normal;
+}
+
+.science-table--exam td {
+  background: #fff;
+}
+
+/* 수식 컨테이너 */
+.science-table .math-content,
+.science-table .chem-content {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 파이 차트 컨테이너 */
+.pie-chart-container {
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+}
+
+.pie-chart-container svg {
+  display: block;
+}
+
+.pie-chart-container .pie-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-family: 'Times New Roman', serif;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 파이 차트 기본 색상 */
+.pie-chart-container path {
+  transition: opacity 0.2s ease;
+}
+
+.pie-chart-container path:hover {
+  opacity: 0.8;
+}
+
+/* 테이블 내 파이 차트 */
+.science-table td .pie-chart-container {
+  margin: 5px auto;
+}
+
+/* 반응형 테이블 래퍼 */
+.science-table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 1rem 0;
+}
+
+/* 화학 반응식 테이블 */
+.science-table--reaction {
+  border: none;
+}
+
+.science-table--reaction td {
+  border: none;
+  padding: 8px 20px;
+}
+
+.science-table--reaction .reaction-arrow {
+  font-size: 20px;
+  padding: 0 10px;
+}
+
+/* 다크모드 지원 */
+@media (prefers-color-scheme: dark) {
+  .science-table {
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  .science-table--border-all th,
+  .science-table--border-all td,
+  .science-table--border-horizontal th,
+  .science-table--border-horizontal td {
+    border-color: #555;
+  }
+
+  .science-table--exam th {
+    background: #3a3a3a;
+  }
+
+  .science-table--exam td {
+    background: #2a2a2a;
+  }
+
+  .pie-chart-container path {
+    stroke: #555;
+  }
+}
+
+/* 에디터 내 테이블 표시 */
+.problem-content .science-table,
+.solution-content .science-table,
+.generated-problem .science-table {
+  margin: 1rem auto;
+  max-width: 100%;
+}
+
+/* 인쇄용 스타일 */
+@media print {
+  .science-table {
+    page-break-inside: avoid;
+    border-color: #000 !important;
+  }
+
+  .science-table th,
+  .science-table td {
+    border-color: #000 !important;
+  }
+
+  .pie-chart-container path {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
