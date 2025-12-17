@@ -54,3 +54,6 @@ firebase-service-account.json
 
 # Misc
 nul
+
+# TypeScript build output
+dist/
