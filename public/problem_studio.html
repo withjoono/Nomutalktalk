@@ -2834,6 +2834,18 @@ module.exports = engine;`;
         document.getElementById('problemTextEditor').value = ocrResult;
         problem.content = ocrResult;
 
+        // OCR 결과를 보이는 편집기(statementEditor)에도 표시
+        const statementEditor = document.getElementById('statementEditor');
+        if (statementEditor) {
+          statementEditor.value = ocrResult;
+        }
+
+        // 구조화된 데이터도 업데이트
+        if (!problem.structured) {
+          problem.structured = {};
+        }
+        problem.structured.statement = ocrResult;
+
         addChatMessage('✅ OCR 완료!\n\n인식된 텍스트가 편집창에 입력되었습니다. 필요시 수정해주세요.', 'assistant');
 
         // Switch to edit tab
