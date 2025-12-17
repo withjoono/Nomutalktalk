@@ -359,6 +359,69 @@ async function callMultiLLMReview(problemText) {
   }
 }
 
+
+// ==================== Engine File Upload API ====================
+
+/**
+ * 엔진 파일 업로드
+ */
+async function uploadEngineFile(file, targetFolder, overwrite = false) {
+  try {
+    const formData = new FormData();
+    formData.append('engineFile', file);
+    formData.append('targetFolder', targetFolder);
+    formData.append('overwrite', overwrite.toString());
+
+    const response = await fetch(API_BASE + '/api/engines/upload-file', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || '엔진 파일 업로드 실패');
+    }
+    return result;
+  } catch (error) {
+    console.error('Upload Engine File API 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * 업로드 가능한 엔진 폴더 목록 조회
+ */
+async function fetchEngineFolders() {
+  try {
+    const response = await fetch(API_BASE + '/api/engines/folders');
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || '엔진 폴더 목록 조회 실패');
+    }
+    return result.folders;
+  } catch (error) {
+    console.error('Fetch Engine Folders API 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * 실제 엔진 파일 목록 조회 (파일시스템 스캔)
+ */
+async function fetchEngineFiles() {
+  try {
+    const response = await fetch(API_BASE + '/api/engines/files');
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || '엔진 파일 목록 조회 실패');
+    }
+    return result.engines;
+  } catch (error) {
+    console.error('Fetch Engine Files API 오류:', error);
+    throw error;
+  }
+}
+
 // Export for use in problem_studio.html
 window.StudioAPI = {
   ocr: callOCRAPI,
@@ -374,5 +437,9 @@ window.StudioAPI = {
   approveProblem: approveProblem,
   indexToRAG: indexProblemToRAG,
   autoSelectEngine: autoSelectEngine,
-  multiLLMReview: callMultiLLMReview
+  multiLLMReview: callMultiLLMReview,
+  // Engine File Upload
+  uploadEngineFile: uploadEngineFile,
+  fetchEngineFolders: fetchEngineFolders,
+  fetchEngineFiles: fetchEngineFiles
 };
