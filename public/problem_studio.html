@@ -2816,7 +2816,11 @@ module.exports = engine;`;
     // ==================== Toolbar Actions ====================
     async function runOCR() {
       const problem = studioState.problems[studioState.currentProblemIndex];
-      if (!problem.image) {
+      // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
+      const imageData = problem.mediaImage || problem.image ||
+        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
+
+      if (!imageData) {
         alert('먼저 이미지를 업로드해주세요.');
         return;
       }
@@ -2825,7 +2829,7 @@ module.exports = engine;`;
 
       try {
         // Call real OCR API
-        const ocrResult = await StudioAPI.ocr(problem.image, 'problem');
+        const ocrResult = await StudioAPI.ocr(imageData, 'problem');
 
         document.getElementById('problemTextEditor').value = ocrResult;
         problem.content = ocrResult;
@@ -2855,9 +2859,13 @@ module.exports = engine;`;
 
       addChatMessage('🏷️ 자동 라벨링 분석 중...', 'assistant');
 
+      // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
+      const imageData = problem.mediaImage || problem.image ||
+        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
+
       try {
         // Call real auto-label API
-        const labels = await StudioAPI.autoLabel(problemText, problem.image);
+        const labels = await StudioAPI.autoLabel(problemText, imageData);
 
         problem.labels = labels;
 
@@ -2965,11 +2973,15 @@ module.exports = engine;`;
 
       addChatMessage('⏳ 저장 중...', 'assistant');
 
+      // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
+      const imageData = problem.mediaImage || problem.image ||
+        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
+
       try {
         const result = await StudioAPI.saveProblem({
           content: problemText,
           labels: problem.labels,
-          image: problem.image
+          image: imageData
         }, 'pending');
 
         problem.status = 'pending';
@@ -2996,13 +3008,17 @@ module.exports = engine;`;
 
       addChatMessage('✅ 승인 및 저장 중...', 'assistant');
 
+      // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
+      const imageData = problem.mediaImage || problem.image ||
+        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
+
       try {
         // First save if not saved
         if (!problem.id || problem.id.startsWith('new-') || problem.id.startsWith('gen-')) {
           const saveResult = await StudioAPI.saveProblem({
             content: problemText,
             labels: problem.labels,
-            image: problem.image
+            image: imageData
           }, 'approved');
           problem.id = saveResult.id || problem.id;
         } else {
