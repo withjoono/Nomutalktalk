@@ -440,6 +440,7 @@
     .grid-panel-body textarea {
       flex: 1;
       width: 100%;
+      min-height: 60px;
       background: var(--bg-dark);
       color: var(--text-primary);
       border: 1px solid var(--border-color);
@@ -447,8 +448,9 @@
       padding: 8px;
       font-size: 13px;
       line-height: 1.5;
-      resize: none;
+      resize: vertical;
       font-family: inherit;
+      overflow-y: auto;
     }
 
     .grid-panel-body textarea:focus {
@@ -588,6 +590,128 @@
     .add-choice-btn:hover {
       border-color: var(--accent-blue);
       color: var(--accent-blue);
+    }
+
+    /* 추가 박스 컨테이너 */
+    .multi-box-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .multi-box-item {
+      position: relative;
+      flex: 1;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .multi-box-item textarea {
+      flex: 1;
+      min-height: 60px;
+    }
+
+    .multi-box-item .box-remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 99, 71, 0.8);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .multi-box-item:hover .box-remove-btn {
+      opacity: 1;
+    }
+
+    .add-box-btn {
+      padding: 8px;
+      background: var(--bg-input);
+      border: 2px dashed var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .add-box-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      background: rgba(74, 158, 255, 0.1);
+    }
+
+    /* 보기/조건 타입 선택 */
+    .condition-type-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 6px 8px;
+      background: var(--bg-dark);
+      border-radius: 4px;
+    }
+
+    .condition-type-selector label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .condition-type-selector input[type="radio"] {
+      accent-color: var(--accent-blue);
+    }
+
+    .condition-type-selector label.active {
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+
+    /* 선지 레이아웃 선택 */
+    .choice-layout-selector {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      padding: 4px;
+      background: var(--bg-dark);
+      border-radius: 4px;
+    }
+
+    .choice-layout-selector button {
+      flex: 1;
+      padding: 4px 8px;
+      font-size: 10px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .choice-layout-selector button.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    .choice-layout-selector button:hover:not(.active) {
+      border-color: var(--accent-blue);
     }
 
     /* 레이아웃 컨트롤 */
@@ -1468,16 +1592,21 @@
                     <div class="grid-panel-header">
                       <h4>🖼️ 자료 (그림/표)</h4>
                       <div class="panel-actions">
+                        <button onclick="addMediaBox()" title="그림 추가">➕</button>
                         <button onclick="clearMediaPanel()" title="지우기">🗑️</button>
                         <button onclick="expandPanel('media')" title="확대">⤢</button>
                       </div>
                     </div>
                     <div class="grid-panel-body">
-                      <div class="media-upload-zone" id="mediaUploadZone" onclick="triggerMediaUpload()">
-                        <div class="upload-placeholder">
-                          <span>📷</span>
-                          이미지/표를 드래그하거나 클릭
-                          <br><small>Ctrl+V 붙여넣기 가능</small>
+                      <div class="multi-box-container" id="mediaBoxContainer">
+                        <div class="multi-box-item" data-box-id="media-1">
+                          <div class="media-upload-zone" id="mediaUploadZone" onclick="triggerMediaUpload(1)">
+                            <div class="upload-placeholder">
+                              <span>📷</span>
+                              이미지/표를 드래그하거나 클릭
+                              <br><small>Ctrl+V 붙여넣기 가능</small>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <input type="file" id="mediaFileInput" accept="image/*" style="display:none" onchange="handleMediaUpload(event)">
@@ -1491,16 +1620,36 @@
                     <div class="grid-panel-header">
                       <h4>📋 보기/조건 박스</h4>
                       <div class="panel-actions">
+                        <button onclick="addConditionBox()" title="박스 추가">➕</button>
+                        <button onclick="autoDetectConditionType()" title="LLM 자동 인식">🤖</button>
                         <button onclick="expandPanel('condition')" title="확대">⤢</button>
                       </div>
                     </div>
                     <div class="grid-panel-body">
-                      <textarea id="conditionEditor" placeholder="보기 또는 조건을 입력하세요...
+                      <div class="multi-box-container" id="conditionBoxContainer">
+                        <div class="multi-box-item" data-box-id="condition-1">
+                          <div class="condition-type-selector">
+                            <label class="active">
+                              <input type="radio" name="conditionType-1" value="example" checked onchange="updateConditionType(1, 'example')">
+                              〈보기〉
+                            </label>
+                            <label>
+                              <input type="radio" name="conditionType-1" value="condition" onchange="updateConditionType(1, 'condition')">
+                              〈조건〉
+                            </label>
+                            <label>
+                              <input type="radio" name="conditionType-1" value="none" onchange="updateConditionType(1, 'none')">
+                              없음
+                            </label>
+                          </div>
+                          <textarea id="conditionEditor" data-type="example" placeholder="보기 또는 조건을 입력하세요...
 
 예:
 (가) f(1) = 3
 (나) f'(2) = 0
 (다) f(x)의 최고차항의 계수는 1이다."></textarea>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1511,11 +1660,11 @@
                     <div class="grid-panel-header">
                       <h4>⭐ 배점 & 🔢 선지 조건</h4>
                     </div>
-                    <div class="grid-panel-body" style="gap: 12px;">
+                    <div class="grid-panel-body" style="gap: 12px; overflow-y: auto;">
                       <!-- 배점 입력 -->
                       <div class="score-input-group">
                         <label>배점:</label>
-                        <input type="number" id="scoreInput" value="3" min="1" max="10">
+                        <input type="number" id="scoreInput" value="3" min="0.1" max="20" step="0.1">
                         <span>점</span>
                         <select id="difficultySelect" style="margin-left: 12px; padding: 4px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 12px;">
                           <option value="하">난이도: 하</option>
@@ -1524,8 +1673,23 @@
                           <option value="킬러">난이도: 킬러</option>
                         </select>
                       </div>
+                      <!-- 선지 레이아웃 선택 -->
+                      <div class="choice-layout-selector" id="choiceLayoutSelector">
+                        <button class="active" onclick="setChoiceLayout('vertical')" data-layout="vertical" title="한 줄에 하나씩">
+                          ①<br>②<br>③
+                        </button>
+                        <button onclick="setChoiceLayout('horizontal-3-2')" data-layout="horizontal-3-2" title="3개 + 2개">
+                          ①②③<br>④⑤
+                        </button>
+                        <button onclick="setChoiceLayout('horizontal-2-3')" data-layout="horizontal-2-3" title="2개 + 3개">
+                          ①②<br>③④⑤
+                        </button>
+                        <button onclick="setChoiceLayout('horizontal-all')" data-layout="horizontal-all" title="한 줄에 모두">
+                          ①②③④⑤
+                        </button>
+                      </div>
                       <!-- 선지 조건 -->
-                      <div class="choice-condition-list" id="choiceConditionList">
+                      <div class="choice-condition-list" id="choiceConditionList" data-layout="vertical">
                         <div class="choice-condition-item">
                           <span class="choice-label">①</span>
                           <input type="text" placeholder="선지 ① 조건" data-choice="1">
@@ -1557,13 +1721,18 @@
                     <div class="grid-panel-header">
                       <h4>❓ 문제 지문</h4>
                       <div class="panel-actions">
+                        <button onclick="addQuestionBox()" title="문제 지문 추가">➕</button>
                         <button onclick="expandPanel('question')" title="확대">⤢</button>
                       </div>
                     </div>
                     <div class="grid-panel-body">
-                      <textarea id="questionEditor" placeholder="실제 물어보는 문제 지문을 입력하세요...
+                      <div class="multi-box-container" id="questionBoxContainer">
+                        <div class="multi-box-item" data-box-id="question-1">
+                          <textarea id="questionEditor" placeholder="실제 물어보는 문제 지문을 입력하세요...
 
 예: 위 조건을 만족시키는 f(x)에 대하여 f(5)의 값을 구하시오."></textarea>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2167,10 +2336,28 @@ module.exports = engine;`;
 
       // 구조화된 데이터로 미리보기 생성
       const statement = document.getElementById('statementEditor')?.value || '';
-      const condition = document.getElementById('conditionEditor')?.value || '';
-      const question = document.getElementById('questionEditor')?.value || '';
       const score = document.getElementById('scoreInput')?.value || '3';
       const difficulty = document.getElementById('difficultySelect')?.value || '중';
+      const choiceLayout = document.getElementById('choiceConditionList')?.dataset?.layout || 'vertical';
+
+      // 다중 보기/조건 박스 수집
+      const conditions = [];
+      document.querySelectorAll('#conditionBoxContainer .multi-box-item').forEach(box => {
+        const textarea = box.querySelector('textarea');
+        const type = textarea?.dataset?.type || 'example';
+        const content = textarea?.value || '';
+        if (content.trim()) {
+          conditions.push({ type, content: content.trim() });
+        }
+      });
+
+      // 다중 문제 지문 박스 수집
+      const questions = [];
+      document.querySelectorAll('#questionBoxContainer .multi-box-item textarea').forEach(textarea => {
+        if (textarea.value.trim()) {
+          questions.push(textarea.value.trim());
+        }
+      });
 
       let html = '';
 
@@ -2187,27 +2374,36 @@ module.exports = engine;`;
         </div>`;
       }
 
-      // 자료 이미지
-      if (problem.mediaImage) {
-        html += `<div style="text-align: center; margin: 16px 0;">
-          <img src="${problem.mediaImage}" style="max-width: 100%; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
-        </div>`;
-      }
+      // 자료 이미지 (다중)
+      document.querySelectorAll('#mediaBoxContainer .multi-box-item').forEach((box, i) => {
+        const img = box.querySelector('img');
+        if (img) {
+          html += `<div style="text-align: center; margin: 16px 0;">
+            <img src="${img.src}" style="max-width: 100%; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>`;
+        }
+      });
 
-      // 조건/보기 박스
-      if (condition) {
-        html += `<div style="margin: 16px 0; padding: 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-          <div style="font-size: 12px; color: #666; margin-bottom: 8px;">〈보기〉</div>
-          ${condition.replace(/\n/g, '<br>')}
-        </div>`;
-      }
+      // 조건/보기 박스 (다중, 타입별 스타일 다름)
+      conditions.forEach((cond, i) => {
+        const typeLabel = cond.type === 'example' ? '〈보기〉' : cond.type === 'condition' ? '〈조건〉' : '';
+        const borderColor = cond.type === 'example' ? '#4caf50' : cond.type === 'condition' ? '#ff9800' : '#ddd';
+        const bgColor = cond.type === 'example' ? '#f1f8e9' : cond.type === 'condition' ? '#fff3e0' : '#fff';
 
-      // 문제 지문
-      if (question) {
+        html += `<div style="margin: 16px 0; padding: 12px; border: 2px solid ${borderColor}; border-radius: 4px; background: ${bgColor};">`;
+        if (typeLabel) {
+          html += `<div style="font-size: 12px; color: #666; margin-bottom: 8px; font-weight: bold;">${typeLabel}</div>`;
+        }
+        html += `${cond.content.replace(/\n/g, '<br>')}
+        </div>`;
+      });
+
+      // 문제 지문 (다중)
+      questions.forEach((q, i) => {
         html += `<div style="margin-top: 16px; font-size: 15px; line-height: 1.8;">
-          ${question.replace(/\n/g, '<br>')}
+          ${q.replace(/\n/g, '<br>')}
         </div>`;
-      }
+      });
 
       // 선지
       const choices = [];
@@ -2219,11 +2415,62 @@ module.exports = engine;`;
 
       if (choices.length > 0) {
         html += `<div style="margin-top: 16px;">`;
-        choices.forEach(c => {
-          html += `<div style="margin: 6px 0; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
-            <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
-          </div>`;
-        });
+
+        // 레이아웃에 따른 선지 배치
+        if (choiceLayout === 'vertical') {
+          // 한 줄에 하나씩
+          choices.forEach(c => {
+            html += `<div style="margin: 6px 0; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+              <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+            </div>`;
+          });
+        } else if (choiceLayout === 'horizontal-3-2') {
+          // 3개 + 2개
+          html += `<div style="display: flex; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">`;
+          choices.slice(0, 3).forEach(c => {
+            html += `<div style="flex: 1; min-width: 30%; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+              <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+            </div>`;
+          });
+          html += `</div>`;
+          if (choices.length > 3) {
+            html += `<div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+            choices.slice(3).forEach(c => {
+              html += `<div style="flex: 1; min-width: 45%; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+                <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+              </div>`;
+            });
+            html += `</div>`;
+          }
+        } else if (choiceLayout === 'horizontal-2-3') {
+          // 2개 + 3개
+          html += `<div style="display: flex; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">`;
+          choices.slice(0, 2).forEach(c => {
+            html += `<div style="flex: 1; min-width: 45%; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+              <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+            </div>`;
+          });
+          html += `</div>`;
+          if (choices.length > 2) {
+            html += `<div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+            choices.slice(2).forEach(c => {
+              html += `<div style="flex: 1; min-width: 30%; padding: 8px 12px; background: #f9f9f9; border-radius: 4px;">
+                <span style="font-weight: bold; margin-right: 8px;">${c.num}</span> ${c.text}
+              </div>`;
+            });
+            html += `</div>`;
+          }
+        } else if (choiceLayout === 'horizontal-all') {
+          // 한 줄에 모두
+          html += `<div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+          choices.forEach(c => {
+            html += `<div style="flex: 1; min-width: 18%; padding: 8px 12px; background: #f9f9f9; border-radius: 4px; text-align: center;">
+              <span style="font-weight: bold; margin-right: 4px;">${c.num}</span> ${c.text}
+            </div>`;
+          });
+          html += `</div>`;
+        }
+
         html += `</div>`;
       }
 
@@ -2918,7 +3165,10 @@ module.exports = engine;`;
     }
 
     // 자료 창 관련 함수
-    function triggerMediaUpload() {
+    let currentMediaBoxId = 1;
+
+    function triggerMediaUpload(boxId = 1) {
+      currentMediaBoxId = boxId;
       document.getElementById('mediaFileInput').click();
     }
 
@@ -2928,12 +3178,26 @@ module.exports = engine;`;
 
       const reader = new FileReader();
       reader.onload = function(e) {
-        const zone = document.getElementById('mediaUploadZone');
-        zone.classList.add('has-content');
-        zone.innerHTML = `<img src="${e.target.result}" alt="업로드된 자료">`;
+        const zoneId = currentMediaBoxId === 1 ? 'mediaUploadZone' : `mediaUploadZone-${currentMediaBoxId}`;
+        const zone = document.getElementById(zoneId);
+        if (zone) {
+          zone.classList.add('has-content');
+          zone.innerHTML = `<img src="${e.target.result}" alt="업로드된 자료 ${currentMediaBoxId}">`;
+        }
 
-        // 현재 문제에 저장
-        studioState.problems[studioState.currentProblemIndex].mediaImage = e.target.result;
+        // 현재 문제에 저장 (다중 이미지 배열로)
+        if (!studioState.problems[studioState.currentProblemIndex].mediaImages) {
+          studioState.problems[studioState.currentProblemIndex].mediaImages = {};
+        }
+        studioState.problems[studioState.currentProblemIndex].mediaImages[currentMediaBoxId] = e.target.result;
+
+        // 기존 호환성을 위해 첫 번째 이미지도 저장
+        if (currentMediaBoxId === 1) {
+          studioState.problems[studioState.currentProblemIndex].mediaImage = e.target.result;
+        }
+
+        syncProblemContent();
+        updatePreview();
       };
       reader.readAsDataURL(file);
     }
@@ -2951,13 +3215,214 @@ module.exports = engine;`;
       studioState.problems[studioState.currentProblemIndex].mediaImage = null;
     }
 
+    // ===== 추가 박스 관련 함수들 =====
+    let mediaBoxCount = 1;
+    let conditionBoxCount = 1;
+    let questionBoxCount = 1;
+
+    // 그림/표 박스 추가
+    function addMediaBox() {
+      mediaBoxCount++;
+      const container = document.getElementById('mediaBoxContainer');
+      const newBox = document.createElement('div');
+      newBox.className = 'multi-box-item';
+      newBox.dataset.boxId = `media-${mediaBoxCount}`;
+      newBox.innerHTML = `
+        <button class="box-remove-btn" onclick="removeBox('media', ${mediaBoxCount})">✕</button>
+        <div class="media-upload-zone" id="mediaUploadZone-${mediaBoxCount}" onclick="triggerMediaUpload(${mediaBoxCount})">
+          <div class="upload-placeholder">
+            <span>📷</span>
+            이미지/표 ${mediaBoxCount}
+            <br><small>클릭하여 업로드</small>
+          </div>
+        </div>
+      `;
+      container.appendChild(newBox);
+      syncProblemContent();
+    }
+
+    // 보기/조건 박스 추가
+    function addConditionBox() {
+      conditionBoxCount++;
+      const container = document.getElementById('conditionBoxContainer');
+      const newBox = document.createElement('div');
+      newBox.className = 'multi-box-item';
+      newBox.dataset.boxId = `condition-${conditionBoxCount}`;
+      newBox.innerHTML = `
+        <button class="box-remove-btn" onclick="removeBox('condition', ${conditionBoxCount})">✕</button>
+        <div class="condition-type-selector">
+          <label class="active">
+            <input type="radio" name="conditionType-${conditionBoxCount}" value="example" checked onchange="updateConditionType(${conditionBoxCount}, 'example')">
+            〈보기〉
+          </label>
+          <label>
+            <input type="radio" name="conditionType-${conditionBoxCount}" value="condition" onchange="updateConditionType(${conditionBoxCount}, 'condition')">
+            〈조건〉
+          </label>
+          <label>
+            <input type="radio" name="conditionType-${conditionBoxCount}" value="none" onchange="updateConditionType(${conditionBoxCount}, 'none')">
+            없음
+          </label>
+        </div>
+        <textarea id="conditionEditor-${conditionBoxCount}" data-type="example" placeholder="보기 또는 조건 ${conditionBoxCount}를 입력하세요..."></textarea>
+      `;
+      container.appendChild(newBox);
+
+      // 새로 추가된 textarea에 이벤트 리스너 추가
+      const newTextarea = newBox.querySelector('textarea');
+      newTextarea.addEventListener('input', syncProblemContent);
+      syncProblemContent();
+    }
+
+    // 문제 지문 박스 추가
+    function addQuestionBox() {
+      questionBoxCount++;
+      const container = document.getElementById('questionBoxContainer');
+      const newBox = document.createElement('div');
+      newBox.className = 'multi-box-item';
+      newBox.dataset.boxId = `question-${questionBoxCount}`;
+      newBox.innerHTML = `
+        <button class="box-remove-btn" onclick="removeBox('question', ${questionBoxCount})">✕</button>
+        <textarea id="questionEditor-${questionBoxCount}" placeholder="추가 문제 지문 ${questionBoxCount}를 입력하세요..."></textarea>
+      `;
+      container.appendChild(newBox);
+
+      // 새로 추가된 textarea에 이벤트 리스너 추가
+      const newTextarea = newBox.querySelector('textarea');
+      newTextarea.addEventListener('input', syncProblemContent);
+      syncProblemContent();
+    }
+
+    // 박스 삭제
+    function removeBox(type, boxId) {
+      const container = document.getElementById(`${type}BoxContainer`);
+      const box = container.querySelector(`[data-box-id="${type}-${boxId}"]`);
+      if (box && container.children.length > 1) {
+        box.remove();
+        syncProblemContent();
+      }
+    }
+
+    // 보기/조건 타입 변경
+    function updateConditionType(boxId, type) {
+      const box = document.querySelector(`[data-box-id="condition-${boxId}"]`);
+      if (box) {
+        const textarea = box.querySelector('textarea');
+        if (textarea) {
+          textarea.dataset.type = type;
+        }
+        // 라벨 활성화 상태 업데이트
+        box.querySelectorAll('.condition-type-selector label').forEach(label => {
+          const radio = label.querySelector('input');
+          if (radio.value === type) {
+            label.classList.add('active');
+          } else {
+            label.classList.remove('active');
+          }
+        });
+        syncProblemContent();
+      }
+    }
+
+    // LLM으로 보기/조건 타입 자동 인식
+    async function autoDetectConditionType() {
+      const conditionBoxes = document.querySelectorAll('#conditionBoxContainer .multi-box-item');
+
+      for (const box of conditionBoxes) {
+        const textarea = box.querySelector('textarea');
+        const content = textarea?.value?.trim();
+
+        if (!content) continue;
+
+        // 간단한 규칙 기반 인식 (LLM 호출 전 빠른 처리)
+        let detectedType = 'example';
+
+        // 조건 키워드 패턴
+        const conditionPatterns = [
+          /조건/i, /^[가-힣]\s*[.:\)]/m, /만족/i, /성립/i,
+          /다음.*조건/i, /다음을.*만족/i
+        ];
+
+        // 보기 키워드 패턴
+        const examplePatterns = [
+          /보기/i, /ㄱ\s*[.:\)]/m, /ㄴ\s*[.:\)]/m, /ㄷ\s*[.:\)]/m,
+          /옳은\s*것/i, /옳지\s*않은/i
+        ];
+
+        const hasConditionPattern = conditionPatterns.some(p => p.test(content));
+        const hasExamplePattern = examplePatterns.some(p => p.test(content));
+
+        if (hasConditionPattern && !hasExamplePattern) {
+          detectedType = 'condition';
+        } else if (hasExamplePattern) {
+          detectedType = 'example';
+        }
+
+        // 라디오 버튼 업데이트
+        const boxId = box.dataset.boxId.split('-')[1];
+        const radio = box.querySelector(`input[value="${detectedType}"]`);
+        if (radio) {
+          radio.checked = true;
+          updateConditionType(parseInt(boxId), detectedType);
+        }
+      }
+
+      showToast('보기/조건 타입이 자동 인식되었습니다.', 'success');
+    }
+
+    // 선지 레이아웃 설정
+    function setChoiceLayout(layout) {
+      const container = document.getElementById('choiceConditionList');
+      const buttons = document.querySelectorAll('#choiceLayoutSelector button');
+
+      // 버튼 활성화 상태 업데이트
+      buttons.forEach(btn => {
+        if (btn.dataset.layout === layout) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // 레이아웃 데이터 속성 설정
+      container.dataset.layout = layout;
+
+      // 구조화된 데이터에 저장
+      if (studioState.problems[studioState.currentProblemIndex]) {
+        if (!studioState.problems[studioState.currentProblemIndex].structured) {
+          studioState.problems[studioState.currentProblemIndex].structured = {};
+        }
+        studioState.problems[studioState.currentProblemIndex].structured.choiceLayout = layout;
+      }
+
+      syncProblemContent();
+    }
+
     // 서브창 내용 동기화 - 기존 problemTextEditor와 연동
     function syncProblemContent() {
       const statement = document.getElementById('statementEditor')?.value || '';
-      const condition = document.getElementById('conditionEditor')?.value || '';
-      const question = document.getElementById('questionEditor')?.value || '';
       const score = document.getElementById('scoreInput')?.value || '3';
       const difficulty = document.getElementById('difficultySelect')?.value || '중';
+      const choiceLayout = document.getElementById('choiceConditionList')?.dataset?.layout || 'vertical';
+
+      // 다중 보기/조건 박스 수집
+      const conditions = [];
+      document.querySelectorAll('#conditionBoxContainer .multi-box-item').forEach(box => {
+        const textarea = box.querySelector('textarea');
+        const type = textarea?.dataset?.type || 'example';
+        const content = textarea?.value || '';
+        if (content.trim()) {
+          conditions.push({ type, content: content.trim() });
+        }
+      });
+
+      // 다중 문제 지문 박스 수집
+      const questions = [];
+      document.querySelectorAll('#questionBoxContainer .multi-box-item textarea').forEach(textarea => {
+        if (textarea.value.trim()) {
+          questions.push(textarea.value.trim());
+        }
+      });
 
       // 선지 조건 수집
       const choices = [];
@@ -2970,10 +3435,24 @@ module.exports = engine;`;
       // 통합 텍스트 생성
       let fullContent = '';
       if (statement) fullContent += `[제시문]\n${statement}\n\n`;
-      if (condition) fullContent += `[조건]\n${condition}\n\n`;
-      if (question) fullContent += `[문제]\n${question}\n\n`;
+
+      // 보기/조건 내용
+      conditions.forEach((cond, i) => {
+        const typeLabel = cond.type === 'example' ? '보기' : cond.type === 'condition' ? '조건' : '';
+        if (typeLabel) {
+          fullContent += `[${typeLabel}${conditions.length > 1 ? ` ${i + 1}` : ''}]\n${cond.content}\n\n`;
+        } else {
+          fullContent += `${cond.content}\n\n`;
+        }
+      });
+
+      // 문제 지문
+      questions.forEach((q, i) => {
+        fullContent += `[문제${questions.length > 1 ? ` ${i + 1}` : ''}]\n${q}\n\n`;
+      });
+
       if (choices.length > 0) {
-        fullContent += `[선지]\n`;
+        fullContent += `[선지] (레이아웃: ${choiceLayout})\n`;
         choices.forEach((c, i) => {
           fullContent += `${['①','②','③','④','⑤'][i]} ${c}\n`;
         });
@@ -2986,7 +3465,13 @@ module.exports = engine;`;
 
       // 구조화된 데이터도 저장
       studioState.problems[studioState.currentProblemIndex].structured = {
-        statement, condition, question, score, difficulty, choices
+        statement,
+        conditions,
+        questions,
+        score,
+        difficulty,
+        choices,
+        choiceLayout
       };
     }
 
