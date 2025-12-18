@@ -32,6 +32,7 @@
   <script src="engines/js/plugins/llm-chat-plugin.js"></script>
   <script src="engines/js/plugins/imagen-plugin.js"></script>
   <script src="engines/js/plugins/table-generator.js"></script>
+  <script src="engines/js/plugins/image-region-selector.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1590,6 +1591,7 @@
           <button class="editor-tab active" onclick="switchEditorTab('edit')">✏️ 편집</button>
           <button class="editor-tab" onclick="switchEditorTab('preview')">👁️ 미리보기</button>
           <button class="editor-tab" onclick="switchEditorTab('image')">🖼️ 원본 이미지</button>
+          <button class="editor-tab" onclick="switchEditorTab('regionSelector')">✂️ 영역 선택</button>
         </div>
 
         <!-- Editor Content -->
@@ -1796,6 +1798,11 @@
               <p style="font-size: 12px; color: var(--text-secondary);">Ctrl+V로 클립보드 붙여넣기 가능</p>
             </div>
             <img id="uploadedImagePreview" class="uploaded-image" style="display: none;">
+          </div>
+
+          <!-- 영역 선택 탭 -->
+          <div id="regionSelectorTab" class="tab-content" style="flex: 1; display: none;">
+            <div id="regionSelectorContainer" style="width: 100%; height: 100%;"></div>
           </div>
         </div>
 
@@ -2495,6 +2502,238 @@ module.exports = engine;`;
       if (tabName === 'preview') {
         updatePreview();
       }
+
+      if (tabName === 'regionSelector') {
+        initRegionSelector();
+      }
+    }
+
+    // ==================== Notification ====================
+    function showNotification(message, type = 'info') {
+      // 기존 알림 제거
+      const existingNotification = document.querySelector('.studio-notification');
+      if (existingNotification) {
+        existingNotification.remove();
+      }
+
+      const notification = document.createElement('div');
+      notification.className = `studio-notification studio-notification-${type}`;
+      notification.style.cssText = `
+        position: fixed;
+        top: 60px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: white;
+        font-size: 13px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+
+      const colors = {
+        success: '#4caf50',
+        error: '#f44336',
+        warning: '#ff9800',
+        info: '#4a9eff'
+      };
+      notification.style.background = colors[type] || colors.info;
+      notification.textContent = message;
+
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // 알림 애니메이션 스타일 추가
+    if (!document.getElementById('notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // ==================== Image Region Selector ====================
+    let regionSelector = null;
+
+    function initRegionSelector() {
+      if (regionSelector) return; // 이미 초기화됨
+
+      const container = document.getElementById('regionSelectorContainer');
+      if (!container) return;
+
+      regionSelector = new ImageRegionSelector(container, {
+        handleSize: 10,
+        handleColor: '#4a9eff',
+        selectionBorderColor: '#4a9eff',
+        overlayColor: 'rgba(0, 0, 0, 0.5)'
+      });
+
+      // 선택 영역 변경 콜백
+      regionSelector.onSelectionChange((selection) => {
+        console.log('선택 영역 변경:', selection);
+      });
+
+      // Export 콜백 - 다른 기능에 전달
+      regionSelector.onExport((data) => {
+        console.log('영역 추출됨:', data.selection);
+        handleExportedRegion(data);
+      });
+
+      // OCR 콜백 - 선택 영역 OCR 실행
+      regionSelector.onOCR((data) => {
+        console.log('OCR 요청:', data.selection);
+        runRegionOCR(data);
+      });
+    }
+
+    // 추출된 영역 처리 함수
+    function handleExportedRegion(data) {
+      // 이벤트 발생 - 다른 모듈에서 구독 가능
+      const event = new CustomEvent('regionExported', {
+        detail: {
+          dataURL: data.dataURL,
+          base64: data.base64,
+          selection: data.selection,
+          format: data.format
+        }
+      });
+      document.dispatchEvent(event);
+
+      // 알림
+      showNotification(`영역 추출 완료: ${data.selection.width}×${data.selection.height}px`, 'success');
+
+      // 미디어 패널에 자동 삽입 옵션
+      if (confirm('추출된 영역을 자료(그림/표) 패널에 추가하시겠습니까?')) {
+        addExportedImageToMedia(data.dataURL);
+      }
+    }
+
+    // 선택 영역 OCR 실행
+    async function runRegionOCR(data) {
+      showNotification('🔍 선택 영역 OCR 처리 중...', 'info');
+      addChatMessage('🔍 선택 영역 OCR 처리 중...', 'assistant');
+
+      try {
+        // OCR API 호출
+        const ocrResult = await StudioAPI.ocr(data.base64, 'problem');
+
+        // 결과를 제시문 편집기에 표시
+        const statementEditor = document.getElementById('statementEditor');
+        if (statementEditor) {
+          // 기존 내용이 있으면 추가, 없으면 새로 설정
+          if (statementEditor.value.trim()) {
+            statementEditor.value += '\n\n--- OCR 결과 ---\n' + ocrResult;
+          } else {
+            statementEditor.value = ocrResult;
+          }
+        }
+
+        // 숨겨진 problemTextEditor에도 저장
+        const problemTextEditor = document.getElementById('problemTextEditor');
+        if (problemTextEditor) {
+          problemTextEditor.value = statementEditor?.value || ocrResult;
+        }
+
+        // 현재 문제 데이터 업데이트
+        const problem = studioState.problems[studioState.currentProblemIndex];
+        if (problem) {
+          problem.content = statementEditor?.value || ocrResult;
+          if (!problem.structured) problem.structured = {};
+          problem.structured.statement = statementEditor?.value || ocrResult;
+        }
+
+        showNotification('✅ OCR 완료! 제시문에 결과가 입력되었습니다.', 'success');
+        addChatMessage('✅ OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.', 'assistant');
+
+        // 편집 탭으로 전환
+        document.querySelector('.editor-tab[onclick*="edit"]')?.click();
+
+        // 자동 엔진 선택 모드일 경우 분석 실행
+        if (studioState.autoEngineMode && ocrResult) {
+          analyzeAndSuggestEngine(ocrResult);
+        }
+
+        // 이벤트 발생
+        document.dispatchEvent(new CustomEvent('regionOCRComplete', {
+          detail: { text: ocrResult, selection: data.selection }
+        }));
+
+        return ocrResult;
+      } catch (error) {
+        showNotification(`❌ OCR 오류: ${error.message}`, 'error');
+        addChatMessage(`❌ OCR 오류: ${error.message}`, 'assistant');
+        throw error;
+      }
+    }
+
+    // 추출 이미지를 미디어 패널에 추가
+    function addExportedImageToMedia(dataURL) {
+      const container = document.getElementById('mediaBoxContainer');
+      if (!container) return;
+
+      // 새 미디어 박스 추가
+      const boxCount = container.querySelectorAll('.multi-box-item').length + 1;
+      const newBox = document.createElement('div');
+      newBox.className = 'multi-box-item';
+      newBox.dataset.boxId = `media-${boxCount}`;
+      newBox.innerHTML = `
+        <div class="media-preview-wrapper">
+          <img src="${dataURL}" class="media-preview-image" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+          <button class="media-remove-btn" onclick="removeMediaBox(${boxCount})" title="삭제">×</button>
+        </div>
+      `;
+      container.appendChild(newBox);
+
+      // 편집 탭으로 전환
+      document.querySelector('.editor-tab[onclick*="edit"]')?.click();
+    }
+
+    // 외부에서 영역 선택기에 이미지 로드
+    function loadImageToRegionSelector(imageSource) {
+      if (!regionSelector) {
+        initRegionSelector();
+      }
+
+      if (typeof imageSource === 'string') {
+        // URL 또는 DataURL
+        regionSelector.loadFromDataURL(imageSource);
+      } else if (imageSource instanceof File) {
+        regionSelector.loadFromFile(imageSource);
+      }
+
+      // 영역 선택 탭으로 전환
+      document.querySelector('.editor-tab[onclick*="regionSelector"]')?.click();
+    }
+
+    // 현재 선택 영역 가져오기
+    function getSelectedRegion() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        return null;
+      }
+      return regionSelector.getSelection();
+    }
+
+    // 선택 영역 이미지 추출
+    function exportSelectedRegion(format = 'image/png') {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        return null;
+      }
+      return regionSelector.exportRegion(format);
     }
 
     function updatePreview() {
