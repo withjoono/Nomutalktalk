@@ -80,9 +80,11 @@ const corsOptions = {
       : [
           'http://localhost:3000',
           'http://localhost:3001',
+          'http://localhost:3005',
           'http://localhost:8080',
           'http://127.0.0.1:3000',
           'http://127.0.0.1:3001',
+          'http://127.0.0.1:3005',
           'http://127.0.0.1:8080',
           'https://google-file-search.vercel.app',
           'https://google-file-search.netlify.app'
@@ -6893,6 +6895,471 @@ app.post('/api/imagen/edit', async (req, res) => {
     }
   } catch (error) {
     console.error('이미지 편집 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== RAG 관리자 API ====================
+
+// RAG 관리자 서비스 초기화
+let ragManagerService = null;
+
+async function getRAGManagerService() {
+  if (!ragManagerService && db) {
+    // RAGManagerService는 TypeScript로 작성되어 dist에서 가져옴
+    try {
+      const { RAGManagerService } = require('./dist/services/RAGManagerService');
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      ragManagerService = new RAGManagerService(db, genAI);
+    } catch (error) {
+      console.error('RAG Manager Service 초기화 오류:', error.message);
+      console.warn('TypeScript 빌드가 필요합니다: npm run build');
+    }
+  }
+  return ragManagerService;
+}
+
+// RAG 관리자 통계
+app.get('/api/rag-manager/stats', async (req, res) => {
+  try {
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const stats = await service.getStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('RAG Manager 통계 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 버전 히스토리 조회
+app.get('/api/rag-manager/versions/:documentId', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const history = await service.getVersionHistory(documentId);
+    res.json({ success: true, data: history });
+  } catch (error) {
+    console.error('버전 히스토리 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 버전 비교
+app.post('/api/rag-manager/versions/compare', async (req, res) => {
+  try {
+    const { collectionName, versionIdA, versionIdB } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const comparison = await service.compareVersions(collectionName, versionIdA, versionIdB);
+    res.json({ success: true, data: comparison });
+  } catch (error) {
+    console.error('버전 비교 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 버전 승인
+app.post('/api/rag-manager/versions/:versionId/approve', async (req, res) => {
+  try {
+    const { versionId } = req.params;
+    const { collectionName, approvedBy } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    await service.approveVersion(collectionName, versionId, approvedBy);
+    res.json({ success: true, message: '버전이 승인되었습니다.' });
+  } catch (error) {
+    console.error('버전 승인 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 최신 승인 버전 조회 (RAG 검색용)
+app.get('/api/rag-manager/versions/:collectionName/:documentId/latest-approved', async (req, res) => {
+  try {
+    const { collectionName, documentId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const document = await service.getLatestApprovedVersion(collectionName, documentId);
+    res.json({ success: true, data: document });
+  } catch (error) {
+    console.error('최신 승인 버전 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 에셋 생성
+app.post('/api/rag-manager/assets', async (req, res) => {
+  try {
+    const assetData = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const assetId = await service.createAsset(assetData);
+    res.json({ success: true, data: { assetId } });
+  } catch (error) {
+    console.error('에셋 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 미페어링 에셋 조회
+app.get('/api/rag-manager/assets/unpaired', async (req, res) => {
+  try {
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const assets = await service.getUnpairedAssets();
+    res.json({ success: true, data: assets });
+  } catch (error) {
+    console.error('미페어링 에셋 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 페어링 생성
+app.post('/api/rag-manager/pairings', async (req, res) => {
+  try {
+    const pairingData = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const pairingId = await service.createPairing(pairingData);
+    res.json({ success: true, data: { pairingId } });
+  } catch (error) {
+    console.error('페어링 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 페어링 상태 업데이트
+app.patch('/api/rag-manager/pairings/:pairingId', async (req, res) => {
+  try {
+    const { pairingId } = req.params;
+    const { status, verifiedBy, notes } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    await service.updatePairingStatus(pairingId, status, verifiedBy, notes);
+    res.json({ success: true, message: '페어링 상태가 업데이트되었습니다.' });
+  } catch (error) {
+    console.error('페어링 상태 업데이트 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 페어링 추천
+app.get('/api/rag-manager/pairings/suggest/:assetId', async (req, res) => {
+  try {
+    const { assetId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const suggestions = await service.suggestPairings(assetId);
+    res.json({ success: true, data: suggestions });
+  } catch (error) {
+    console.error('페어링 추천 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 에셋 페어링 조회
+app.get('/api/rag-manager/pairings/asset/:assetId', async (req, res) => {
+  try {
+    const { assetId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const pairings = await service.getPairingsForAsset(assetId);
+    res.json({ success: true, data: pairings });
+  } catch (error) {
+    console.error('에셋 페어링 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 대상 페어링 조회
+app.get('/api/rag-manager/pairings/target/:targetId', async (req, res) => {
+  try {
+    const { targetId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const pairings = await service.getPairingsForTarget(targetId);
+    res.json({ success: true, data: pairings });
+  } catch (error) {
+    console.error('대상 페어링 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청크 유형별 생성
+app.post('/api/rag-manager/chunks', async (req, res) => {
+  try {
+    const { chunkData, options } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const chunkId = await service.createTypedChunk(chunkData, options);
+    res.json({ success: true, data: { chunkId } });
+  } catch (error) {
+    console.error('청크 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청크 그룹 생성
+app.post('/api/rag-manager/chunk-groups', async (req, res) => {
+  try {
+    const { groupType, chunkIds, primaryChunkId, metadata } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const groupId = await service.createChunkGroup(groupType, chunkIds, primaryChunkId, metadata);
+    res.json({ success: true, data: { groupId } });
+  } catch (error) {
+    console.error('청크 그룹 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청크 임베딩 생성
+app.post('/api/rag-manager/chunks/:chunkId/embed', async (req, res) => {
+  try {
+    const { chunkId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    await service.embedChunk(chunkId);
+    res.json({ success: true, message: '청크 임베딩이 생성되었습니다.' });
+  } catch (error) {
+    console.error('청크 임베딩 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청크 일괄 임베딩
+app.post('/api/rag-manager/chunks/embed-batch', async (req, res) => {
+  try {
+    const { chunkIds } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const result = await service.embedChunksBatch(chunkIds);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('청크 일괄 임베딩 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청크 유형별 조회
+app.get('/api/rag-manager/chunks/type/:chunkType', async (req, res) => {
+  try {
+    const { chunkType } = req.params;
+    const { onlyApproved, limit } = req.query;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const chunks = await service.getChunksByType(chunkType, {
+      onlyApproved: onlyApproved !== 'false',
+      limit: limit ? parseInt(limit) : 100
+    });
+    res.json({ success: true, data: chunks });
+  } catch (error) {
+    console.error('청크 유형별 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 문제와 자료 함께 생성
+app.post('/api/rag-manager/problems-with-assets', async (req, res) => {
+  try {
+    const { problemData, assets, options } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const result = await service.createProblemWithAssets(problemData, assets, options);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('문제+자료 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 교과서 본문과 이미지 함께 생성
+app.post('/api/rag-manager/textbook-with-assets', async (req, res) => {
+  try {
+    const { contentData, assets, options } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const result = await service.createTextbookContentWithAssets(contentData, assets, options);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('교과서 본문+이미지 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 문서별 페어링 상태 조회
+app.get('/api/rag-manager/documents/:documentId/pairing-status', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const status = await service.getDocumentPairingStatus(documentId);
+    res.json({ success: true, data: status });
+  } catch (error) {
+    console.error('문서 페어링 상태 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 청킹 미리보기
+app.post('/api/rag-manager/chunking/preview', async (req, res) => {
+  try {
+    const { text, strategy, options } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const result = await service.previewChunking(text, strategy, options || {});
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('청킹 미리보기 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 자동 청킹 실행
+app.post('/api/rag-manager/chunking/auto', async (req, res) => {
+  try {
+    const { text, options } = req.body;
+    const service = await getRAGManagerService();
+    if (!service) {
+      return res.status(503).json({
+        success: false,
+        error: 'RAG Manager Service가 초기화되지 않았습니다.'
+      });
+    }
+
+    const result = await service.autoChunk(text, options);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('자동 청킹 오류:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

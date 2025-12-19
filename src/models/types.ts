@@ -347,3 +347,156 @@ export interface MulterFile {
   path: string;
   buffer?: Buffer;
 }
+
+// ============================================================
+// 버전 관리 인터페이스
+// ============================================================
+
+export const VERSION_STATUS = ['draft', 'pending_review', 'approved', 'rejected', 'archived'] as const;
+export type VersionStatus = (typeof VERSION_STATUS)[number];
+
+export const CHANGE_TYPES = ['create', 'update', 'delete', 'restore'] as const;
+export type ChangeType = (typeof CHANGE_TYPES)[number];
+
+export interface VersionInfo {
+  version: number;
+  status: VersionStatus;
+  createdAt: Date;
+  createdBy?: string;
+  approvedAt?: Date;
+  approvedBy?: string;
+  changeType: ChangeType;
+  changeDescription?: string;
+  previousVersionId?: string;
+}
+
+export interface VersionedDocument extends BaseDocument {
+  id: string;
+  versionInfo: VersionInfo;
+  isLatestApproved: boolean;
+  latestApprovedVersionId?: string;
+}
+
+export interface VersionHistory {
+  documentId: string;
+  versions: Array<{
+    versionId: string;
+    version: number;
+    status: VersionStatus;
+    createdAt: Date;
+    createdBy?: string;
+    changeType: ChangeType;
+    changeDescription?: string;
+    diff?: ContentDiff;
+  }>;
+}
+
+export interface ContentDiff {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+// ============================================================
+// 에셋 페어링 인터페이스
+// ============================================================
+
+export const ASSET_TYPES = ['image', 'table', 'graph', 'diagram', 'formula'] as const;
+export type AssetType = (typeof ASSET_TYPES)[number];
+
+export const PAIRING_STATUS = ['unverified', 'verified', 'rejected', 'needs_review'] as const;
+export type PairingStatus = (typeof PAIRING_STATUS)[number];
+
+export interface Asset {
+  id: string;
+  type: AssetType;
+  fileData?: string; // base64
+  filePath?: string;
+  mimeType: string;
+  ocrText?: string;
+  description?: string;
+  caption?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  versionInfo?: VersionInfo;
+}
+
+export interface AssetPairing {
+  id: string;
+  assetId: string;
+  targetType: 'textbook_content' | 'problem' | 'solution' | 'explanation';
+  targetId: string;
+  position?: number; // 대상 내에서의 위치/순서
+  relationship: 'illustrates' | 'supplements' | 'contains_data' | 'shows_solution' | 'reference';
+  pairingStatus: PairingStatus;
+  verifiedAt?: Date;
+  verifiedBy?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+// ============================================================
+// RAG 청크 타입 (확장)
+// ============================================================
+
+export const RAG_CHUNK_TYPES = [
+  'textbook_text',      // 교과서 본문 텍스트
+  'textbook_image',     // 교과서 이미지 + 캡션
+  'problem_text',       // 문제 본문
+  'problem_image',      // 문제 이미지
+  'problem_table',      // 문제 표
+  'solution_text',      // 정답 및 해설 텍스트
+  'solution_image',     // 해설 이미지
+] as const;
+export type RAGChunkType = (typeof RAG_CHUNK_TYPES)[number];
+
+export interface RAGChunk extends Chunk {
+  id: string;
+  chunkType: RAGChunkType;
+  embeddingVector?: number[];
+  embeddingModel?: string;
+  embeddedAt?: Date;
+  pairedChunkIds?: string[]; // 연결된 다른 청크들
+  assetPairings?: AssetPairing[];
+  versionInfo?: VersionInfo;
+  isLatestApproved: boolean;
+}
+
+export interface ChunkGroup {
+  id: string;
+  groupType: 'problem_set' | 'textbook_section' | 'concept_unit';
+  chunkIds: string[];
+  primaryChunkId: string; // 대표 청크 (문제 본문 등)
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+}
+
+// ============================================================
+// RAG 관리자 도구 인터페이스
+// ============================================================
+
+export interface RAGManagerStats {
+  totalDocuments: number;
+  totalChunks: number;
+  chunksByType: Record<RAGChunkType, number>;
+  unpairedAssets: number;
+  pendingReview: number;
+  approvedVersions: number;
+  draftVersions: number;
+}
+
+export interface PairingCandidate {
+  assetId: string;
+  targetId: string;
+  confidence: number;
+  suggestedRelationship: AssetPairing['relationship'];
+  reason: string;
+}
+
+export interface VersionCompare {
+  versionA: string;
+  versionB: string;
+  diffs: ContentDiff[];
+  summary: string;
+}

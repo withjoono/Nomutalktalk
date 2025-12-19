@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 관리자 도구</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* RAG 관리자 전용 스타일 */
+    .rag-manager-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card.warning {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-card.success {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .tab-container {
+      margin-bottom: 24px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: #f7fafc;
+      color: #4a5568;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+
+    .tab-btn:hover {
+      background: #edf2f7;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+      background: white;
+      padding: 24px;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* 버전 히스토리 테이블 */
+    .version-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    .version-table th,
+    .version-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .version-table th {
+      background: #f7fafc;
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .version-table tr:hover {
+      background: #f8fafc;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .status-badge.draft {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-badge.pending_review {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-badge.approved {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-badge.rejected {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    /* 페어링 카드 */
+    .pairing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .pairing-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      background: white;
+    }
+
+    .pairing-card.unverified {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .pairing-card.verified {
+      border-left: 4px solid #10b981;
+    }
+
+    .pairing-card.rejected {
+      border-left: 4px solid #ef4444;
+    }
+
+    .pairing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .pairing-type {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .pairing-preview {
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .pairing-preview img {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+
+    .pairing-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    /* 청크 유형 선택기 */
+    .chunk-type-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chunk-type-btn {
+      padding: 8px 16px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+    }
+
+    .chunk-type-btn:hover {
+      border-color: #667eea;
+    }
+
+    .chunk-type-btn.selected {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    /* 청크 생성 폼 */
+    .chunk-form {
+      display: grid;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-weight: 500;
+      color: #4a5568;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    /* 버전 비교 */
+    .version-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .version-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .version-panel h4 {
+      margin-bottom: 12px;
+      color: #4a5568;
+    }
+
+    .diff-highlight {
+      background: #fef3c7;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .diff-added {
+      background: #d1fae5;
+    }
+
+    .diff-removed {
+      background: #fee2e2;
+      text-decoration: line-through;
+    }
+
+    /* 임베딩 상태 */
+    .embedding-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .embedding-status .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .embedding-status .dot.embedded {
+      background: #10b981;
+    }
+
+    .embedding-status .dot.pending {
+      background: #f59e0b;
+    }
+
+    /* 문제 + 자료 생성 폼 */
+    .problem-form {
+      display: grid;
+      gap: 20px;
+    }
+
+    .asset-upload-area {
+      border: 2px dashed #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .asset-upload-area:hover {
+      border-color: #667eea;
+      background: #f8fafc;
+    }
+
+    .asset-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .asset-item {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+
+    .asset-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .asset-item .remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.9);
+      color: white;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 반응형 */
+    @media (max-width: 768px) {
+      .version-compare {
+        grid-template-columns: 1fr;
+      }
+
+      .tab-buttons {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .stat-card {
+        padding: 16px;
+      }
+
+      .stat-value {
+        font-size: 2rem;
+      }
+    }
+
+    /* 로딩 상태 */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-overlay.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-overlay hidden" id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="rag-manager-container">
+    <header style="margin-bottom: 24px;">
+      <h1 style="font-size: 1.8rem; color: #2d3748;">RAG 관리자 도구</h1>
+      <p style="color: #718096;">버전 관리, 에셋 페어링, 청크 관리 및 임베딩 생성</p>
+      <a href="/" style="color: #667eea; text-decoration: none;">← 메인으로 돌아가기</a>
+    </header>
+
+    <!-- 통계 카드 -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalDocuments">-</div>
+        <div class="stat-label">총 문서</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value" id="totalChunks">-</div>
+        <div class="stat-label">총 청크</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-value" id="unpairedAssets">-</div>
+        <div class="stat-label">미페어링 에셋</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="pendingReview">-</div>
+        <div class="stat-label">검토 대기</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value" id="approvedVersions">-</div>
+        <div class="stat-label">승인된 버전</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-value" id="draftVersions">-</div>
+        <div class="stat-label">초안 버전</div>
+      </div>
+    </div>
+
+    <!-- 탭 컨테이너 -->
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="versions">버전 관리</button>
+        <button class="tab-btn" data-tab="pairings">에셋 페어링</button>
+        <button class="tab-btn" data-tab="chunks">청크 관리</button>
+        <button class="tab-btn" data-tab="auto-chunking">자동 청킹</button>
+        <button class="tab-btn" data-tab="embedding">임베딩 생성</button>
+        <button class="tab-btn" data-tab="create-problem">문제+자료 생성</button>
+        <button class="tab-btn" data-tab="create-textbook">교과서+이미지 생성</button>
+      </div>
+
+      <!-- 버전 관리 탭 -->
+      <div class="tab-content active" id="versions-tab">
+        <h3>버전 히스토리 조회</h3>
+        <div class="form-group">
+          <label>문서 ID</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="versionDocumentId" placeholder="문서 ID를 입력하세요">
+            <button class="btn btn-primary" onclick="loadVersionHistory()">조회</button>
+          </div>
+        </div>
+
+        <div id="versionHistoryResult" style="margin-top: 20px;"></div>
+
+        <h3 style="margin-top: 32px;">버전 비교</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
+          <div class="form-group">
+            <label>컬렉션</label>
+            <select id="compareCollection">
+              <option value="rag_chunks">청크</option>
+              <option value="rag_documents">문서</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>버전 A ID</label>
+            <input type="text" id="compareVersionA" placeholder="예: doc_v1">
+          </div>
+          <div class="form-group">
+            <label>버전 B ID</label>
+            <input type="text" id="compareVersionB" placeholder="예: doc_v2">
+          </div>
+          <button class="btn btn-primary" onclick="compareVersions()">비교</button>
+        </div>
+
+        <div id="versionCompareResult" style="margin-top: 20px;"></div>
+      </div>
+
+      <!-- 에셋 페어링 탭 -->
+      <div class="tab-content" id="pairings-tab">
+        <h3>미페어링 에셋</h3>
+        <button class="btn btn-secondary" onclick="loadUnpairedAssets()">새로고침</button>
+
+        <div class="pairing-grid" id="unpairedAssetsList" style="margin-top: 16px;"></div>
+
+        <h3 style="margin-top: 32px;">페어링 생성</h3>
+        <div class="chunk-form">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>에셋 ID</label>
+              <input type="text" id="pairingAssetId" placeholder="에셋 ID">
+            </div>
+            <div class="form-group">
+              <label>대상 ID</label>
+              <input type="text" id="pairingTargetId" placeholder="청크 또는 문서 ID">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>대상 유형</label>
+              <select id="pairingTargetType">
+                <option value="problem">문제</option>
+                <option value="textbook_content">교과서 본문</option>
+                <option value="solution">해설</option>
+                <option value="explanation">설명</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>관계</label>
+              <select id="pairingRelationship">
+                <option value="illustrates">설명 (illustrates)</option>
+                <option value="supplements">보충 (supplements)</option>
+                <option value="contains_data">데이터 포함 (contains_data)</option>
+                <option value="shows_solution">풀이 표시 (shows_solution)</option>
+                <option value="reference">참조 (reference)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="createPairing()">페어링 생성</button>
+        </div>
+      </div>
+
+      <!-- 청크 관리 탭 -->
+      <div class="tab-content" id="chunks-tab">
+        <h3>청크 유형별 조회</h3>
+        <div class="chunk-type-selector" id="chunkTypeSelector">
+          <button class="chunk-type-btn selected" data-type="textbook_text">교과서 본문</button>
+          <button class="chunk-type-btn" data-type="textbook_image">교과서 이미지</button>
+          <button class="chunk-type-btn" data-type="problem_text">문제 본문</button>
+          <button class="chunk-type-btn" data-type="problem_image">문제 이미지</button>
+          <button class="chunk-type-btn" data-type="problem_table">문제 표</button>
+          <button class="chunk-type-btn" data-type="solution_text">해설 텍스트</button>
+          <button class="chunk-type-btn" data-type="solution_image">해설 이미지</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; gap: 4px;">
+            <input type="checkbox" id="chunkOnlyApproved" checked>
+            승인된 것만
+          </label>
+          <button class="btn btn-primary" onclick="loadChunksByType()">조회</button>
+        </div>
+
+        <div id="chunksList" style="margin-top: 16px;"></div>
+
+        <h3 style="margin-top: 32px;">청크 직접 생성</h3>
+        <div class="chunk-form">
+          <div class="form-group">
+            <label>청크 유형</label>
+            <select id="newChunkType">
+              <option value="textbook_text">교과서 본문 텍스트</option>
+              <option value="textbook_image">교과서 이미지 + 캡션</option>
+              <option value="problem_text">문제 본문</option>
+              <option value="problem_image">문제 이미지</option>
+              <option value="problem_table">문제 표</option>
+              <option value="solution_text">정답 및 해설 텍스트</option>
+              <option value="solution_image">해설 이미지</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>콘텐츠</label>
+            <textarea id="newChunkContent" placeholder="청크 내용을 입력하세요"></textarea>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>문서 유형</label>
+              <select id="newChunkDocType">
+                <option value="textbook">교과서</option>
+                <option value="supplementary">부교재</option>
+                <option value="csat_past">수능 기출</option>
+                <option value="csat_mock">수능 모의</option>
+                <option value="school_exam">학교 시험</option>
+                <option value="university_essay">대학 논술</option>
+                <option value="university_interview">대학 면접</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="newChunkAutoApprove">
+                자동 승인
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="createChunk()">청크 생성</button>
+        </div>
+      </div>
+
+      <!-- 자동 청킹 탭 -->
+      <div class="tab-content" id="auto-chunking-tab">
+        <h3>🔄 자동 청킹</h3>
+        <p style="color: #718096; margin-bottom: 16px;">텍스트를 자동으로 의미 있는 단위로 분할합니다. 문단, 문장, 의미 단위 등 다양한 전략을 지원합니다.</p>
+
+        <div class="chunk-form">
+          <div class="form-group">
+            <label>텍스트 입력</label>
+            <textarea id="autoChunkText" placeholder="청킹할 텍스트를 입력하세요..." style="min-height: 200px;"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>청킹 전략</label>
+              <select id="chunkingStrategy" onchange="updateStrategyOptions()">
+                <option value="paragraph">📝 문단 단위 (권장)</option>
+                <option value="sentence">📖 문장 단위</option>
+                <option value="semantic">🧠 의미 단위 (AI 기반)</option>
+                <option value="fixed_size">📏 고정 글자 수</option>
+                <option value="sliding_window">🪟 슬라이딩 윈도우</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>청크 유형</label>
+              <select id="autoChunkType">
+                <option value="textbook_text">교과서 본문</option>
+                <option value="problem_text">문제 본문</option>
+                <option value="solution_text">해설 텍스트</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 전략별 옵션 -->
+          <div id="strategyOptions" style="background: #f7fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <h4 style="margin-bottom: 12px; color: #4a5568;">📝 문단 단위 옵션</h4>
+            <div id="paragraphOptions">
+              <div class="form-group">
+                <label>최소 문단 길이 (자)</label>
+                <input type="number" id="minParagraphLength" value="50" min="10" max="500">
+                <small style="color: #718096;">이보다 짧은 문단은 다음 문단과 합쳐집니다.</small>
+              </div>
+            </div>
+            <div id="sentenceOptions" style="display: none;">
+              <div class="form-group">
+                <label>청크당 문장 수</label>
+                <input type="number" id="sentencesPerChunk" value="3" min="1" max="10">
+                <small style="color: #718096;">하나의 청크에 포함될 문장 개수입니다.</small>
+              </div>
+            </div>
+            <div id="semanticOptions" style="display: none;">
+              <div class="form-group">
+                <label>최대 청크 수</label>
+                <input type="number" id="maxSemanticChunks" value="10" min="2" max="30">
+                <small style="color: #718096;">AI가 생성할 최대 청크 개수입니다.</small>
+              </div>
+            </div>
+            <div id="fixedSizeOptions" style="display: none;">
+              <div class="form-group">
+                <label>최대 글자 수</label>
+                <input type="number" id="fixedSize" value="500" min="100" max="2000">
+              </div>
+              <div class="form-group">
+                <label>오버랩 (자)</label>
+                <input type="number" id="fixedOverlap" value="50" min="0" max="200">
+                <small style="color: #718096;">청크 간 중복되는 글자 수입니다.</small>
+              </div>
+            </div>
+            <div id="slidingWindowOptions" style="display: none;">
+              <div class="form-group">
+                <label>윈도우 크기 (자)</label>
+                <input type="number" id="windowSize" value="500" min="100" max="2000">
+              </div>
+              <div class="form-group">
+                <label>스텝 크기 (자)</label>
+                <input type="number" id="stepSize" value="250" min="50" max="1000">
+                <small style="color: #718096;">윈도우 이동 간격입니다.</small>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>문서 유형</label>
+              <select id="autoChunkDocType">
+                <option value="textbook">교과서</option>
+                <option value="supplementary">부교재</option>
+                <option value="csat_past">수능 기출</option>
+                <option value="csat_mock">수능 모의</option>
+                <option value="school_exam">학교 시험</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label style="display: flex; gap: 16px; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <input type="checkbox" id="autoChunkApprove">
+                  자동 승인
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                  <input type="checkbox" id="autoChunkEmbed">
+                  자동 임베딩
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button class="btn btn-secondary" onclick="previewChunking()">👁️ 미리보기</button>
+            <button class="btn btn-primary" onclick="executeAutoChunking()">✨ 청킹 실행</button>
+          </div>
+        </div>
+
+        <!-- 미리보기 결과 -->
+        <div id="chunkingPreviewResult" style="margin-top: 24px;"></div>
+
+        <!-- 실행 결과 -->
+        <div id="chunkingExecuteResult" style="margin-top: 24px;"></div>
+      </div>
+
+      <!-- 임베딩 생성 탭 -->
+      <div class="tab-content" id="embedding-tab">
+        <h3>청크 임베딩 생성</h3>
+        <p style="color: #718096; margin-bottom: 16px;">선택한 청크에 대해 임베딩 벡터를 생성합니다.</p>
+
+        <div class="form-group">
+          <label>청크 ID (쉼표로 구분)</label>
+          <textarea id="embedChunkIds" placeholder="chunk_id_1, chunk_id_2, chunk_id_3"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="embedChunks()">임베딩 생성</button>
+
+        <div id="embedResult" style="margin-top: 16px;"></div>
+
+        <h3 style="margin-top: 32px;">단일 청크 임베딩</h3>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="singleEmbedChunkId" placeholder="청크 ID">
+          <button class="btn btn-secondary" onclick="embedSingleChunk()">임베딩</button>
+        </div>
+      </div>
+
+      <!-- 문제+자료 생성 탭 -->
+      <div class="tab-content" id="create-problem-tab">
+        <h3>문제와 자료 함께 생성</h3>
+        <p style="color: #718096; margin-bottom: 16px;">문제 본문, 해설, 관련 이미지/표를 함께 등록하고 자동으로 페어링합니다.</p>
+
+        <div class="problem-form">
+          <div class="form-group">
+            <label>문제 본문</label>
+            <textarea id="problemText" placeholder="문제 내용을 입력하세요"></textarea>
+          </div>
+          <div class="form-group">
+            <label>정답</label>
+            <input type="text" id="problemAnswer" placeholder="정답">
+          </div>
+          <div class="form-group">
+            <label>해설</label>
+            <textarea id="problemSolution" placeholder="해설 내용 (선택)"></textarea>
+          </div>
+          <div class="form-group">
+            <label>문서 유형</label>
+            <select id="problemDocType">
+              <option value="csat_past">수능 기출</option>
+              <option value="csat_mock">수능 모의</option>
+              <option value="school_exam">학교 시험</option>
+              <option value="university_essay">대학 논술</option>
+              <option value="university_interview">대학 면접</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>관련 이미지/표 (선택)</label>
+            <div class="asset-upload-area" id="problemAssetUpload">
+              클릭하거나 파일을 드래그하세요
+              <input type="file" id="problemAssetInput" multiple accept="image/*" style="display: none;">
+            </div>
+            <div class="asset-list" id="problemAssetList"></div>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="problemAutoApprove">
+              자동 승인
+            </label>
+          </div>
+
+          <button class="btn btn-primary" onclick="createProblemWithAssets()">문제+자료 생성</button>
+        </div>
+
+        <div id="problemCreateResult" style="margin-top: 16px;"></div>
+      </div>
+
+      <!-- 교과서+이미지 생성 탭 -->
+      <div class="tab-content" id="create-textbook-tab">
+        <h3>교과서 본문과 이미지 함께 생성</h3>
+        <p style="color: #718096; margin-bottom: 16px;">교과서 본문 텍스트와 관련 그림/표를 함께 등록하고 자동으로 페어링합니다.</p>
+
+        <div class="chunk-form">
+          <div class="form-group">
+            <label>본문 텍스트</label>
+            <textarea id="textbookText" placeholder="교과서 본문 내용을 입력하세요"></textarea>
+          </div>
+          <div class="form-group">
+            <label>문서 유형</label>
+            <select id="textbookDocType">
+              <option value="textbook">교과서</option>
+              <option value="supplementary">부교재</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>관련 이미지/표</label>
+            <div class="asset-upload-area" id="textbookAssetUpload">
+              클릭하거나 파일을 드래그하세요
+              <input type="file" id="textbookAssetInput" multiple accept="image/*" style="display: none;">
+            </div>
+            <div class="asset-list" id="textbookAssetList"></div>
+          </div>
+
+          <div class="form-group">
+            <label>이미지 캡션 (쉼표로 구분)</label>
+            <input type="text" id="textbookCaptions" placeholder="그림 1.1: 이차함수의 그래프, 표 1.2: 데이터 비교">
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" id="textbookAutoApprove">
+              자동 승인
+            </label>
+          </div>
+
+          <button class="btn btn-primary" onclick="createTextbookWithAssets()">교과서+이미지 생성</button>
+        </div>
+
+        <div id="textbookCreateResult" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // API 기본 URL
+    const API_BASE = '/api/rag-manager';
+
+    // 상태 저장
+    let selectedChunkType = 'textbook_text';
+    let problemAssets = [];
+    let textbookAssets = [];
+
+    // 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStats();
+      setupTabs();
+      setupChunkTypeSelector();
+      setupAssetUploads();
+    });
+
+    // 탭 설정
+    function setupTabs() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+          btn.classList.add('active');
+          document.getElementById(`${btn.dataset.tab}-tab`).classList.add('active');
+        });
+      });
+    }
+
+    // 청크 유형 선택기 설정
+    function setupChunkTypeSelector() {
+      document.querySelectorAll('.chunk-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.chunk-type-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedChunkType = btn.dataset.type;
+        });
+      });
+    }
+
+    // 에셋 업로드 설정
+    function setupAssetUploads() {
+      // 문제 에셋 업로드
+      const problemUpload = document.getElementById('problemAssetUpload');
+      const problemInput = document.getElementById('problemAssetInput');
+
+      problemUpload.addEventListener('click', () => problemInput.click());
+      problemInput.addEventListener('change', (e) => handleProblemAssetUpload(e.target.files));
+
+      // 교과서 에셋 업로드
+      const textbookUpload = document.getElementById('textbookAssetUpload');
+      const textbookInput = document.getElementById('textbookAssetInput');
+
+      textbookUpload.addEventListener('click', () => textbookInput.click());
+      textbookInput.addEventListener('change', (e) => handleTextbookAssetUpload(e.target.files));
+    }
+
+    // 문제 에셋 업로드 처리
+    async function handleProblemAssetUpload(files) {
+      for (const file of files) {
+        const base64 = await fileToBase64(file);
+        problemAssets.push({
+          type: 'image',
+          fileData: base64,
+          mimeType: file.type,
+          name: file.name,
+          relationship: 'illustrates'
+        });
+      }
+      renderProblemAssets();
+    }
+
+    // 교과서 에셋 업로드 처리
+    async function handleTextbookAssetUpload(files) {
+      for (const file of files) {
+        const base64 = await fileToBase64(file);
+        textbookAssets.push({
+          type: 'image',
+          fileData: base64,
+          mimeType: file.type,
+          name: file.name
+        });
+      }
+      renderTextbookAssets();
+    }
+
+    // 파일을 Base64로 변환
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 문제 에셋 렌더링
+    function renderProblemAssets() {
+      const container = document.getElementById('problemAssetList');
+      container.innerHTML = problemAssets.map((asset, i) => `
+        <div class="asset-item">
+          <img src="data:${asset.mimeType};base64,${asset.fileData}" alt="${asset.name}">
+          <button class="remove-btn" onclick="removeProblemAsset(${i})">×</button>
+        </div>
+      `).join('');
+    }
+
+    // 교과서 에셋 렌더링
+    function renderTextbookAssets() {
+      const container = document.getElementById('textbookAssetList');
+      container.innerHTML = textbookAssets.map((asset, i) => `
+        <div class="asset-item">
+          <img src="data:${asset.mimeType};base64,${asset.fileData}" alt="${asset.name}">
+          <button class="remove-btn" onclick="removeTextbookAsset(${i})">×</button>
+        </div>
+      `).join('');
+    }
+
+    function removeProblemAsset(index) {
+      problemAssets.splice(index, 1);
+      renderProblemAssets();
+    }
+
+    function removeTextbookAsset(index) {
+      textbookAssets.splice(index, 1);
+      renderTextbookAssets();
+    }
+
+    // 로딩 표시
+    function showLoading() {
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+
+    // API 호출 헬퍼
+    async function apiCall(endpoint, options = {}) {
+      showLoading();
+      try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error);
+        return data.data;
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // 통계 로드
+    async function loadStats() {
+      try {
+        const stats = await apiCall('/stats');
+        document.getElementById('totalDocuments').textContent = stats.totalDocuments;
+        document.getElementById('totalChunks').textContent = stats.totalChunks;
+        document.getElementById('unpairedAssets').textContent = stats.unpairedAssets;
+        document.getElementById('pendingReview').textContent = stats.pendingReview;
+        document.getElementById('approvedVersions').textContent = stats.approvedVersions;
+        document.getElementById('draftVersions').textContent = stats.draftVersions;
+      } catch (error) {
+        console.error('통계 로드 실패:', error);
+      }
+    }
+
+    // 버전 히스토리 로드
+    async function loadVersionHistory() {
+      const documentId = document.getElementById('versionDocumentId').value;
+      if (!documentId) {
+        alert('문서 ID를 입력하세요.');
+        return;
+      }
+
+      try {
+        const history = await apiCall(`/versions/${documentId}`);
+
+        if (!history || !history.versions || history.versions.length === 0) {
+          document.getElementById('versionHistoryResult').innerHTML =
+            '<p style="color: #718096;">버전 히스토리가 없습니다.</p>';
+          return;
+        }
+
+        const html = `
+          <table class="version-table">
+            <thead>
+              <tr>
+                <th>버전</th>
+                <th>상태</th>
+                <th>생성일</th>
+                <th>변경 유형</th>
+                <th>설명</th>
+                <th>작업</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${history.versions.map(v => `
+                <tr>
+                  <td>v${v.version}</td>
+                  <td><span class="status-badge ${v.status}">${v.status}</span></td>
+                  <td>${new Date(v.createdAt).toLocaleString('ko-KR')}</td>
+                  <td>${v.changeType}</td>
+                  <td>${v.changeDescription || '-'}</td>
+                  <td>
+                    ${v.status === 'draft' ? `
+                      <button class="btn btn-sm" onclick="approveVersion('${v.versionId}')">승인</button>
+                    ` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        document.getElementById('versionHistoryResult').innerHTML = html;
+      } catch (error) {
+        document.getElementById('versionHistoryResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 버전 승인
+    async function approveVersion(versionId) {
+      const collectionName = document.getElementById('compareCollection').value;
+
+      try {
+        await apiCall(`/versions/${versionId}/approve`, {
+          method: 'POST',
+          body: JSON.stringify({ collectionName })
+        });
+        alert('버전이 승인되었습니다.');
+        loadVersionHistory();
+        loadStats();
+      } catch (error) {
+        alert(`승인 실패: ${error.message}`);
+      }
+    }
+
+    // 버전 비교
+    async function compareVersions() {
+      const collectionName = document.getElementById('compareCollection').value;
+      const versionIdA = document.getElementById('compareVersionA').value;
+      const versionIdB = document.getElementById('compareVersionB').value;
+
+      if (!versionIdA || !versionIdB) {
+        alert('두 버전 ID를 모두 입력하세요.');
+        return;
+      }
+
+      try {
+        const comparison = await apiCall('/versions/compare', {
+          method: 'POST',
+          body: JSON.stringify({ collectionName, versionIdA, versionIdB })
+        });
+
+        const html = `
+          <div style="background: #f7fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <strong>요약:</strong> ${comparison.summary}
+          </div>
+          <div class="version-compare">
+            ${comparison.diffs.map(diff => `
+              <div class="version-panel">
+                <h4>${diff.field}</h4>
+                <div style="background: #fee2e2; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                  <strong>이전:</strong><br>
+                  <pre style="white-space: pre-wrap;">${JSON.stringify(diff.before, null, 2)}</pre>
+                </div>
+                <div style="background: #d1fae5; padding: 8px; border-radius: 4px;">
+                  <strong>이후:</strong><br>
+                  <pre style="white-space: pre-wrap;">${JSON.stringify(diff.after, null, 2)}</pre>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        document.getElementById('versionCompareResult').innerHTML = html;
+      } catch (error) {
+        document.getElementById('versionCompareResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 미페어링 에셋 로드
+    async function loadUnpairedAssets() {
+      try {
+        const assets = await apiCall('/assets/unpaired');
+
+        if (assets.length === 0) {
+          document.getElementById('unpairedAssetsList').innerHTML =
+            '<p style="color: #718096;">모든 에셋이 페어링되었습니다.</p>';
+          return;
+        }
+
+        const html = assets.map(asset => `
+          <div class="pairing-card unverified">
+            <div class="pairing-header">
+              <span class="pairing-type">${asset.type}</span>
+              <span class="status-badge unverified">미페어링</span>
+            </div>
+            <div class="pairing-preview">
+              ${asset.fileData ? `<img src="data:${asset.mimeType};base64,${asset.fileData}" alt="에셋 미리보기">` : ''}
+              ${asset.caption || asset.description || asset.ocrText || '(내용 없음)'}
+            </div>
+            <div class="pairing-actions">
+              <button class="btn btn-sm" onclick="suggestPairing('${asset.id}')">추천 받기</button>
+              <button class="btn btn-sm btn-secondary" onclick="fillPairingForm('${asset.id}')">수동 페어링</button>
+            </div>
+          </div>
+        `).join('');
+        document.getElementById('unpairedAssetsList').innerHTML = html;
+      } catch (error) {
+        document.getElementById('unpairedAssetsList').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 페어링 추천
+    async function suggestPairing(assetId) {
+      try {
+        const suggestions = await apiCall(`/pairings/suggest/${assetId}`);
+
+        if (suggestions.length === 0) {
+          alert('추천할 페어링이 없습니다.');
+          return;
+        }
+
+        const message = suggestions.map((s, i) =>
+          `${i + 1}. 대상: ${s.targetId}\n   신뢰도: ${(s.confidence * 100).toFixed(0)}%\n   관계: ${s.suggestedRelationship}\n   이유: ${s.reason}`
+        ).join('\n\n');
+
+        alert(`페어링 추천:\n\n${message}`);
+      } catch (error) {
+        alert(`추천 실패: ${error.message}`);
+      }
+    }
+
+    // 페어링 폼 채우기
+    function fillPairingForm(assetId) {
+      document.getElementById('pairingAssetId').value = assetId;
+      document.getElementById('pairingTargetId').focus();
+    }
+
+    // 페어링 생성
+    async function createPairing() {
+      const assetId = document.getElementById('pairingAssetId').value;
+      const targetId = document.getElementById('pairingTargetId').value;
+      const targetType = document.getElementById('pairingTargetType').value;
+      const relationship = document.getElementById('pairingRelationship').value;
+
+      if (!assetId || !targetId) {
+        alert('에셋 ID와 대상 ID를 입력하세요.');
+        return;
+      }
+
+      try {
+        await apiCall('/pairings', {
+          method: 'POST',
+          body: JSON.stringify({
+            assetId,
+            targetId,
+            targetType,
+            relationship,
+            pairingStatus: 'unverified'
+          })
+        });
+        alert('페어링이 생성되었습니다.');
+        loadStats();
+        loadUnpairedAssets();
+      } catch (error) {
+        alert(`페어링 생성 실패: ${error.message}`);
+      }
+    }
+
+    // 청크 유형별 로드
+    async function loadChunksByType() {
+      const onlyApproved = document.getElementById('chunkOnlyApproved').checked;
+
+      try {
+        const chunks = await apiCall(`/chunks/type/${selectedChunkType}?onlyApproved=${onlyApproved}&limit=50`);
+
+        if (chunks.length === 0) {
+          document.getElementById('chunksList').innerHTML =
+            '<p style="color: #718096;">해당 유형의 청크가 없습니다.</p>';
+          return;
+        }
+
+        const html = `
+          <table class="version-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>유형</th>
+                <th>상태</th>
+                <th>내용 미리보기</th>
+                <th>임베딩</th>
+                <th>작업</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${chunks.map(chunk => `
+                <tr>
+                  <td title="${chunk.id}">${chunk.id.substring(0, 12)}...</td>
+                  <td>${chunk.chunkType}</td>
+                  <td><span class="status-badge ${chunk.versionInfo?.status || 'draft'}">${chunk.versionInfo?.status || 'draft'}</span></td>
+                  <td>${(chunk.content || '').substring(0, 50)}...</td>
+                  <td>
+                    <div class="embedding-status">
+                      <span class="dot ${chunk.embeddingVector ? 'embedded' : 'pending'}"></span>
+                      ${chunk.embeddingVector ? '완료' : '대기'}
+                    </div>
+                  </td>
+                  <td>
+                    ${!chunk.embeddingVector ? `<button class="btn btn-sm" onclick="embedSingleChunkById('${chunk.id}')">임베딩</button>` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        document.getElementById('chunksList').innerHTML = html;
+      } catch (error) {
+        document.getElementById('chunksList').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 청크 생성
+    async function createChunk() {
+      const chunkType = document.getElementById('newChunkType').value;
+      const content = document.getElementById('newChunkContent').value;
+      const documentType = document.getElementById('newChunkDocType').value;
+      const autoApprove = document.getElementById('newChunkAutoApprove').checked;
+
+      if (!content) {
+        alert('콘텐츠를 입력하세요.');
+        return;
+      }
+
+      try {
+        const result = await apiCall('/chunks', {
+          method: 'POST',
+          body: JSON.stringify({
+            chunkData: {
+              documentId: '',
+              content,
+              chunkType,
+              documentType
+            },
+            options: { autoApprove }
+          })
+        });
+        alert(`청크가 생성되었습니다. ID: ${result.chunkId}`);
+        document.getElementById('newChunkContent').value = '';
+        loadStats();
+      } catch (error) {
+        alert(`청크 생성 실패: ${error.message}`);
+      }
+    }
+
+    // 임베딩 생성
+    async function embedChunks() {
+      const idsText = document.getElementById('embedChunkIds').value;
+      const chunkIds = idsText.split(',').map(id => id.trim()).filter(id => id);
+
+      if (chunkIds.length === 0) {
+        alert('청크 ID를 입력하세요.');
+        return;
+      }
+
+      try {
+        const result = await apiCall('/chunks/embed-batch', {
+          method: 'POST',
+          body: JSON.stringify({ chunkIds })
+        });
+        document.getElementById('embedResult').innerHTML = `
+          <div style="background: #d1fae5; padding: 12px; border-radius: 8px;">
+            성공: ${result.success}개, 실패: ${result.failed}개
+          </div>
+        `;
+        loadStats();
+      } catch (error) {
+        document.getElementById('embedResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 단일 청크 임베딩
+    async function embedSingleChunk() {
+      const chunkId = document.getElementById('singleEmbedChunkId').value;
+      if (!chunkId) {
+        alert('청크 ID를 입력하세요.');
+        return;
+      }
+      await embedSingleChunkById(chunkId);
+    }
+
+    async function embedSingleChunkById(chunkId) {
+      try {
+        await apiCall(`/chunks/${chunkId}/embed`, { method: 'POST' });
+        alert('임베딩이 생성되었습니다.');
+        loadChunksByType();
+      } catch (error) {
+        alert(`임베딩 생성 실패: ${error.message}`);
+      }
+    }
+
+    // 문제+자료 생성
+    async function createProblemWithAssets() {
+      const problemText = document.getElementById('problemText').value;
+      const answer = document.getElementById('problemAnswer').value;
+      const solution = document.getElementById('problemSolution').value;
+      const documentType = document.getElementById('problemDocType').value;
+      const autoApprove = document.getElementById('problemAutoApprove').checked;
+
+      if (!problemText) {
+        alert('문제 본문을 입력하세요.');
+        return;
+      }
+
+      try {
+        const result = await apiCall('/problems-with-assets', {
+          method: 'POST',
+          body: JSON.stringify({
+            problemData: {
+              problemText,
+              answer,
+              solution,
+              documentType
+            },
+            assets: problemAssets,
+            options: { autoApprove }
+          })
+        });
+
+        document.getElementById('problemCreateResult').innerHTML = `
+          <div style="background: #d1fae5; padding: 12px; border-radius: 8px;">
+            <strong>생성 완료!</strong><br>
+            문제 청크 ID: ${result.problemChunkId}<br>
+            ${result.solutionChunkId ? `해설 청크 ID: ${result.solutionChunkId}<br>` : ''}
+            에셋 청크: ${result.assetChunkIds.length}개<br>
+            그룹 ID: ${result.groupId}
+          </div>
+        `;
+
+        // 폼 초기화
+        document.getElementById('problemText').value = '';
+        document.getElementById('problemAnswer').value = '';
+        document.getElementById('problemSolution').value = '';
+        problemAssets = [];
+        renderProblemAssets();
+        loadStats();
+      } catch (error) {
+        document.getElementById('problemCreateResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 교과서+이미지 생성
+    async function createTextbookWithAssets() {
+      const text = document.getElementById('textbookText').value;
+      const documentType = document.getElementById('textbookDocType').value;
+      const captionsText = document.getElementById('textbookCaptions').value;
+      const autoApprove = document.getElementById('textbookAutoApprove').checked;
+
+      if (!text) {
+        alert('본문 텍스트를 입력하세요.');
+        return;
+      }
+
+      // 캡션 분리
+      const captions = captionsText.split(',').map(c => c.trim()).filter(c => c);
+
+      // 에셋에 캡션 추가
+      const assetsWithCaptions = textbookAssets.map((asset, i) => ({
+        ...asset,
+        caption: captions[i] || `그림 ${i + 1}`
+      }));
+
+      try {
+        const result = await apiCall('/textbook-with-assets', {
+          method: 'POST',
+          body: JSON.stringify({
+            contentData: {
+              text,
+              documentType
+            },
+            assets: assetsWithCaptions,
+            options: { autoApprove }
+          })
+        });
+
+        document.getElementById('textbookCreateResult').innerHTML = `
+          <div style="background: #d1fae5; padding: 12px; border-radius: 8px;">
+            <strong>생성 완료!</strong><br>
+            본문 청크 ID: ${result.textChunkId}<br>
+            에셋 청크: ${result.assetChunkIds.length}개<br>
+            그룹 ID: ${result.groupId}
+          </div>
+        `;
+
+        // 폼 초기화
+        document.getElementById('textbookText').value = '';
+        document.getElementById('textbookCaptions').value = '';
+        textbookAssets = [];
+        renderTextbookAssets();
+        loadStats();
+      } catch (error) {
+        document.getElementById('textbookCreateResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // ============================================================
+    // 자동 청킹 관련 함수
+    // ============================================================
+
+    // 전략별 옵션 UI 업데이트
+    function updateStrategyOptions() {
+      const strategy = document.getElementById('chunkingStrategy').value;
+      const optionsTitle = document.querySelector('#strategyOptions h4');
+
+      // 모든 옵션 숨기기
+      document.getElementById('paragraphOptions').style.display = 'none';
+      document.getElementById('sentenceOptions').style.display = 'none';
+      document.getElementById('semanticOptions').style.display = 'none';
+      document.getElementById('fixedSizeOptions').style.display = 'none';
+      document.getElementById('slidingWindowOptions').style.display = 'none';
+
+      // 선택된 전략에 맞는 옵션 표시
+      switch (strategy) {
+        case 'paragraph':
+          optionsTitle.textContent = '📝 문단 단위 옵션';
+          document.getElementById('paragraphOptions').style.display = 'block';
+          break;
+        case 'sentence':
+          optionsTitle.textContent = '📖 문장 단위 옵션';
+          document.getElementById('sentenceOptions').style.display = 'block';
+          break;
+        case 'semantic':
+          optionsTitle.textContent = '🧠 의미 단위 옵션 (AI 기반)';
+          document.getElementById('semanticOptions').style.display = 'block';
+          break;
+        case 'fixed_size':
+          optionsTitle.textContent = '📏 고정 글자 수 옵션';
+          document.getElementById('fixedSizeOptions').style.display = 'block';
+          break;
+        case 'sliding_window':
+          optionsTitle.textContent = '🪟 슬라이딩 윈도우 옵션';
+          document.getElementById('slidingWindowOptions').style.display = 'block';
+          break;
+      }
+    }
+
+    // 전략별 옵션 수집
+    function getStrategyOptions() {
+      const strategy = document.getElementById('chunkingStrategy').value;
+      const options = {};
+
+      switch (strategy) {
+        case 'paragraph':
+          options.minParagraphLength = parseInt(document.getElementById('minParagraphLength').value) || 50;
+          break;
+        case 'sentence':
+          options.sentencesPerChunk = parseInt(document.getElementById('sentencesPerChunk').value) || 3;
+          break;
+        case 'semantic':
+          options.maxSemanticChunks = parseInt(document.getElementById('maxSemanticChunks').value) || 10;
+          break;
+        case 'fixed_size':
+          options.fixedSize = parseInt(document.getElementById('fixedSize').value) || 500;
+          options.overlap = parseInt(document.getElementById('fixedOverlap').value) || 50;
+          break;
+        case 'sliding_window':
+          options.windowSize = parseInt(document.getElementById('windowSize').value) || 500;
+          options.stepSize = parseInt(document.getElementById('stepSize').value) || 250;
+          break;
+      }
+
+      return options;
+    }
+
+    // 청킹 미리보기
+    async function previewChunking() {
+      const text = document.getElementById('autoChunkText').value;
+      if (!text.trim()) {
+        alert('텍스트를 입력하세요.');
+        return;
+      }
+
+      const strategy = document.getElementById('chunkingStrategy').value;
+      const options = getStrategyOptions();
+
+      try {
+        const result = await apiCall('/chunking/preview', {
+          method: 'POST',
+          body: JSON.stringify({ text, strategy, options })
+        });
+
+        // 결과 표시
+        const strategyNames = {
+          paragraph: '문단 단위',
+          sentence: '문장 단위',
+          semantic: '의미 단위 (AI)',
+          fixed_size: '고정 글자 수',
+          sliding_window: '슬라이딩 윈도우'
+        };
+
+        document.getElementById('chunkingPreviewResult').innerHTML = `
+          <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: #0369a1;">📊 청킹 미리보기 결과</h4>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+              <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #0369a1;">${result.totalChunks}</div>
+                <div style="font-size: 0.85rem; color: #64748b;">총 청크 수</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #0369a1;">${result.totalLength}</div>
+                <div style="font-size: 0.85rem; color: #64748b;">총 글자 수</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #0369a1;">${result.averageLength}</div>
+                <div style="font-size: 0.85rem; color: #64748b;">평균 길이</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: bold; color: #0369a1;">${strategyNames[result.strategy]}</div>
+                <div style="font-size: 0.85rem; color: #64748b;">전략</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="max-height: 400px; overflow-y: auto;">
+            ${result.chunks.map((chunk, i) => `
+              <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-weight: 600; color: #4a5568;">청크 #${i + 1}</span>
+                  <span style="font-size: 0.85rem; color: #64748b;">${chunk.length}자</span>
+                </div>
+                <div style="background: #f7fafc; padding: 8px; border-radius: 4px; font-size: 0.9rem; white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${escapeHtml(chunk.content)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (error) {
+        document.getElementById('chunkingPreviewResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 자동 청킹 실행
+    async function executeAutoChunking() {
+      const text = document.getElementById('autoChunkText').value;
+      if (!text.trim()) {
+        alert('텍스트를 입력하세요.');
+        return;
+      }
+
+      const strategy = document.getElementById('chunkingStrategy').value;
+      const chunkType = document.getElementById('autoChunkType').value;
+      const documentType = document.getElementById('autoChunkDocType').value;
+      const autoApprove = document.getElementById('autoChunkApprove').checked;
+      const autoEmbed = document.getElementById('autoChunkEmbed').checked;
+
+      const strategyOptions = getStrategyOptions();
+
+      const options = {
+        strategy,
+        chunkType,
+        documentType,
+        autoApprove,
+        autoEmbed,
+        ...strategyOptions
+      };
+
+      try {
+        const result = await apiCall('/chunking/auto', {
+          method: 'POST',
+          body: JSON.stringify({ text, options })
+        });
+
+        document.getElementById('chunkingExecuteResult').innerHTML = `
+          <div style="background: #d1fae5; border: 1px solid #10b981; padding: 16px; border-radius: 8px;">
+            <h4 style="margin: 0 0 12px 0; color: #065f46;">✅ 청킹 완료!</h4>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+              <div>
+                <strong>총 청크 수:</strong> ${result.totalChunks}개
+              </div>
+              <div>
+                <strong>전략:</strong> ${result.strategy}
+              </div>
+              <div>
+                <strong>자동 승인:</strong> ${autoApprove ? '✅' : '❌'}
+              </div>
+            </div>
+            <div style="margin-top: 12px;">
+              <strong>생성된 청크 ID:</strong>
+              <div style="background: #f0fdf4; padding: 8px; border-radius: 4px; margin-top: 4px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                ${result.chunks.map(c => c.id).join('<br>')}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // 폼 초기화
+        document.getElementById('autoChunkText').value = '';
+        document.getElementById('chunkingPreviewResult').innerHTML = '';
+        loadStats();
+      } catch (error) {
+        document.getElementById('chunkingExecuteResult').innerHTML =
+          `<p style="color: #ef4444;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // HTML 이스케이프 헬퍼
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
