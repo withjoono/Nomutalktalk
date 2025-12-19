@@ -4083,13 +4083,24 @@
       const zone = document.getElementById(zoneId);
       if (zone) {
         zone.classList.remove('has-content');
-        zone.innerHTML = `
-          <div class="upload-placeholder">
-            <span>📷</span>
-            이미지/표 ${boxId}
-            <br><small>클릭하여 업로드</small>
-          </div>
-        `;
+        // 첫 번째 박스는 원래 플레이스홀더, 나머지는 간단한 플레이스홀더
+        if (boxId === 1) {
+          zone.innerHTML = `
+            <div class="upload-placeholder">
+              <span>📷</span>
+              이미지/표를 드래그하거나 클릭
+              <br><small>Ctrl+V 붙여넣기 가능</small>
+            </div>
+          `;
+        } else {
+          zone.innerHTML = `
+            <div class="upload-placeholder">
+              <span>📷</span>
+              이미지/표 ${boxId}
+              <br><small>클릭하여 업로드</small>
+            </div>
+          `;
+        }
       }
 
       // 상태에서 이미지 제거
@@ -4100,8 +4111,12 @@
       if (boxId === 1) {
         problem.mediaImage = null;
       }
+
       syncProblemContent();
       updatePreview();
+
+      // 삭제 완료 알림
+      showNotification('🗑️ 이미지가 삭제되었습니다.', 'info');
     }
 
     // ===== 추가 박스 관련 함수들 =====
@@ -4381,11 +4396,32 @@
         });
       }
 
-      // 미디어 이미지
-      if (problem.mediaImage) {
+      // 미디어 이미지 (다중 이미지 지원)
+      if (problem.mediaImages && Object.keys(problem.mediaImages).length > 0) {
+        // 다중 이미지 로드
+        Object.entries(problem.mediaImages).forEach(([boxId, imageData]) => {
+          const zoneId = boxId == 1 ? 'mediaUploadZone' : `mediaUploadZone-${boxId}`;
+          const zone = document.getElementById(zoneId);
+          if (zone && imageData) {
+            zone.classList.add('has-content');
+            zone.innerHTML = `
+              <div class="media-preview-wrapper">
+                <img src="${imageData}" alt="업로드된 자료 ${boxId}" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+                <button class="media-remove-btn" onclick="event.stopPropagation(); clearMediaItem(${boxId})" title="삭제">×</button>
+              </div>
+            `;
+          }
+        });
+      } else if (problem.mediaImage) {
+        // 단일 이미지 (하위 호환성)
         const zone = document.getElementById('mediaUploadZone');
         zone.classList.add('has-content');
-        zone.innerHTML = `<img src="${problem.mediaImage}" alt="업로드된 자료">`;
+        zone.innerHTML = `
+          <div class="media-preview-wrapper">
+            <img src="${problem.mediaImage}" alt="업로드된 자료" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+            <button class="media-remove-btn" onclick="event.stopPropagation(); clearMediaItem(1)" title="삭제">×</button>
+          </div>
+        `;
       } else {
         clearMediaPanel();
       }
