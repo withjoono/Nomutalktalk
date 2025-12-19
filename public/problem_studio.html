@@ -1618,10 +1618,12 @@
 
         <!-- Editor Tabs -->
         <div class="editor-tabs">
+          <button class="editor-tab" onclick="triggerRegionImageUpload()" title="영역 선택용 이미지 업로드">📁 업로드</button>
+          <button class="editor-tab" onclick="resetRegionSelection()" title="선택 영역 초기화">↺ 초기화</button>
+          <button class="editor-tab" onclick="exportRegion()" title="선택 영역 추출" style="background: #4caf50; color: white;">📤 영역추출</button>
+          <button class="editor-tab" onclick="runRegionOCRFromButton()" title="선택 영역 OCR" style="background: #ff9800; color: white;">🔍 OCR</button>
           <button class="editor-tab active" onclick="switchEditorTab('edit')">✏️ 편집</button>
           <button class="editor-tab" onclick="switchEditorTab('preview')">👁️ 미리보기</button>
-          <button class="editor-tab" onclick="switchEditorTab('image')">🖼️ 원본 이미지</button>
-          <button class="editor-tab" onclick="switchEditorTab('regionSelector')">✂️ 영역 선택</button>
         </div>
 
         <!-- Editor Content -->
@@ -1818,16 +1820,6 @@
             <div id="problemPreview" class="problem-preview">
               <p style="color: #999; text-align: center;">문제를 입력하면 여기에 미리보기가 표시됩니다.</p>
             </div>
-          </div>
-
-          <!-- 원본 이미지 탭 -->
-          <div id="imageTab" class="tab-content" style="flex: 1; display: none; padding: 12px;">
-            <div class="image-upload-area" id="imageDropZone" onclick="triggerImageUpload()">
-              <div>📷</div>
-              <p>이미지를 드래그하거나 클릭하여 업로드</p>
-              <p style="font-size: 12px; color: var(--text-secondary);">Ctrl+V로 클립보드 붙여넣기 가능</p>
-            </div>
-            <img id="uploadedImagePreview" class="uploaded-image" style="display: none;">
           </div>
 
           <!-- 영역 선택 탭 -->
@@ -2637,13 +2629,12 @@
       });
       document.dispatchEvent(event);
 
-      // 알림
-      showNotification(`영역 추출 완료: ${data.selection.width}×${data.selection.height}px`, 'success');
+      // 자료(그림/표) 패널에 바로 추가
+      addExportedImageToMedia(data.dataURL);
 
-      // 미디어 패널에 자동 삽입 옵션
-      if (confirm('추출된 영역을 자료(그림/표) 패널에 추가하시겠습니까?')) {
-        addExportedImageToMedia(data.dataURL);
-      }
+      // 알림 및 편집 탭으로 전환
+      showNotification(`✅ 영역이 자료(그림/표) 패널에 추가되었습니다. (${data.selection.width}×${data.selection.height}px)`, 'success');
+      addChatMessage(`✅ 선택 영역이 자료(그림/표) 패널에 추가되었습니다.`, 'assistant');
     }
 
     // 선택 영역 OCR 실행
@@ -2758,6 +2749,87 @@
         return null;
       }
       return regionSelector.exportRegion(format);
+    }
+
+    // 영역 선택 도구 버튼 함수들
+    function triggerRegionImageUpload() {
+      // 영역 선택 탭으로 전환 후 업로드 트리거
+      switchEditorTabDirect('regionSelector');
+      initRegionSelector();
+
+      // 영역 선택기 내부의 파일 입력 트리거
+      setTimeout(() => {
+        const fileInput = document.querySelector('.irs-upload-btn input[type="file"]');
+        if (fileInput) {
+          fileInput.click();
+        } else {
+          // 대체: 숨겨진 파일 입력 사용
+          document.getElementById('imageUpload').click();
+        }
+      }, 100);
+    }
+
+    function resetRegionSelection() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        return;
+      }
+
+      // 선택 영역 초기화
+      regionSelector.resetSelection();
+      showNotification('선택 영역이 초기화되었습니다.', 'info');
+    }
+
+    function exportRegion() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        switchEditorTabDirect('regionSelector');
+        return;
+      }
+
+      // 영역 추출 - 직접 메서드 호출
+      const sel = regionSelector.getSelection();
+      const dataURL = regionSelector.exportRegion('image/png');
+      if (dataURL) {
+        handleExportedRegion({
+          dataURL: dataURL,
+          base64: dataURL.split(',')[1],
+          selection: sel,
+          format: 'image/png'
+        });
+      }
+    }
+
+    function runRegionOCRFromButton() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        switchEditorTabDirect('regionSelector');
+        return;
+      }
+
+      // OCR 실행 - 직접 메서드 호출
+      regionSelector.runOCR();
+    }
+
+    // 직접 탭 전환 (event 없이)
+    function switchEditorTabDirect(tabName) {
+      document.querySelectorAll('.editor-tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+
+      // 해당 탭 버튼 활성화
+      const tabBtn = document.querySelector(`.editor-tab[onclick*="${tabName}"]`);
+      if (tabBtn) tabBtn.classList.add('active');
+
+      const tabContent = document.getElementById(tabName + 'Tab');
+      if (tabContent) tabContent.style.display = 'flex';
+
+      if (tabName === 'preview') {
+        updatePreview();
+      }
+
+      if (tabName === 'regionSelector') {
+        initRegionSelector();
+      }
     }
 
     function updatePreview() {
@@ -2925,24 +2997,18 @@
       const file = event.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = document.getElementById('uploadedImagePreview');
-        img.src = e.target.result;
-        img.style.display = 'block';
+      // 영역 선택기로 이미지 로드
+      studioState.problems[studioState.currentProblemIndex].image = null;
 
-        const dropZone = document.getElementById('imageDropZone');
-        dropZone.classList.add('has-image');
-        dropZone.innerHTML = '<div>✅ 이미지 업로드 완료</div><p>다른 이미지로 교체하려면 클릭</p>';
+      // 영역 선택기 초기화 및 이미지 로드
+      initRegionSelector();
+      if (regionSelector) {
+        regionSelector.loadFromFile(file);
+      }
 
-        studioState.problems[studioState.currentProblemIndex].image = e.target.result;
-
-        // Switch to image tab
-        switchEditorTab('image');
-        document.querySelectorAll('.editor-tab')[2].classList.add('active');
-        document.querySelectorAll('.editor-tab')[0].classList.remove('active');
-      };
-      reader.readAsDataURL(file);
+      // 영역 선택 탭으로 전환
+      switchEditorTabDirect('regionSelector');
+      showNotification('이미지가 영역 선택기에 로드되었습니다.', 'success');
     }
 
     // 마지막으로 포커스된 텍스트 영역 추적

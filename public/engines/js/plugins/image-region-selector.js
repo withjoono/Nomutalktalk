@@ -65,11 +65,11 @@ class ImageRegionSelector {
       flex-direction: column;
     `;
 
-    // 툴바
+    // 툴바 (숨김 - 메인 에디터 탭에서 제어)
     this.toolbar = document.createElement('div');
     this.toolbar.className = 'irs-toolbar';
     this.toolbar.style.cssText = `
-      display: flex;
+      display: none;
       gap: 8px;
       padding: 8px;
       background: #2a2a3e;
@@ -318,7 +318,14 @@ class ImageRegionSelector {
   }
 
   /**
-   * 선택 영역 초기화
+   * 선택 영역 초기화 (public)
+   */
+  resetSelection() {
+    this._resetSelection();
+  }
+
+  /**
+   * 선택 영역 초기화 (private)
    */
   _resetSelection() {
     if (!this.imageLoaded) return;
