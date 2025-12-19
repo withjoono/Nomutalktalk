@@ -7,12 +7,22 @@ WORKDIR /app
 
 # 패키지 파일 복사 (캐싱 최적화)
 COPY package*.json ./
+COPY tsconfig.json ./
 
-# 프로덕션 의존성만 설치
-RUN npm ci --only=production
+# 모든 의존성 설치 (TypeScript 빌드를 위해)
+RUN npm ci
 
-# 애플리케이션 파일 복사
+# 소스 파일 복사
+COPY src/ ./src/
+
+# TypeScript 빌드
+RUN npm run build
+
+# 나머지 애플리케이션 파일 복사
 COPY . .
+
+# devDependencies 제거하여 이미지 크기 최적화
+RUN npm prune --production
 
 # public 디렉토리 존재 확인
 RUN mkdir -p public uploads
