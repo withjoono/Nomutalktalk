@@ -31,6 +31,9 @@ COPY --from=builder /app/dist ./dist
 
 # 애플리케이션 파일 복사
 COPY server.js ./
+COPY RAGAgent.js ./
+COPY models/ ./models/
+COPY services/*.js ./services/
 COPY public/ ./public/
 
 # 디렉토리 생성
