@@ -188,6 +188,36 @@
       display: none;
     }
 
+    .tree-item.file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tree-item.file-item span {
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .tree-item.file-item .delete-btn {
+      opacity: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 12px;
+      border-radius: 4px;
+      transition: opacity 0.2s, background 0.2s;
+    }
+
+    .tree-item.file-item:hover .delete-btn {
+      opacity: 1;
+    }
+
+    .tree-item.file-item .delete-btn:hover {
+      background: rgba(255, 100, 100, 0.3);
+    }
+
     /* Panel 2: Code Editor */
     #codePanel {
       width: 300px;
@@ -1905,33 +1935,20 @@
     // ==================== Engine Tree ====================
     // 엔진 폴더 구조: core + plugin 기반
     // 교과/단원/개념은 레지스트리 태그로 관리
+    // 서버에서 실제 파일 목록을 로드합니다 (기본값은 빈 배열)
     const engineData = {
       'core': {
-        '핵심 엔진': [
-          'math_problem.md',
-          'graph_reasoning.md',
-          'proof_logic.md',
-          'table_analysis.md',
-          'science_experiment.md'
-        ]
+        '핵심 엔진': []
       },
       'plugin': {
         'no_asset': [],           // 에셋 없는 텍스트 전용
-        'diagram_2d': [           // 2D 다이어그램
-          'g2_c1u03j02_j77_seating_plugin_v1_0.py',
-          'g2_c1u03j02_j41_j42_booth_plugin_v1_0.py'
-        ],
-        'geometry_2d': [          // 2D 기하학
-          'g2_c1u03j06_regions_plugin_v1_0.py',
-          'g2_c1u03j02_j39_doors_plugin_v1_0.py'
-        ],
+        'diagram_2d': [],         // 2D 다이어그램
+        'geometry_2d': [],        // 2D 기하학
         'graph_2d': [],           // 2D 그래프
         'numberline_1d': [],      // 1D 수직선
         'table': [],              // 표, 행렬
         'chart_stat': [],         // 차트, 통계
-        'tree_graph': [           // 트리, 그래프
-          'g3_c1u03j07_treepaths_plugin_v1_0.py'
-        ],
+        'tree_graph': [],         // 트리, 그래프
         'network_flow': [],       // 네트워크 흐름
         'solid_3d': [],           // 3D 입체도형
         'net_unfold': [],         // 전개도
@@ -2096,14 +2113,19 @@
         html += '<div class="tree-children">';
         for (const category in engineData.core) {
           const files = engineData.core[category];
+          html += `<div class="tree-item folder" onclick="toggleFolder(this)">📂 ${category}</div>`;
+          html += '<div class="tree-children">';
           if (files.length > 0) {
-            html += `<div class="tree-item folder" onclick="toggleFolder(this)">📂 ${category}</div>`;
-            html += '<div class="tree-children">';
             for (const file of files) {
-              html += `<div class="tree-item" onclick="selectEngineFile('core', '${category}', '${file}')">📄 ${file}</div>`;
+              html += `<div class="tree-item file-item">
+                <span onclick="selectEngineFile('core', '${category}', '${file}')">📄 ${file}</span>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteEngineFile('core', '${category}', '${file}')" title="삭제">🗑️</button>
+              </div>`;
             }
-            html += '</div>';
+          } else {
+            html += `<div class="tree-item" style="color: #666; font-style: italic;">  (비어있음)</div>`;
           }
+          html += '</div>';
         }
         html += '</div>';
       }
@@ -2120,7 +2142,10 @@
           html += '<div class="tree-children">';
           if (files.length > 0) {
             for (const file of files) {
-              html += `<div class="tree-item" onclick="selectEngineFile('plugin', '${pluginType}', '${file}')">📄 ${file}</div>`;
+              html += `<div class="tree-item file-item">
+                <span onclick="selectEngineFile('plugin', '${pluginType}', '${file}')">📄 ${file}</span>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteEngineFile('plugin', '${pluginType}', '${file}')" title="삭제">🗑️</button>
+              </div>`;
             }
           } else {
             html += `<div class="tree-item" style="color: #666; font-style: italic;">  (비어있음)</div>`;
@@ -2212,51 +2237,50 @@
       }
     }
 
-    function selectEngineFile(subject, category, file) {
+    async function selectEngineFile(subject, category, file) {
       // Highlight selected
       document.querySelectorAll('.tree-item').forEach(item => item.classList.remove('selected'));
-      event.target.classList.add('selected');
+      if (event && event.target) {
+        event.target.classList.add('selected');
+      }
 
       studioState.selectedEngine = { subject, category, file };
 
-      // Load code (simulated)
-      const sampleCode = `// ${subject} > ${category} > ${file}
-// 문제 생성 엔진
-
-const engine = {
-  name: "${file.replace('.js', '')}",
-  subject: "${subject}",
-  category: "${category}",
-
-  // 문제 템플릿
-  templates: [
-    {
-      type: "객관식",
-      format: "다음 중 올바른 것을 고르시오.",
-      variables: ["a", "b", "c"]
+      // Load actual file content from server
+      try {
+        const folder = subject === 'core' ? 'core' : category;
+        const content = await StudioAPI.fetchEngineFileContent(folder, file);
+        document.getElementById('codeEditor').value = content;
+      } catch (error) {
+        console.error('파일 로드 오류:', error);
+        // Fallback: show error message in editor
+        document.getElementById('codeEditor').value = `// 파일 로드 오류: ${error.message}\n// 파일: ${subject} > ${category} > ${file}`;
+      }
     }
-  ],
 
-  // 변형 규칙
-  variations: {
-    numberRange: [1, 100],
-    difficulty: ["상", "중", "하"]
-  },
+    // 엔진 파일 삭제
+    async function deleteEngineFile(subject, category, file) {
+      if (!confirm(`"${file}" 파일을 삭제하시겠습니까?`)) {
+        return;
+      }
 
-  // 문제 생성 함수
-  generate(params) {
-    // TODO: 구현
-    return {
-      question: "",
-      answer: "",
-      explanation: ""
-    };
-  }
-};
+      try {
+        const folder = subject === 'core' ? 'core' : category;
+        await StudioAPI.deleteEngineFile(folder, file);
 
-module.exports = engine;`;
+        // 트리 새로고침
+        await refreshEngineTree();
 
-      document.getElementById('codeEditor').value = sampleCode;
+        // 선택된 파일이 삭제된 파일이면 에디터 초기화
+        if (studioState.selectedEngine && studioState.selectedEngine.file === file) {
+          studioState.selectedEngine = null;
+          document.getElementById('codeEditor').value = '';
+        }
+
+        addChatMessage(`🗑️ 파일 삭제 완료: ${file}`, 'assistant');
+      } catch (error) {
+        alert(`파일 삭제 오류: ${error.message}`);
+      }
     }
 
     async function saveEngineCode() {
@@ -3958,20 +3982,25 @@ module.exports = engine;`;
 
     // ==================== Initialize ====================
     document.addEventListener('DOMContentLoaded', async function() {
-      // Initial render with default data
+      // Initial render with default empty data
       renderEngineTree();
       populateEngineDropdown();
       updateProblemNav();
 
-      // Load engines from DB and merge with defaults
+      // Load engine files from filesystem first
+      try {
+        await refreshEngineTree();
+        addChatMessage('✅ 엔진 파일 목록을 로드했습니다.', 'assistant');
+      } catch (error) {
+        console.error('엔진 파일 로드 실패:', error);
+        addChatMessage('⚠️ 엔진 파일 로드 실패. 새로고침을 시도해주세요.', 'assistant');
+      }
+
+      // Load engines from DB (for metadata)
       try {
         await loadEnginesFromDB();
-        addChatMessage('✅ 엔진 데이터를 로드했습니다.', 'assistant');
       } catch (error) {
-        console.error('초기 엔진 로드 실패:', error);
-        addChatMessage('⚠️ DB 엔진 로드 실패. 기본 엔진을 사용합니다.', 'assistant');
-        // DB 로드 실패해도 기본 엔진 드롭다운은 유지
-        populateEngineDropdown();
+        console.error('DB 엔진 로드 실패:', error);
       }
 
       // Auto-render math on text change

@@ -422,6 +422,44 @@ async function fetchEngineFiles() {
   }
 }
 
+/**
+ * 엔진 파일 내용 읽기
+ */
+async function fetchEngineFileContent(folder, filename) {
+  try {
+    const response = await fetch(API_BASE + '/api/engines/file-content?folder=' + encodeURIComponent(folder) + '&filename=' + encodeURIComponent(filename));
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || '파일 내용 조회 실패');
+    }
+    return result.content;
+  } catch (error) {
+    console.error('Fetch Engine File Content API 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * 엔진 파일 삭제
+ */
+async function deleteEngineFile(folder, filename) {
+  try {
+    const response = await fetch(API_BASE + '/api/engines/file', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder, filename })
+    });
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || '파일 삭제 실패');
+    }
+    return result;
+  } catch (error) {
+    console.error('Delete Engine File API 오류:', error);
+    throw error;
+  }
+}
+
 // Export for use in problem_studio.html
 window.StudioAPI = {
   ocr: callOCRAPI,
@@ -438,8 +476,10 @@ window.StudioAPI = {
   indexToRAG: indexProblemToRAG,
   autoSelectEngine: autoSelectEngine,
   multiLLMReview: callMultiLLMReview,
-  // Engine File Upload
+  // Engine File Upload/Delete
   uploadEngineFile: uploadEngineFile,
   fetchEngineFolders: fetchEngineFolders,
-  fetchEngineFiles: fetchEngineFiles
+  fetchEngineFiles: fetchEngineFiles,
+  fetchEngineFileContent: fetchEngineFileContent,
+  deleteEngineFile: deleteEngineFile
 };

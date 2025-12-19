@@ -4452,6 +4452,64 @@ app.get('/api/engines', async (req, res) => {
 });
 
 /**
+ * GET /api/engines/folders
+ * 업로드 가능한 엔진 폴더 목록 반환
+ * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함
+ */
+app.get('/api/engines/folders', (req, res) => {
+  const folders = [
+    { value: 'core', label: '🔧 core (핵심 엔진)', accepts: '.md' },
+    { value: 'plugins/no_asset', label: '📁 plugins/no_asset', accepts: '.py' },
+    { value: 'plugins/diagram_2d', label: '📁 plugins/diagram_2d (2D 다이어그램)', accepts: '.py' },
+    { value: 'plugins/geometry_2d', label: '📁 plugins/geometry_2d (2D 기하학)', accepts: '.py' },
+    { value: 'plugins/graph_2d', label: '📁 plugins/graph_2d (2D 그래프)', accepts: '.py' },
+    { value: 'plugins/numberline_1d', label: '📁 plugins/numberline_1d (1D 수직선)', accepts: '.py' },
+    { value: 'plugins/table', label: '📁 plugins/table (표, 행렬)', accepts: '.py' },
+    { value: 'plugins/chart_stat', label: '📁 plugins/chart_stat (차트, 통계)', accepts: '.py' },
+    { value: 'plugins/tree_graph', label: '📁 plugins/tree_graph (트리, 그래프)', accepts: '.py' },
+    { value: 'plugins/network_flow', label: '📁 plugins/network_flow (네트워크 흐름)', accepts: '.py' },
+    { value: 'plugins/solid_3d', label: '📁 plugins/solid_3d (3D 입체도형)', accepts: '.py' },
+    { value: 'plugins/net_unfold', label: '📁 plugins/net_unfold (전개도)', accepts: '.py' },
+    { value: 'plugins/coordinate_3d', label: '📁 plugins/coordinate_3d (3D 좌표)', accepts: '.py' },
+    { value: 'plugins/mixed', label: '📁 plugins/mixed (복합/혼합)', accepts: '.py' }
+  ];
+  res.json({ success: true, folders });
+});
+
+/**
+ * GET /api/engines/files
+ * 실제 엔진 폴더 스캔하여 파일 목록 반환
+ * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함
+ */
+app.get('/api/engines/files', async (req, res) => {
+  try {
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    const result = { core: {}, plugin: {} };
+    const coreDir = path.join(ENGINES_DIR, 'core');
+    if (fs.existsSync(coreDir)) {
+      const coreFiles = await fs.promises.readdir(coreDir);
+      result.core['핵심 엔진'] = coreFiles.filter(f => f.endsWith('.md'));
+    }
+    const pluginsDir = path.join(ENGINES_DIR, 'plugins');
+    if (fs.existsSync(pluginsDir)) {
+      const pluginCategories = await fs.promises.readdir(pluginsDir);
+      for (const category of pluginCategories) {
+        const categoryPath = path.join(pluginsDir, category);
+        const stat = await fs.promises.stat(categoryPath);
+        if (stat.isDirectory()) {
+          const files = await fs.promises.readdir(categoryPath);
+          result.plugin[category] = files.filter(f => f.endsWith('.py') && f !== '__init__.py');
+        }
+      }
+    }
+    res.json({ success: true, engines: result });
+  } catch (error) {
+    console.error('엔진 파일 스캔 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/engines/:id
  * 특정 엔진 상세 조회
  */
@@ -4880,63 +4938,6 @@ app.post('/api/engines/import', upload.single('engineFile'), async (req, res) =>
   }
 });
 
-
-/**
- * GET /api/engines/folders
- * 업로드 가능한 엔진 폴더 목록 반환
- */
-app.get('/api/engines/folders', (req, res) => {
-  const folders = [
-    { value: 'core', label: '🔧 core (핵심 엔진)', accepts: '.md' },
-    { value: 'plugins/no_asset', label: '📁 plugins/no_asset', accepts: '.py' },
-    { value: 'plugins/diagram_2d', label: '📁 plugins/diagram_2d (2D 다이어그램)', accepts: '.py' },
-    { value: 'plugins/geometry_2d', label: '📁 plugins/geometry_2d (2D 기하학)', accepts: '.py' },
-    { value: 'plugins/graph_2d', label: '📁 plugins/graph_2d (2D 그래프)', accepts: '.py' },
-    { value: 'plugins/numberline_1d', label: '📁 plugins/numberline_1d (1D 수직선)', accepts: '.py' },
-    { value: 'plugins/table', label: '📁 plugins/table (표, 행렬)', accepts: '.py' },
-    { value: 'plugins/chart_stat', label: '📁 plugins/chart_stat (차트, 통계)', accepts: '.py' },
-    { value: 'plugins/tree_graph', label: '📁 plugins/tree_graph (트리, 그래프)', accepts: '.py' },
-    { value: 'plugins/network_flow', label: '📁 plugins/network_flow (네트워크 흐름)', accepts: '.py' },
-    { value: 'plugins/solid_3d', label: '📁 plugins/solid_3d (3D 입체도형)', accepts: '.py' },
-    { value: 'plugins/net_unfold', label: '📁 plugins/net_unfold (전개도)', accepts: '.py' },
-    { value: 'plugins/coordinate_3d', label: '📁 plugins/coordinate_3d (3D 좌표)', accepts: '.py' },
-    { value: 'plugins/mixed', label: '📁 plugins/mixed (복합/혼합)', accepts: '.py' }
-  ];
-  res.json({ success: true, folders });
-});
-
-/**
- * GET /api/engines/files
- * 실제 엔진 폴더 스캔하여 파일 목록 반환
- */
-app.get('/api/engines/files', async (req, res) => {
-  try {
-    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
-    const result = { core: {}, plugin: {} };
-    const coreDir = path.join(ENGINES_DIR, 'core');
-    if (fs.existsSync(coreDir)) {
-      const coreFiles = await fs.promises.readdir(coreDir);
-      result.core['핵심 엔진'] = coreFiles.filter(f => f.endsWith('.md'));
-    }
-    const pluginsDir = path.join(ENGINES_DIR, 'plugins');
-    if (fs.existsSync(pluginsDir)) {
-      const pluginCategories = await fs.promises.readdir(pluginsDir);
-      for (const category of pluginCategories) {
-        const categoryPath = path.join(pluginsDir, category);
-        const stat = await fs.promises.stat(categoryPath);
-        if (stat.isDirectory()) {
-          const files = await fs.promises.readdir(categoryPath);
-          result.plugin[category] = files.filter(f => f.endsWith('.py') && f !== '__init__.py');
-        }
-      }
-    }
-    res.json({ success: true, engines: result });
-  } catch (error) {
-    console.error('엔진 파일 스캔 오류:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 /**
  * POST /api/engines/upload-file
  * 로컬 엔진 파일(.md, .py)을 특정 폴더에 업로드
@@ -4996,6 +4997,93 @@ app.post('/api/engines/upload-file', upload.single('engineFile'), async (req, re
   }
 });
 
+/**
+ * GET /api/engines/file-content
+ * 엔진 파일 내용 읽기
+ */
+app.get('/api/engines/file-content', async (req, res) => {
+  try {
+    const { folder, filename } = req.query;
+
+    if (!folder || !filename) {
+      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
+    }
+
+    // 보안: 경로 탐색 공격 방지
+    const safeFolderName = path.basename(folder);
+    const safeFileName = path.basename(filename);
+
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    let filePath;
+
+    if (folder === 'core' || safeFolderName === 'core') {
+      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
+    } else {
+      // plugins 폴더
+      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
+    }
+
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    res.json({ success: true, content, filename: safeFileName, folder });
+  } catch (error) {
+    console.error('엔진 파일 읽기 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/engines/file
+ * 엔진 파일 삭제
+ */
+app.delete('/api/engines/file', async (req, res) => {
+  try {
+    const { folder, filename } = req.body;
+
+    if (!folder || !filename) {
+      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
+    }
+
+    // 보안: 경로 탐색 공격 방지
+    const safeFolderName = path.basename(folder);
+    const safeFileName = path.basename(filename);
+
+    // 허용된 폴더만 삭제 가능
+    const ALLOWED_FOLDERS = [
+      'core', 'no_asset', 'diagram_2d', 'geometry_2d',
+      'graph_2d', 'numberline_1d', 'table', 'chart_stat',
+      'tree_graph', 'network_flow', 'solid_3d',
+      'net_unfold', 'coordinate_3d', 'mixed'
+    ];
+
+    if (!ALLOWED_FOLDERS.includes(safeFolderName)) {
+      return res.status(400).json({ success: false, error: '유효하지 않은 폴더입니다.' });
+    }
+
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    let filePath;
+
+    if (safeFolderName === 'core') {
+      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
+    } else {
+      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
+    }
+
+    await fs.promises.unlink(filePath);
+    console.log('🗑️ 엔진 파일 삭제: ' + folder + '/' + safeFileName);
+    res.json({ success: true, message: '파일이 삭제되었습니다.', deletedFile: safeFileName });
+  } catch (error) {
+    console.error('엔진 파일 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // 에러 핸들링 미들웨어
 app.use((err, req, res, next) => {
