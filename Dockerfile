@@ -29,11 +29,14 @@ RUN npm ci --only=production
 # 빌드된 파일 복사
 COPY --from=builder /app/dist ./dist
 
-# 애플리케이션 파일 복사
-COPY server.js ./
-COPY RAGAgent.js ./
+# 애플리케이션 파일 복사 (루트 JS 파일)
+COPY server.js RAGAgent.js FileSearchManager.js ./
+
+# JavaScript 모듈 복사
 COPY models/ ./models/
-COPY services/*.js ./services/
+COPY services/ChunkingService.js ./services/
+
+# 프론트엔드 파일 복사
 COPY public/ ./public/
 
 # 디렉토리 생성
