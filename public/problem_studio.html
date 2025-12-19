@@ -2430,9 +2430,23 @@
       addChatMessage(message, 'user');
       input.value = '';
 
+      // Check for problem generation workflow request (멀티 모델 워크플로우)
+      if ((message.includes('문제') && (message.includes('출제') || message.includes('생성') || message.includes('만들어'))) ||
+          message.includes('워크플로우') || message.includes('/generate')) {
+        await handleProblemWorkflow(message);
+        return;
+      }
+
       // Check for variation request
-      if (message.includes('변형') || message.includes('유사') || message.includes('만들어')) {
+      if (message.includes('변형') || message.includes('유사')) {
         await handleVariationRequest(message);
+        return;
+      }
+
+      // Check for Gemini manual review request
+      if ((message.includes('검증') && message.includes('Gemini')) ||
+          (message.includes('검증해') && studioState.lastWorkflowResult)) {
+        await handleGeminiManualReview();
         return;
       }
 
@@ -2522,6 +2536,149 @@
         const messages = document.getElementById('chatMessages');
         messages.removeChild(messages.lastChild);
         addChatMessage(`❌ 변형 생성 오류: ${error.message}`, 'assistant');
+      }
+    }
+
+    /**
+     * 멀티 모델 문제 출제 워크플로우 처리
+     * Step 1: GPT-4o로 문제 생성
+     * Step 2: o3로 자동 검증
+     * Step 3: o3로 해설 작성
+     */
+    async function handleProblemWorkflow(message) {
+      const engineCode = document.getElementById('codeEditor').value;
+      const problemEditorContent = document.getElementById('problemTextEditor')?.value || '';
+
+      // 진행 상황 표시
+      addChatMessage(`🚀 **멀티 모델 문제 출제 워크플로우 시작**
+
+📋 **설정된 모델:**
+• Step 1 문제 생성: \`gpt-4o\`
+• Step 2 자동 검증: \`o3\`
+• Step 3 해설 작성: \`o3\`
+
+⏳ 처리 중...`, 'assistant');
+
+      try {
+        const workflow = await StudioAPI.problemWorkflow({
+          prompt: message,
+          engineCode: engineCode || null,
+          context: problemEditorContent || null,
+          models: {
+            generation: 'gpt-4o',     // 문제 생성
+            verification: 'o3',       // 자동 검증
+            explanation: 'o3'         // 해설 작성
+          }
+        });
+
+        // 결과 표시
+        const messages = document.getElementById('chatMessages');
+        messages.removeChild(messages.lastChild); // 진행 중 메시지 제거
+
+        // 단계별 결과 요약
+        let resultMessage = `✅ **문제 출제 워크플로우 완료**\n\n`;
+
+        // Step 1 결과
+        const step1 = workflow.steps.find(s => s.step === 1);
+        resultMessage += `**Step 1. 문제 생성** (${step1?.model}): ${step1?.status === 'completed' ? '✅' : '❌'}\n`;
+
+        // Step 2 결과
+        const step2 = workflow.steps.find(s => s.step === 2);
+        resultMessage += `**Step 2. 자동 검증** (${step2?.model}): ${step2?.status === 'completed' ? '✅' : '❌'}\n`;
+
+        // Step 3 결과
+        const step3 = workflow.steps.find(s => s.step === 3);
+        resultMessage += `**Step 3. 해설 작성** (${step3?.model}): ${step3?.status === 'completed' ? '✅' : '❌'}\n`;
+
+        resultMessage += `\n---\n`;
+
+        // 생성된 문제 표시
+        if (workflow.finalProblem?.problem) {
+          const problem = workflow.finalProblem.problem;
+          if (problem.statement) {
+            resultMessage += `\n📝 **생성된 문제:**\n${problem.statement}\n`;
+            if (problem.question) resultMessage += `\n**질문:** ${problem.question}\n`;
+            if (problem.answer) resultMessage += `**정답:** ${problem.answer}\n`;
+          } else if (problem.raw) {
+            resultMessage += `\n📝 **생성된 문제:**\n${problem.raw.substring(0, 500)}...\n`;
+          }
+        }
+
+        // 검증 결과 요약
+        if (workflow.finalProblem?.verification) {
+          const verification = workflow.finalProblem.verification;
+          if (verification.isValid !== undefined) {
+            resultMessage += `\n🔍 **검증 결과:** ${verification.isValid ? '✅ 유효' : '⚠️ 수정 필요'}\n`;
+            if (verification.overallScore) resultMessage += `**검증 점수:** ${verification.overallScore}/100\n`;
+          }
+        }
+
+        addChatMessage(resultMessage, 'assistant');
+
+        // Gemini 수동 검증 옵션 안내
+        addChatMessage(`💡 **추가 옵션:** Gemini로 연산 정확도 수동 검증을 원하시면 "검증해줘" 또는 "Gemini 검증"이라고 입력하세요.`, 'assistant');
+
+        // 생성된 문제를 studioState에 저장
+        studioState.lastWorkflowResult = workflow;
+
+      } catch (error) {
+        const messages = document.getElementById('chatMessages');
+        messages.removeChild(messages.lastChild);
+        addChatMessage(`❌ 워크플로우 오류: ${error.message}`, 'assistant');
+      }
+    }
+
+    /**
+     * Gemini 수동 검증 (연산 정확도 검증)
+     */
+    async function handleGeminiManualReview() {
+      if (!studioState.lastWorkflowResult) {
+        addChatMessage('❌ 먼저 문제를 생성해주세요. "문제 출제해줘" 또는 "문제 생성해줘"라고 입력하세요.', 'assistant');
+        return;
+      }
+
+      addChatMessage(`🔬 **Gemini 수동 검증 시작**
+
+⏳ 연산 정확도를 검증 중입니다...`, 'assistant');
+
+      try {
+        const problem = studioState.lastWorkflowResult.generatedProblem ||
+                       JSON.stringify(studioState.lastWorkflowResult.finalProblem?.problem);
+
+        const review = await StudioAPI.geminiManualReview(problem, 'gemini-2.5-flash');
+
+        const messages = document.getElementById('chatMessages');
+        messages.removeChild(messages.lastChild);
+
+        let resultMessage = `🔬 **Gemini 수동 검증 결과**\n\n`;
+
+        if (review.manualReview) {
+          const mr = review.manualReview;
+          resultMessage += `**연산 정확도:** ${mr.calculationAccuracy?.isAccurate ? '✅ 정확' : '⚠️ 수정 필요'}\n`;
+          resultMessage += `**수식 정확도:** ${mr.formulaAccuracy?.isCorrect ? '✅ 정확' : '⚠️ 수정 필요'}\n`;
+          resultMessage += `**최종 판정:** ${mr.overallVerdict || '미정'}\n`;
+          resultMessage += `**신뢰도:** ${mr.confidence || 0}/100\n`;
+
+          if (mr.calculationAccuracy?.issues?.length > 0) {
+            resultMessage += `\n**발견된 이슈:**\n`;
+            mr.calculationAccuracy.issues.forEach(issue => {
+              resultMessage += `• ${issue}\n`;
+            });
+          }
+
+          if (mr.notes) {
+            resultMessage += `\n**추가 메모:** ${mr.notes}\n`;
+          }
+        } else if (review.raw) {
+          resultMessage += review.raw;
+        }
+
+        addChatMessage(resultMessage, 'assistant');
+
+      } catch (error) {
+        const messages = document.getElementById('chatMessages');
+        messages.removeChild(messages.lastChild);
+        addChatMessage(`❌ Gemini 검증 오류: ${error.message}`, 'assistant');
       }
     }
 

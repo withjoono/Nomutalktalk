@@ -1415,6 +1415,390 @@ ${instructions ? `- 추가 지시사항: ${instructions}` : ''}
 });
 
 /**
+ * POST /api/problem-workflow
+ * 멀티 모델 문제 출제 워크플로우
+ * Step 1: 문제 생성 (GPT-4o 또는 지정 모델)
+ * Step 2: 자동 검증 (o3 또는 지정 모델)
+ * Step 3: 최종 해설 작성 (o3 또는 지정 모델)
+ */
+app.post('/api/problem-workflow', async (req, res) => {
+  try {
+    const {
+      prompt,           // 문제 출제 요청 프롬프트
+      engineCode,       // 선택된 엔진 코드 (선택적)
+      context,          // 추가 컨텍스트 (선택적)
+      models = {},      // 각 단계별 모델 지정
+      options = {}      // 추가 옵션
+    } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        error: '문제 출제 요청 프롬프트가 필요합니다.'
+      });
+    }
+
+    // 모델 설정 (기본값)
+    const generationModel = models.generation || 'gpt-4o';      // 문제 생성
+    const verificationModel = models.verification || 'o3';      // 자동 검증
+    const explanationModel = models.explanation || 'o3';        // 해설 작성
+
+    console.log('📝 멀티 모델 문제 출제 워크플로우 시작');
+    console.log(`  - 생성 모델: ${generationModel}`);
+    console.log(`  - 검증 모델: ${verificationModel}`);
+    console.log(`  - 해설 모델: ${explanationModel}`);
+
+    const workflowResult = {
+      steps: [],
+      generatedProblem: null,
+      verification: null,
+      explanation: null,
+      finalProblem: null
+    };
+
+    // ============ STEP 1: 문제 생성 ============
+    console.log('🔷 Step 1: 문제 생성 시작...');
+    workflowResult.steps.push({ step: 1, name: '문제 생성', status: 'in_progress', model: generationModel });
+
+    let generationPrompt = `당신은 수학 문제 출제 전문가입니다.
+
+## 요청사항
+${prompt}
+
+`;
+
+    if (engineCode) {
+      generationPrompt += `## 참고 엔진 코드
+\`\`\`python
+${engineCode}
+\`\`\`
+
+위 엔진 코드의 패턴을 참고하여 문제를 생성해주세요.
+
+`;
+    }
+
+    if (context) {
+      generationPrompt += `## 추가 컨텍스트
+${context}
+
+`;
+    }
+
+    generationPrompt += `## 출력 형식
+다음 JSON 형식으로 출력해주세요:
+{
+  "problem": {
+    "title": "문제 제목",
+    "statement": "문제 지문 (LaTeX 수식 포함 가능)",
+    "conditions": ["조건1", "조건2"],
+    "question": "실제 질문",
+    "choices": ["①", "②", "③", "④", "⑤"] 또는 null (주관식인 경우),
+    "answer": "정답",
+    "difficulty": "상/중/하",
+    "category": "문제 유형"
+  },
+  "solution_hint": "풀이 핵심 힌트"
+}`;
+
+    let generatedProblem = null;
+
+    try {
+      if (generationModel.startsWith('gpt') || generationModel.startsWith('o')) {
+        // OpenAI 모델 사용
+        if (!openaiClient) {
+          throw new Error('OpenAI API 키가 설정되지 않았습니다.');
+        }
+
+        const openaiConfig = {
+          model: generationModel,
+          messages: [
+            { role: 'system', content: '당신은 수학 문제 출제 전문가입니다. 정확하고 교육적으로 가치 있는 문제를 생성합니다.' },
+            { role: 'user', content: generationPrompt }
+          ]
+        };
+
+        // o1, o3 모델은 다른 파라미터 사용
+        if (generationModel.startsWith('o')) {
+          openaiConfig.max_completion_tokens = 8192;
+        } else {
+          openaiConfig.max_tokens = 4096;
+          openaiConfig.temperature = 0.7;
+        }
+
+        const response = await openaiClient.chat.completions.create(openaiConfig);
+        generatedProblem = response.choices[0].message.content;
+      } else {
+        // Gemini 모델 사용
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: generationModel,
+          generationConfig: { temperature: 0.7 }
+        });
+        const result = await model.generateContent(generationPrompt);
+        generatedProblem = result.response.text();
+      }
+
+      workflowResult.generatedProblem = generatedProblem;
+      workflowResult.steps[0].status = 'completed';
+      workflowResult.steps[0].result = '문제 생성 완료';
+      console.log('✅ Step 1 완료: 문제 생성됨');
+
+    } catch (error) {
+      console.error('❌ Step 1 오류:', error.message);
+      workflowResult.steps[0].status = 'failed';
+      workflowResult.steps[0].error = error.message;
+
+      return res.json({
+        success: false,
+        error: `문제 생성 실패: ${error.message}`,
+        workflow: workflowResult
+      });
+    }
+
+    // ============ STEP 2: 자동 검증 ============
+    console.log('🔷 Step 2: 자동 검증 시작...');
+    workflowResult.steps.push({ step: 2, name: '자동 검증', status: 'in_progress', model: verificationModel });
+
+    const verificationPrompt = `당신은 수학 문제 검증 전문가입니다.
+
+## 검증할 문제
+${generatedProblem}
+
+## 검증 항목
+1. 수학적 정확성: 문제의 조건과 정답이 수학적으로 정확한가?
+2. 논리적 일관성: 문제의 조건들이 서로 모순되지 않는가?
+3. 풀이 가능성: 주어진 조건만으로 문제를 풀 수 있는가?
+4. 정답 검증: 제시된 정답이 올바른가? (직접 풀어서 확인)
+5. 난이도 적절성: 난이도가 적절하게 설정되었는가?
+
+## 출력 형식 (JSON)
+{
+  "verification": {
+    "isValid": true/false,
+    "mathematicalAccuracy": {
+      "score": 0-100,
+      "issues": ["이슈1", "이슈2"] 또는 []
+    },
+    "logicalConsistency": {
+      "score": 0-100,
+      "issues": []
+    },
+    "solvability": {
+      "score": 0-100,
+      "issues": []
+    },
+    "answerVerification": {
+      "isCorrect": true/false,
+      "calculatedAnswer": "검증된 정답",
+      "workingProcess": "풀이 과정 요약"
+    },
+    "difficultyAssessment": {
+      "appropriate": true/false,
+      "suggestedDifficulty": "상/중/하"
+    },
+    "overallScore": 0-100,
+    "recommendations": ["권장사항1", "권장사항2"],
+    "corrections": {
+      "needed": true/false,
+      "correctedProblem": null 또는 수정된 문제 JSON
+    }
+  }
+}`;
+
+    let verification = null;
+
+    try {
+      if (verificationModel.startsWith('gpt') || verificationModel.startsWith('o')) {
+        if (!openaiClient) {
+          throw new Error('OpenAI API 키가 설정되지 않았습니다.');
+        }
+
+        const openaiConfig = {
+          model: verificationModel,
+          messages: [
+            { role: 'system', content: '당신은 수학 문제 검증 전문가입니다. 문제의 정확성과 품질을 엄격하게 검증합니다.' },
+            { role: 'user', content: verificationPrompt }
+          ]
+        };
+
+        if (verificationModel.startsWith('o')) {
+          openaiConfig.max_completion_tokens = 16384;
+        } else {
+          openaiConfig.max_tokens = 8192;
+          openaiConfig.temperature = 0.1;
+        }
+
+        const response = await openaiClient.chat.completions.create(openaiConfig);
+        verification = response.choices[0].message.content;
+      } else {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: verificationModel,
+          generationConfig: { temperature: 0.1 }
+        });
+        const result = await model.generateContent(verificationPrompt);
+        verification = result.response.text();
+      }
+
+      workflowResult.verification = verification;
+      workflowResult.steps[1].status = 'completed';
+      workflowResult.steps[1].result = '검증 완료';
+      console.log('✅ Step 2 완료: 검증됨');
+
+    } catch (error) {
+      console.error('❌ Step 2 오류:', error.message);
+      workflowResult.steps[1].status = 'failed';
+      workflowResult.steps[1].error = error.message;
+      // 검증 실패해도 계속 진행
+    }
+
+    // ============ STEP 3: 최종 해설 작성 ============
+    console.log('🔷 Step 3: 최종 해설 작성 시작...');
+    workflowResult.steps.push({ step: 3, name: '해설 작성', status: 'in_progress', model: explanationModel });
+
+    // 검증 결과에서 수정이 필요한 경우 수정된 문제 사용
+    let problemForExplanation = generatedProblem;
+    try {
+      const verificationJson = JSON.parse(verification.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      if (verificationJson.verification?.corrections?.needed && verificationJson.verification?.corrections?.correctedProblem) {
+        problemForExplanation = JSON.stringify(verificationJson.verification.corrections.correctedProblem, null, 2);
+        console.log('📝 검증 결과에 따라 수정된 문제 사용');
+      }
+    } catch (e) {
+      // JSON 파싱 실패 시 원본 문제 사용
+    }
+
+    const explanationPrompt = `당신은 수학 교육 전문가입니다.
+
+## 문제
+${problemForExplanation}
+
+## 검증 결과
+${verification || '검증 결과 없음'}
+
+## 요청사항
+위 문제에 대한 상세하고 교육적인 해설을 작성해주세요.
+
+## 출력 형식 (JSON)
+{
+  "explanation": {
+    "summary": "문제 해설 요약 (1-2문장)",
+    "keyConceptsExplained": [
+      {
+        "concept": "핵심 개념명",
+        "explanation": "개념 설명"
+      }
+    ],
+    "stepByStepSolution": [
+      {
+        "step": 1,
+        "title": "단계 제목",
+        "content": "상세 풀이 내용 (LaTeX 수식 포함)",
+        "tip": "학습 팁 (선택적)"
+      }
+    ],
+    "commonMistakes": ["자주 하는 실수1", "자주 하는 실수2"],
+    "relatedProblems": ["관련 문제 유형1", "관련 문제 유형2"],
+    "difficultyAnalysis": "난이도 분석 및 학습 조언"
+  }
+}`;
+
+    let explanation = null;
+
+    try {
+      if (explanationModel.startsWith('gpt') || explanationModel.startsWith('o')) {
+        if (!openaiClient) {
+          throw new Error('OpenAI API 키가 설정되지 않았습니다.');
+        }
+
+        const openaiConfig = {
+          model: explanationModel,
+          messages: [
+            { role: 'system', content: '당신은 수학 교육 전문가입니다. 학생들이 이해하기 쉽도록 상세하고 친절한 해설을 작성합니다.' },
+            { role: 'user', content: explanationPrompt }
+          ]
+        };
+
+        if (explanationModel.startsWith('o')) {
+          openaiConfig.max_completion_tokens = 16384;
+        } else {
+          openaiConfig.max_tokens = 8192;
+          openaiConfig.temperature = 0.3;
+        }
+
+        const response = await openaiClient.chat.completions.create(openaiConfig);
+        explanation = response.choices[0].message.content;
+      } else {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: explanationModel,
+          generationConfig: { temperature: 0.3 }
+        });
+        const result = await model.generateContent(explanationPrompt);
+        explanation = result.response.text();
+      }
+
+      workflowResult.explanation = explanation;
+      workflowResult.steps[2].status = 'completed';
+      workflowResult.steps[2].result = '해설 작성 완료';
+      console.log('✅ Step 3 완료: 해설 작성됨');
+
+    } catch (error) {
+      console.error('❌ Step 3 오류:', error.message);
+      workflowResult.steps[2].status = 'failed';
+      workflowResult.steps[2].error = error.message;
+    }
+
+    // ============ 최종 결과 조합 ============
+    console.log('📦 최종 결과 조합 중...');
+
+    // JSON 파싱 시도
+    const parseJSON = (text) => {
+      try {
+        const match = text?.match(/\{[\s\S]*\}/);
+        return match ? JSON.parse(match[0]) : null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const problemData = parseJSON(generatedProblem);
+    const verificationData = parseJSON(verification);
+    const explanationData = parseJSON(explanation);
+
+    workflowResult.finalProblem = {
+      problem: problemData?.problem || { raw: generatedProblem },
+      verification: verificationData?.verification || { raw: verification },
+      explanation: explanationData?.explanation || { raw: explanation },
+      models: {
+        generation: generationModel,
+        verification: verificationModel,
+        explanation: explanationModel
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('✅ 멀티 모델 문제 출제 워크플로우 완료');
+
+    res.json({
+      success: true,
+      workflow: workflowResult
+    });
+
+  } catch (error) {
+    console.error('워크플로우 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /api/variation-solution
  * 변형 문제에 대한 풀이 생성
  */

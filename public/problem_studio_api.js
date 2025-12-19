@@ -389,6 +389,136 @@ async function callMultiLLMReview(problemText) {
   }
 }
 
+// ==================== Problem Workflow API ====================
+/**
+ * 멀티 모델 문제 출제 워크플로우 API
+ * Step 1: 문제 생성 (GPT 모델)
+ * Step 2: 자동 검증 (o3 모델)
+ * Step 3: 최종 해설 (o3 모델)
+ *
+ * @param {Object} options - 워크플로우 옵션
+ * @param {string} options.prompt - 문제 출제 요청
+ * @param {string} options.engineCode - 선택된 엔진 코드 (선택적)
+ * @param {string} options.context - 추가 컨텍스트 (선택적)
+ * @param {Object} options.models - 각 단계별 모델 지정
+ * @param {string} options.models.generation - 문제 생성 모델 (기본: gpt-4o)
+ * @param {string} options.models.verification - 검증 모델 (기본: o3)
+ * @param {string} options.models.explanation - 해설 모델 (기본: o3)
+ * @param {Function} onStepUpdate - 단계별 진행 콜백
+ * @returns {Promise<Object>} 워크플로우 결과
+ */
+async function callProblemWorkflow(options, onStepUpdate = null) {
+  try {
+    const { prompt, engineCode, context, models = {} } = options;
+
+    // 기본 모델 설정
+    const defaultModels = {
+      generation: 'gpt-4o',      // 문제 생성
+      verification: 'o3',        // 자동 검증
+      explanation: 'o3'          // 해설 작성
+    };
+
+    const finalModels = { ...defaultModels, ...models };
+
+    if (onStepUpdate) {
+      onStepUpdate({ step: 0, status: 'starting', message: '워크플로우 시작...' });
+    }
+
+    const response = await fetch(`${API_BASE}/api/problem-workflow`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        engineCode,
+        context,
+        models: finalModels
+      })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || '문제 출제 워크플로우 실패');
+    }
+
+    if (onStepUpdate) {
+      onStepUpdate({ step: 'complete', status: 'success', message: '워크플로우 완료' });
+    }
+
+    return result.workflow;
+  } catch (error) {
+    console.error('Problem Workflow API 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gemini로 수동 검증 (선택적)
+ * 연산 정확도가 높은 Gemini 모델로 최종 검증
+ *
+ * @param {Object} problem - 검증할 문제
+ * @param {string} geminiModel - 사용할 Gemini 모델 (기본: gemini-2.5-flash)
+ * @returns {Promise<Object>} 검증 결과
+ */
+async function callGeminiManualReview(problem, geminiModel = 'gemini-2.5-flash') {
+  try {
+    const response = await fetch(`${API_BASE}/api/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `당신은 수학 문제 검증 전문가입니다. 특히 연산 정확도에 집중하여 검증해주세요.
+
+## 검증할 문제
+${typeof problem === 'string' ? problem : JSON.stringify(problem, null, 2)}
+
+## 검증 항목
+1. 모든 수치 계산이 정확한가?
+2. 수식 표현이 올바른가?
+3. 정답 도출 과정이 수학적으로 정확한가?
+
+## 출력 형식 (JSON)
+{
+  "manualReview": {
+    "calculationAccuracy": {
+      "isAccurate": true/false,
+      "issues": [],
+      "corrections": []
+    },
+    "formulaAccuracy": {
+      "isCorrect": true/false,
+      "issues": []
+    },
+    "overallVerdict": "승인/수정필요/거부",
+    "confidence": 0-100,
+    "notes": "추가 메모"
+  }
+}`,
+        useRag: false,
+        model: geminiModel
+      })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.error || 'Gemini 수동 검증 실패');
+    }
+
+    // JSON 파싱 시도
+    try {
+      const match = result.answer.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+    } catch (e) {
+      // 파싱 실패 시 원본 반환
+    }
+
+    return { raw: result.answer };
+  } catch (error) {
+    console.error('Gemini Manual Review API 오류:', error);
+    throw error;
+  }
+}
 
 // ==================== Engine File Upload API ====================
 
@@ -506,6 +636,9 @@ window.StudioAPI = {
   indexToRAG: indexProblemToRAG,
   autoSelectEngine: autoSelectEngine,
   multiLLMReview: callMultiLLMReview,
+  // Problem Workflow (Multi-Model)
+  problemWorkflow: callProblemWorkflow,
+  geminiManualReview: callGeminiManualReview,
   // Engine File Upload/Delete
   uploadEngineFile: uploadEngineFile,
   fetchEngineFolders: fetchEngineFolders,
