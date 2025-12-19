@@ -32,6 +32,9 @@ COPY --from=builder /app/dist ./dist
 # 애플리케이션 파일 복사 (루트 JS 파일)
 COPY server.js RAGAgent.js FileSearchManager.js ./
 
+# Firebase 서비스 계정 (Cloud Run 배포용)
+COPY firebase-service-account.json ./
+
 # JavaScript 모듈 복사 (전체 폴더 구조 유지)
 COPY models/ ./models/
 COPY services/ ./services/
