@@ -32,9 +32,9 @@ COPY --from=builder /app/dist ./dist
 # 애플리케이션 파일 복사 (루트 JS 파일)
 COPY server.js RAGAgent.js FileSearchManager.js ./
 
-# JavaScript 모듈 복사
+# JavaScript 모듈 복사 (전체 폴더 구조 유지)
 COPY models/ ./models/
-COPY services/ChunkingService.js ./services/
+COPY services/ ./services/
 
 # 프론트엔드 파일 복사
 COPY public/ ./public/
