@@ -3,7 +3,14 @@
 const API_BASE = '';  // Same origin
 
 // ==================== OCR API ====================
-async function callOCRAPI(imageData, extractType = 'problem') {
+/**
+ * OCR API 호출
+ * @param {string} imageData - base64 이미지 데이터
+ * @param {string} extractType - 추출 유형 ('problem' | 'full')
+ * @param {string} ocrModel - OCR 모델 ('gemini' | 'openai' | 'gpt4')
+ * @returns {Promise<{text: string, model: string}>}
+ */
+async function callOCRAPI(imageData, extractType = 'problem', ocrModel = 'gemini') {
   try {
     const response = await fetch(`${API_BASE}/api/ocr-extract`, {
       method: 'POST',
@@ -13,7 +20,8 @@ async function callOCRAPI(imageData, extractType = 'problem') {
           data: imageData,
           mimeType: 'image/png'
         }],
-        extractType: extractType
+        extractType: extractType,
+        ocrModel: ocrModel
       })
     });
 
@@ -21,6 +29,7 @@ async function callOCRAPI(imageData, extractType = 'problem') {
     if (!result.success) {
       throw new Error(result.error || 'OCR 실패');
     }
+    // 호환성을 위해 extractedText와 model 정보를 함께 반환
     return result.extractedText;
   } catch (error) {
     console.error('OCR API 오류:', error);
@@ -66,7 +75,7 @@ async function callLLMChatAPI(message, context = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        question: prompt,
+        query: prompt,
         useRag: false,
         model: 'gemini-2.5-flash'
       })
@@ -84,18 +93,39 @@ async function callLLMChatAPI(message, context = {}) {
 }
 
 function buildProblemPrompt(userMessage, context) {
-  let prompt = userMessage;
+  let prompt = '';
 
-  if (context.currentProblem) {
-    prompt = `현재 문제:
+  // 1. 엔진 코드 내용 추가 (가장 중요한 컨텍스트)
+  if (context.engineCode) {
+    prompt += `=== 선택된 엔진 코드 ===
+${context.engineCode}
+=== 엔진 코드 끝 ===
+
+`;
+  } else if (context.selectedEngine) {
+    prompt += `사용할 엔진: ${context.selectedEngine.name} (${context.selectedEngine.subject} > ${context.selectedEngine.category})
+(참고: 엔진 코드가 로드되지 않았습니다)
+
+`;
+  }
+
+  // 2. 문제 편집 패널 내용 추가
+  if (context.problemEditorContent) {
+    prompt += `=== 현재 문제 편집 내용 ===
+${context.problemEditorContent}
+=== 문제 편집 내용 끝 ===
+
+`;
+  } else if (context.currentProblem) {
+    prompt += `=== 현재 문제 ===
 ${context.currentProblem}
+=== 문제 끝 ===
 
-사용자 요청: ${userMessage}`;
+`;
   }
 
-  if (context.selectedEngine) {
-    prompt += `\n\n사용할 엔진: ${context.selectedEngine.name} (${context.selectedEngine.subject} > ${context.selectedEngine.category})`;
-  }
+  // 3. 사용자 요청
+  prompt += `사용자 요청: ${userMessage}`;
 
   return prompt;
 }
@@ -296,7 +326,7 @@ async function autoSelectEngine(problemText) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        question: `다음 문제를 분석하여 가장 적합한 출제 엔진을 추천해주세요.
+        query: `다음 문제를 분석하여 가장 적합한 출제 엔진을 추천해주세요.
 
 문제:
 ${problemText}

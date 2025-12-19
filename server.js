@@ -863,18 +863,11 @@ function autoGenerateGraphs(text) {
 
 /**
  * POST /api/ask
- * 질문하기
+ * 질문하기 (useRag: false일 경우 직접 LLM 호출)
  */
 app.post('/api/ask', async (req, res) => {
   try {
-    if (!currentStoreName) {
-      return res.status(400).json({
-        success: false,
-        error: '먼저 스토어를 초기화하세요.'
-      });
-    }
-
-    const { query } = req.body;
+    const { query, useRag = true, model: requestedModel } = req.body;
 
     if (!query) {
       return res.status(400).json({
@@ -883,8 +876,27 @@ app.post('/api/ask', async (req, res) => {
       });
     }
 
-    const agent = getAgent();
-    let answer = await agent.ask(query);
+    let answer;
+
+    // useRag가 false이면 직접 Gemini API 호출 (스토어 불필요)
+    if (!useRag) {
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const modelName = requestedModel || 'gemini-2.5-flash';
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(query);
+      answer = result.response.text();
+    } else {
+      // RAG 모드: 스토어 필요
+      if (!currentStoreName) {
+        return res.status(400).json({
+          success: false,
+          error: '먼저 스토어를 초기화하세요.'
+        });
+      }
+      const agent = getAgent();
+      answer = await agent.ask(query);
+    }
 
     console.log('\n📝 원본 AI 응답 (전체):');
     console.log('='.repeat(80));
@@ -1540,7 +1552,7 @@ ${problem}
  */
 app.post('/api/ocr-extract', async (req, res) => {
   try {
-    const { images, extractType = 'full' } = req.body;
+    const { images, extractType = 'full', ocrModel = 'gemini' } = req.body;
 
     if (!images || images.length === 0) {
       return res.status(400).json({
@@ -1549,41 +1561,34 @@ app.post('/api/ocr-extract', async (req, res) => {
       });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        error: 'Gemini API 키가 설정되지 않았습니다.'
-      });
-    }
-
-    console.log('📝 OCR 텍스트 추출 시작');
-
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 8192,
-      }
-    });
+    // 특수문자 인식 프롬프트 (공통)
+    const specialCharPrompt = `
+## 중요: 특수문자 정확히 인식
+다음 특수문자들을 반드시 정확하게 구분하여 추출해야 합니다:
+- 원문자 한글: ㉠, ㉡, ㉢, ㉣, ㉤, ㉥, ㉦, ㉧, ㉨, ㉩, ㉪, ㉫, ㉬, ㉭ (영역/조건 표시용)
+- 원문자 숫자: ①, ②, ③, ④, ⑤ (선지 번호용)
+- 원문자 알파벳: ⓐ, ⓑ, ⓒ, ⓓ, ⓔ
+- 괄호 문자: ⑴, ⑵, ⑶, ⑷, ⑸
+- 밑줄/빈칸: ___, ______, (   ), [   ] 등 빈칸 표시 정확히 유지
+- 첨자: 위첨자, 아래첨자 정확히 구분`;
 
     const ocrPrompt = extractType === 'problem'
       ? `이 이미지에서 수학/과학 문제를 정확하게 추출해주세요.
+${specialCharPrompt}
 
 ## 추출 규칙
-1. 문제 텍스트를 정확하게 그대로 추출
+1. 문제 텍스트를 정확하게 그대로 추출 (특수문자 변형 금지)
 2. 수학 수식은 LaTeX 형식으로 변환 ($...$ 사용)
-3. 보기가 있으면 ①, ②, ③, ④, ⑤ 형식으로 표시
+3. 보기가 있으면 원본의 기호 그대로 유지 (①②③④⑤ 또는 ㄱㄴㄷㄹ 등)
 4. 그림이나 그래프 설명이 필요하면 [그림: 설명] 형태로 추가
 5. 문제 번호가 있으면 포함
 
 추출된 문제 텍스트만 그대로 출력해주세요. JSON이나 다른 형식 없이 순수한 문제 내용만 출력합니다.`
       : `이 이미지의 모든 텍스트를 정확하게 추출해주세요.
+${specialCharPrompt}
 
 ## 추출 규칙
-1. 모든 텍스트를 빠짐없이 추출
+1. 모든 텍스트를 빠짐없이 추출 (특수문자 변형 금지)
 2. 수학 수식은 LaTeX 형식으로 변환 ($...$ 사용)
 3. 레이아웃과 구조를 최대한 유지
 4. 표가 있으면 마크다운 표 형식으로 변환
@@ -1591,23 +1596,111 @@ app.post('/api/ocr-extract', async (req, res) => {
 
 추출된 텍스트를 그대로 출력해주세요.`;
 
-    const imageParts = images.map(img => ({
-      inlineData: {
-        mimeType: img.mimeType || 'image/png',
-        data: img.data.replace(/^data:[^;]+;base64,/, '')
+    let extractedText = '';
+    let usedModel = '';
+
+    // OpenAI Vision OCR
+    if (ocrModel === 'openai' || ocrModel === 'gpt4') {
+      if (!openaiClient) {
+        return res.status(503).json({
+          success: false,
+          error: 'OpenAI API 키가 설정되지 않았습니다.'
+        });
       }
-    }));
 
-    const result = await model.generateContent([ocrPrompt, ...imageParts]);
-    const response = await result.response;
-    const extractedText = response.text();
+      console.log('📝 OpenAI Vision OCR 텍스트 추출 시작');
 
-    console.log('✅ OCR 추출 완료');
+      // OpenAI Vision API용 이미지 포맷
+      const imageContents = images.map(img => {
+        let imageUrl = img.data;
+
+        // base64 데이터 정리 (공백, 줄바꿈 제거)
+        if (imageUrl.startsWith('data:')) {
+          // data URL 형식이면 그대로 사용하되 base64 부분 정리
+          const parts = imageUrl.split(',');
+          if (parts.length === 2) {
+            const cleanBase64 = parts[1].replace(/\s/g, '');
+            imageUrl = parts[0] + ',' + cleanBase64;
+          }
+        } else {
+          // 순수 base64면 data URL 형식으로 변환
+          const cleanBase64 = imageUrl.replace(/\s/g, '');
+          const mimeType = img.mimeType || 'image/png';
+          imageUrl = `data:${mimeType};base64,${cleanBase64}`;
+        }
+
+        console.log('📷 이미지 URL 형식:', imageUrl.substring(0, 50) + '...');
+
+        return {
+          type: 'image_url',
+          image_url: {
+            url: imageUrl,
+            detail: 'high'
+          }
+        };
+      });
+
+      const openaiResponse = await openaiClient.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: ocrPrompt },
+              ...imageContents
+            ]
+          }
+        ],
+        max_tokens: 4096,
+        temperature: 0.1
+      });
+
+      extractedText = openaiResponse.choices[0].message.content;
+      usedModel = 'gpt-4o';
+      console.log('✅ OpenAI Vision OCR 추출 완료');
+    }
+    // Gemini Vision OCR (기본)
+    else {
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({
+          success: false,
+          error: 'Gemini API 키가 설정되지 않았습니다.'
+        });
+      }
+
+      console.log('📝 Gemini OCR 텍스트 추출 시작');
+
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+      // OCR에는 더 정확한 모델 사용 (특수문자 인식 향상)
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+        }
+      });
+
+      const imageParts = images.map(img => ({
+        inlineData: {
+          mimeType: img.mimeType || 'image/png',
+          data: img.data.replace(/^data:[^;]+;base64,/, '')
+        }
+      }));
+
+      const result = await model.generateContent([ocrPrompt, ...imageParts]);
+      const response = await result.response;
+      extractedText = response.text();
+      usedModel = 'gemini-2.5-flash';
+      console.log('✅ Gemini OCR 추출 완료');
+    }
 
     res.json({
       success: true,
       extractedText,
-      extractType
+      extractType,
+      model: usedModel
     });
   } catch (error) {
     console.error('OCR 추출 오류:', error);
@@ -5052,9 +5145,9 @@ app.post('/api/engines/upload-file', upload.single('engineFile'), async (req, re
     }
     const originalName = req.file.originalname;
     const ext = path.extname(originalName).toLowerCase();
-    if (targetFolder === 'core' && ext !== '.md') {
+    if (targetFolder === 'core' && ext !== '.py') {
       await cleanupFile(filePath);
-      return res.status(400).json({ success: false, error: 'core 폴더에는 .md 파일만 업로드 가능합니다.' });
+      return res.status(400).json({ success: false, error: 'core 폴더에는 .py 파일만 업로드 가능합니다.' });
     }
     if (targetFolder.startsWith('plugins/') && ext !== '.py') {
       await cleanupFile(filePath);

@@ -668,6 +668,45 @@
       opacity: 1;
     }
 
+    /* 미디어 프리뷰 래퍼 및 삭제 버튼 */
+    .media-preview-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .media-remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      background: rgba(255, 99, 71, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: all 0.2s;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .media-remove-btn:hover {
+      opacity: 1;
+      background: rgba(255, 59, 48, 1);
+      transform: scale(1.1);
+    }
+
+    .media-preview-wrapper:hover .media-remove-btn {
+      opacity: 1;
+    }
+
     .add-box-btn {
       padding: 8px;
       background: var(--bg-input);
@@ -1604,6 +1643,10 @@
         <div class="problem-toolbar">
           <button class="btn btn-primary btn-sm" onclick="triggerImageUpload()">📷 문제 입력</button>
           <button class="btn btn-info btn-sm" onclick="loadDBProblems()">📂 저장된 문제 불러오기</button>
+          <select id="ocrModelSelect" class="btn btn-secondary btn-sm" style="padding: 4px 8px; min-width: 100px;">
+            <option value="gemini">🔮 Gemini</option>
+            <option value="openai">🤖 GPT-4o</option>
+          </select>
           <button class="btn btn-secondary btn-sm" onclick="runOCR()">🔍 OCR</button>
           <button class="btn btn-secondary btn-sm" onclick="autoLabel()">🏷️ 라벨링</button>
           <button class="btn btn-secondary btn-sm" onclick="applyRAG()">🔗 RAG 적용</button>
@@ -1989,14 +2032,14 @@
           const hint = document.getElementById('uploadFileHint');
 
           if (this.value === 'core') {
-            fileInput.accept = '.md';
-            hint.textContent = '선택한 폴더에는 .md 파일만 업로드 가능합니다.';
+            fileInput.accept = '.py';
+            hint.textContent = '선택한 폴더에는 .py 파일만 업로드 가능합니다.';
           } else if (this.value.startsWith('plugins/')) {
             fileInput.accept = '.py';
             hint.textContent = '선택한 폴더에는 .py 파일만 업로드 가능합니다.';
           } else {
-            fileInput.accept = '.md,.py';
-            hint.textContent = 'core 폴더: .md 파일, plugins 폴더: .py 파일';
+            fileInput.accept = '.py';
+            hint.textContent = 'core/plugins 폴더: .py 파일';
           }
         });
       }
@@ -2022,8 +2065,8 @@
       const ext = file.name.split('.').pop().toLowerCase();
 
       // 확장자 검증
-      if (targetFolder === 'core' && ext !== 'md') {
-        showUploadStatus('❌ core 폴더에는 .md 파일만 업로드 가능합니다.', 'error');
+      if (targetFolder === 'core' && ext !== 'py') {
+        showUploadStatus('❌ core 폴더에는 .py 파일만 업로드 가능합니다.', 'error');
         return;
       }
 
@@ -2259,8 +2302,16 @@
       try {
         const folder = subject === 'core' ? 'core' : category;
         await StudioAPI.deleteEngineFile(folder, file);
-
-        // 트리 새로고침
+        addChatMessage(`🗑️ 파일 삭제 완료: ${file}`, 'assistant');
+      } catch (error) {
+        // 파일이 이미 없는 경우에도 UI를 동기화
+        if (error.message.includes('찾을 수 없습니다')) {
+          addChatMessage(`ℹ️ 파일이 이미 존재하지 않습니다: ${file}`, 'assistant');
+        } else {
+          alert(`파일 삭제 오류: ${error.message}`);
+        }
+      } finally {
+        // 항상 트리 새로고침하여 UI와 파일시스템 동기화
         await refreshEngineTree();
 
         // 선택된 파일이 삭제된 파일이면 에디터 초기화
@@ -2268,10 +2319,6 @@
           studioState.selectedEngine = null;
           document.getElementById('codeEditor').value = '';
         }
-
-        addChatMessage(`🗑️ 파일 삭제 완료: ${file}`, 'assistant');
-      } catch (error) {
-        alert(`파일 삭제 오류: ${error.message}`);
       }
     }
 
@@ -2409,9 +2456,16 @@
         addChatMessage('🤔 생각 중...', 'assistant');
         const currentProblem = studioState.problems[studioState.currentProblemIndex];
 
+        // 엔진 코드 에디터 내용 가져오기
+        const engineCode = document.getElementById('codeEditor').value;
+        // 문제 편집 패널 내용 가져오기
+        const problemEditorContent = document.getElementById('problemTextEditor')?.value || '';
+
         const response = await StudioAPI.chat(message, {
           currentProblem: currentProblem.content,
-          selectedEngine: studioState.selectedEngine
+          selectedEngine: studioState.selectedEngine,
+          engineCode: engineCode,
+          problemEditorContent: problemEditorContent
         });
 
         // Remove "thinking" message and add response
@@ -2491,14 +2545,24 @@
     }
 
     function addChatMessage(content, role) {
+      // llmChatPlugin이 있으면 활성 탭의 메시지 배열에 추가
+      if (llmChatPlugin) {
+        const tab = llmChatPlugin.getActiveTab();
+        if (tab) {
+          tab.messages.push({ role, content, timestamp: new Date().toISOString() });
+        }
+      } else {
+        // 폴백: 플러그인이 없으면 기존 방식 사용
+        studioState.chatHistory.push({ role, content });
+      }
+
+      // DOM에 메시지 추가
       const container = document.getElementById('chatMessages');
       const div = document.createElement('div');
       div.className = `chat-message ${role}`;
-      div.innerHTML = content.replace(/\n/g, '<br>');
+      div.innerHTML = formatChatMessage(content);
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
-
-      studioState.chatHistory.push({ role, content });
     }
 
     function handleChatKeypress(event) {
@@ -2582,7 +2646,7 @@
       document.head.appendChild(style);
     }
 
-    // ==================== Image Region Selector ====================
+    // ==================== Image Region Selector (다중 영역 지원) ====================
     let regionSelector = null;
 
     function initRegionSelector() {
@@ -2593,65 +2657,98 @@
 
       regionSelector = new ImageRegionSelector(container, {
         handleSize: 10,
-        handleColor: '#4a9eff',
-        selectionBorderColor: '#4a9eff',
-        overlayColor: 'rgba(0, 0, 0, 0.5)'
+        problemColor: '#4a9eff',     // 문제 영역 색상
+        resourceColor: '#ff9800',    // 자료 영역 색상
+        activeColor: '#00ff00',      // 활성 영역 색상
+        overlayColor: 'rgba(0, 0, 0, 0.3)'
       });
 
-      // 선택 영역 변경 콜백
-      regionSelector.onSelectionChange((selection) => {
-        console.log('선택 영역 변경:', selection);
+      // 모든 영역 변경 콜백
+      regionSelector.onSelectionChange((regions) => {
+        console.log('영역 목록 변경:', regions);
+        updateRegionSummary(regions);
       });
 
-      // Export 콜백 - 다른 기능에 전달
+      // Export 콜백 - 개별 영역 추출
       regionSelector.onExport((data) => {
-        console.log('영역 추출됨:', data.selection);
+        console.log('영역 추출됨:', data.region);
         handleExportedRegion(data);
       });
 
       // OCR 콜백 - 선택 영역 OCR 실행
       regionSelector.onOCR((data) => {
-        console.log('OCR 요청:', data.selection);
+        console.log('OCR 요청:', data.region);
         runRegionOCR(data);
       });
+
+      // 영역 추가 콜백
+      regionSelector.onRegionAdd((region) => {
+        console.log('영역 추가됨:', region);
+        showNotification(`✅ ${region.label} 영역이 추가되었습니다.`, 'success');
+      });
+
+      // 영역 삭제 콜백
+      regionSelector.onRegionDelete((region) => {
+        console.log('영역 삭제됨:', region);
+        showNotification(`🗑️ ${region.label} 영역이 삭제되었습니다.`, 'info');
+      });
+    }
+
+    // 영역 요약 정보 업데이트
+    function updateRegionSummary(regions) {
+      const problemCount = regions.filter(r => r.type === 'problem').length;
+      const resourceCount = regions.filter(r => r.type === 'resource').length;
+
+      // 상태 표시 (필요시 UI 요소 추가)
+      console.log(`영역 현황: 문제 ${problemCount}개, 자료 ${resourceCount}개`);
     }
 
     // 추출된 영역 처리 함수
     function handleExportedRegion(data) {
+      // region 또는 selection (하위 호환성)
+      const region = data.region || data.selection;
+
       // 이벤트 발생 - 다른 모듈에서 구독 가능
       const event = new CustomEvent('regionExported', {
         detail: {
           dataURL: data.dataURL,
           base64: data.base64,
-          selection: data.selection,
+          region: region,
           format: data.format
         }
       });
       document.dispatchEvent(event);
 
-      // 자료(그림/표) 패널에 바로 추가
-      addExportedImageToMedia(data.dataURL);
+      // 자료(그림/표) 패널에 바로 추가 (라벨 포함)
+      addExportedImageToMedia(data.dataURL, region?.label);
 
       // 알림 및 편집 탭으로 전환
-      showNotification(`✅ 영역이 자료(그림/표) 패널에 추가되었습니다. (${data.selection.width}×${data.selection.height}px)`, 'success');
-      addChatMessage(`✅ 선택 영역이 자료(그림/표) 패널에 추가되었습니다.`, 'assistant');
+      const label = region?.label || '선택 영역';
+      const size = region ? `${region.width}×${region.height}px` : '';
+      showNotification(`✅ ${label}이(가) 자료(그림/표) 패널에 추가되었습니다. ${size}`, 'success');
+      addChatMessage(`✅ ${label}이(가) 자료(그림/표) 패널에 추가되었습니다.`, 'assistant');
     }
 
     // 선택 영역 OCR 실행
     async function runRegionOCR(data) {
-      showNotification('🔍 선택 영역 OCR 처리 중...', 'info');
-      addChatMessage('🔍 선택 영역 OCR 처리 중...', 'assistant');
+      const ocrModel = getSelectedOCRModel();
+      const modelName = ocrModel === 'openai' ? 'GPT-4o' : 'Gemini';
+      const region = data.region || data.selection;
+      const regionLabel = region?.label || '선택 영역';
+
+      showNotification(`🔍 ${modelName} ${regionLabel} OCR 처리 중...`, 'info');
+      addChatMessage(`🔍 ${modelName} ${regionLabel} OCR 처리 중...`, 'assistant');
 
       try {
-        // OCR API 호출
-        const ocrResult = await StudioAPI.ocr(data.base64, 'problem');
+        // OCR API 호출 (선택된 모델 사용)
+        const ocrResult = await StudioAPI.ocr(data.base64, 'problem', ocrModel);
 
         // 결과를 제시문 편집기에 표시
         const statementEditor = document.getElementById('statementEditor');
         if (statementEditor) {
           // 기존 내용이 있으면 추가, 없으면 새로 설정
           if (statementEditor.value.trim()) {
-            statementEditor.value += '\n\n--- OCR 결과 ---\n' + ocrResult;
+            statementEditor.value += `\n\n--- ${regionLabel} OCR 결과 ---\n` + ocrResult;
           } else {
             statementEditor.value = ocrResult;
           }
@@ -2671,8 +2768,8 @@
           problem.structured.statement = statementEditor?.value || ocrResult;
         }
 
-        showNotification('✅ OCR 완료! 제시문에 결과가 입력되었습니다.', 'success');
-        addChatMessage('✅ OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.', 'assistant');
+        showNotification(`✅ ${modelName} OCR 완료! ${regionLabel} 결과가 제시문에 입력되었습니다.`, 'success');
+        addChatMessage(`✅ ${modelName} ${regionLabel} OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'assistant');
 
         // 편집 탭으로 전환
         document.querySelector('.editor-tab[onclick*="edit"]')?.click();
@@ -2684,7 +2781,7 @@
 
         // 이벤트 발생
         document.dispatchEvent(new CustomEvent('regionOCRComplete', {
-          detail: { text: ocrResult, selection: data.selection }
+          detail: { text: ocrResult, region: region }
         }));
 
         return ocrResult;
@@ -2696,19 +2793,24 @@
     }
 
     // 추출 이미지를 미디어 패널에 추가
-    function addExportedImageToMedia(dataURL) {
+    function addExportedImageToMedia(dataURL, label = null) {
       const container = document.getElementById('mediaBoxContainer');
       if (!container) return;
 
       // 새 미디어 박스 추가
       const boxCount = container.querySelectorAll('.multi-box-item').length + 1;
+      const displayLabel = label || `자료 ${boxCount}`;
       const newBox = document.createElement('div');
       newBox.className = 'multi-box-item';
       newBox.dataset.boxId = `media-${boxCount}`;
+      newBox.dataset.label = displayLabel;
       newBox.innerHTML = `
         <div class="media-preview-wrapper">
+          <div class="media-label" style="font-size: 11px; color: #a0a0b0; padding: 4px 8px; background: var(--bg-input); border-bottom: 1px solid var(--border-color);">
+            🖼️ ${displayLabel}
+          </div>
           <img src="${dataURL}" class="media-preview-image" style="max-width: 100%; max-height: 200px; object-fit: contain;">
-          <button class="media-remove-btn" onclick="removeMediaBox(${boxCount})" title="삭제">×</button>
+          <button class="media-remove-btn" onclick="event.stopPropagation(); removeBox('media', ${boxCount})" title="삭제">×</button>
         </div>
       `;
       container.appendChild(newBox);
@@ -2775,9 +2877,9 @@
         return;
       }
 
-      // 선택 영역 초기화
-      regionSelector.resetSelection();
-      showNotification('선택 영역이 초기화되었습니다.', 'info');
+      // 모든 영역 초기화
+      regionSelector.clearAllRegions();
+      showNotification('모든 영역이 초기화되었습니다.', 'info');
     }
 
     function exportRegion() {
@@ -2787,17 +2889,78 @@
         return;
       }
 
-      // 영역 추출 - 직접 메서드 호출
-      const sel = regionSelector.getSelection();
-      const dataURL = regionSelector.exportRegion('image/png');
+      // 현재 선택된 영역 추출
+      const region = regionSelector.getActiveRegion();
+      if (!region) {
+        showNotification('먼저 추출할 영역을 선택해주세요.', 'warning');
+        return;
+      }
+
+      const dataURL = regionSelector.exportRegion(null, 'image/png');
       if (dataURL) {
         handleExportedRegion({
           dataURL: dataURL,
           base64: dataURL.split(',')[1],
-          selection: sel,
+          region: region,
           format: 'image/png'
         });
       }
+    }
+
+    // 모든 영역 추출
+    function exportAllRegions() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        switchEditorTabDirect('regionSelector');
+        return;
+      }
+
+      const regions = regionSelector.getAllRegions();
+      if (regions.length === 0) {
+        showNotification('추출할 영역이 없습니다. 영역을 먼저 그려주세요.', 'warning');
+        return;
+      }
+
+      const allRegionData = regionSelector.exportAllRegions('image/png');
+      allRegionData.forEach(data => {
+        addExportedImageToMedia(data.dataURL, data.label);
+      });
+
+      showNotification(`✅ ${allRegionData.length}개의 영역이 자료 패널에 추가되었습니다.`, 'success');
+      addChatMessage(`✅ ${allRegionData.length}개의 영역이 자료(그림/표) 패널에 추가되었습니다.`, 'assistant');
+    }
+
+    // 모든 문제 영역 OCR
+    async function runOCRAllProblemRegions() {
+      if (!regionSelector || !regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 로드해주세요.', 'warning');
+        switchEditorTabDirect('regionSelector');
+        return;
+      }
+
+      const problemRegions = regionSelector.getProblemRegions();
+      if (problemRegions.length === 0) {
+        showNotification('문제 영역이 없습니다. 문제 영역을 먼저 그려주세요.', 'warning');
+        return;
+      }
+
+      showNotification(`🔍 ${problemRegions.length}개의 문제 영역 OCR 처리 시작...`, 'info');
+
+      for (let i = 0; i < problemRegions.length; i++) {
+        const region = problemRegions[i];
+        const dataURL = regionSelector.exportRegion(i, 'image/png');
+
+        try {
+          await runRegionOCR({
+            base64: dataURL.split(',')[1],
+            region: region
+          });
+        } catch (error) {
+          console.error(`${region.label} OCR 오류:`, error);
+        }
+      }
+
+      showNotification(`✅ ${problemRegions.length}개의 문제 영역 OCR 완료!`, 'success');
     }
 
     function runRegionOCRFromButton() {
@@ -2807,7 +2970,13 @@
         return;
       }
 
-      // OCR 실행 - 직접 메서드 호출
+      // 현재 선택된 영역 OCR 실행
+      const region = regionSelector.getActiveRegion();
+      if (!region) {
+        showNotification('먼저 OCR할 영역을 선택해주세요.', 'warning');
+        return;
+      }
+
       regionSelector.runOCR();
     }
 
@@ -3143,6 +3312,11 @@
     }
 
     // ==================== Toolbar Actions ====================
+    function getSelectedOCRModel() {
+      const select = document.getElementById('ocrModelSelect');
+      return select ? select.value : 'gemini';
+    }
+
     async function runOCR() {
       const problem = studioState.problems[studioState.currentProblemIndex];
       // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
@@ -3154,11 +3328,13 @@
         return;
       }
 
-      addChatMessage('🔍 OCR 처리 중...', 'assistant');
+      const ocrModel = getSelectedOCRModel();
+      const modelName = ocrModel === 'openai' ? 'GPT-4o' : 'Gemini';
+      addChatMessage(`🔍 ${modelName} OCR 처리 중...`, 'assistant');
 
       try {
-        // Call real OCR API
-        const ocrResult = await StudioAPI.ocr(imageData, 'problem');
+        // Call real OCR API with selected model
+        const ocrResult = await StudioAPI.ocr(imageData, 'problem', ocrModel);
 
         document.getElementById('problemTextEditor').value = ocrResult;
         problem.content = ocrResult;
@@ -3175,7 +3351,7 @@
         }
         problem.structured.statement = ocrResult;
 
-        addChatMessage('✅ OCR 완료!\n\n인식된 텍스트가 편집창에 입력되었습니다. 필요시 수정해주세요.', 'assistant');
+        addChatMessage(`✅ ${modelName} OCR 완료!\n\n인식된 텍스트가 편집창에 입력되었습니다. 필요시 수정해주세요.`, 'assistant');
 
         // Switch to edit tab
         document.querySelectorAll('.editor-tab')[0].click();
@@ -3706,7 +3882,12 @@
         const zone = document.getElementById(zoneId);
         if (zone) {
           zone.classList.add('has-content');
-          zone.innerHTML = `<img src="${e.target.result}" alt="업로드된 자료 ${currentMediaBoxId}">`;
+          zone.innerHTML = `
+            <div class="media-preview-wrapper">
+              <img src="${e.target.result}" alt="업로드된 자료 ${currentMediaBoxId}" style="max-width: 100%; max-height: 200px; object-fit: contain;">
+              <button class="media-remove-btn" onclick="event.stopPropagation(); clearMediaItem(${currentMediaBoxId})" title="삭제">×</button>
+            </div>
+          `;
         }
 
         // 현재 문제에 저장 (다중 이미지 배열로)
@@ -3737,6 +3918,33 @@
         </div>
       `;
       studioState.problems[studioState.currentProblemIndex].mediaImage = null;
+    }
+
+    // 개별 미디어 아이템 삭제
+    function clearMediaItem(boxId) {
+      const zoneId = boxId === 1 ? 'mediaUploadZone' : `mediaUploadZone-${boxId}`;
+      const zone = document.getElementById(zoneId);
+      if (zone) {
+        zone.classList.remove('has-content');
+        zone.innerHTML = `
+          <div class="upload-placeholder">
+            <span>📷</span>
+            이미지/표 ${boxId}
+            <br><small>클릭하여 업로드</small>
+          </div>
+        `;
+      }
+
+      // 상태에서 이미지 제거
+      const problem = studioState.problems[studioState.currentProblemIndex];
+      if (problem.mediaImages && problem.mediaImages[boxId]) {
+        delete problem.mediaImages[boxId];
+      }
+      if (boxId === 1) {
+        problem.mediaImage = null;
+      }
+      syncProblemContent();
+      updatePreview();
     }
 
     // ===== 추가 박스 관련 함수들 =====
@@ -4314,7 +4522,9 @@
 
     function renderChatMessages(messages) {
       const container = document.getElementById('chatMessages');
+      // 메시지가 없으면 컨테이너 비우기 (새 탭 전환 시 필요)
       if (!messages || messages.length === 0) {
+        container.innerHTML = '';
         return;
       }
       container.innerHTML = messages.map(msg => `
@@ -4482,7 +4692,7 @@
           <select id="uploadTargetFolder" style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
             <option value="">-- 폴더 선택 --</option>
             <optgroup label="🔧 Core">
-              <option value="core">핵심 엔진 (.md)</option>
+              <option value="core">핵심 엔진 (.py)</option>
             </optgroup>
             <optgroup label="🔌 Plugins">
               <option value="plugins/no_asset">no_asset (.py)</option>
@@ -4503,8 +4713,8 @@
         </div>
         <div class="form-group" style="margin-bottom: 12px;">
           <label style="display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">파일 선택</label>
-          <input type="file" id="uploadEngineFile" accept=".md,.py" style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
-          <small id="uploadFileHint" style="color: var(--text-secondary); font-size: 11px;">core 폴더: .md 파일, plugins 폴더: .py 파일</small>
+          <input type="file" id="uploadEngineFile" accept=".py" style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
+          <small id="uploadFileHint" style="color: var(--text-secondary); font-size: 11px;">core/plugins 폴더: .py 파일</small>
         </div>
         <div class="form-group" style="margin-bottom: 12px;">
           <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
