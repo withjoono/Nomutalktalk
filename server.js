@@ -4488,7 +4488,7 @@ app.get('/api/engines/files', async (req, res) => {
     const coreDir = path.join(ENGINES_DIR, 'core');
     if (fs.existsSync(coreDir)) {
       const coreFiles = await fs.promises.readdir(coreDir);
-      result.core['핵심 엔진'] = coreFiles.filter(f => f.endsWith('.md'));
+      result.core['핵심 엔진'] = coreFiles.filter(f => f.endsWith('.md') || (f.endsWith('.py') && f !== '__init__.py'));
     }
     const pluginsDir = path.join(ENGINES_DIR, 'plugins');
     if (fs.existsSync(pluginsDir)) {
