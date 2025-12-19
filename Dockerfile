@@ -1,31 +1,40 @@
-# Google Cloud Run용 Dockerfile
-# Node.js 22 LTS 버전 사용
-FROM node:22-slim
+# Google Cloud Run용 Dockerfile - Multi-stage build
+# Stage 1: TypeScript 빌드
+FROM node:22-slim AS builder
 
-# 작업 디렉토리 설정
 WORKDIR /app
 
-# 패키지 파일 복사 (캐싱 최적화)
+# 패키지 파일 복사
 COPY package*.json ./
 COPY tsconfig.json ./
 
 # 모든 의존성 설치 (TypeScript 빌드를 위해)
 RUN npm ci
 
-# 소스 파일 복사
+# 소스 파일 복사 및 빌드
 COPY src/ ./src/
-
-# TypeScript 빌드
 RUN npm run build
 
-# 나머지 애플리케이션 파일 복사
-COPY . .
+# Stage 2: 프로덕션 이미지
+FROM node:22-slim
 
-# devDependencies 제거하여 이미지 크기 최적화
-RUN npm prune --production
+WORKDIR /app
 
-# public 디렉토리 존재 확인
-RUN mkdir -p public uploads
+# 패키지 파일 복사
+COPY package*.json ./
+
+# 프로덕션 의존성만 설치
+RUN npm ci --only=production
+
+# 빌드된 파일 복사
+COPY --from=builder /app/dist ./dist
+
+# 애플리케이션 파일 복사
+COPY server.js ./
+COPY public/ ./public/
+
+# 디렉토리 생성
+RUN mkdir -p uploads
 
 # 보안: non-root 사용자로 실행
 RUN chown -R node:node /app
