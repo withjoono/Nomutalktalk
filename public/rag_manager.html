@@ -6,11 +6,84 @@
   <title>RAG 관리자 도구</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* RAG 관리자 전용 스타일 */
+    /* RAG 관리자 전용 스타일 - 기본 스타일 오버라이드 */
+    body {
+      background: #f0f2f5 !important;
+    }
+
     .rag-manager-container {
       max-width: 1400px;
       margin: 0 auto;
       padding: 20px;
+      color: #333;
+    }
+
+    .rag-manager-container header {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .rag-manager-container header h1 {
+      color: #2d3748 !important;
+    }
+
+    .rag-manager-container header p {
+      color: #718096 !important;
+    }
+
+    .rag-manager-container header a {
+      color: #667eea !important;
+    }
+
+    /* 버튼 스타일 오버라이드 */
+    .rag-manager-container .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+
+    .rag-manager-container .btn-primary {
+      background: #667eea;
+      color: white !important;
+    }
+
+    .rag-manager-container .btn-primary:hover {
+      background: #5a67d8;
+    }
+
+    .rag-manager-container .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568 !important;
+    }
+
+    .rag-manager-container .btn-secondary:hover {
+      background: #cbd5e0;
+    }
+
+    .rag-manager-container .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+    }
+
+    /* 폼 요소 스타일 */
+    .rag-manager-container input,
+    .rag-manager-container textarea,
+    .rag-manager-container select {
+      color: #2d3748 !important;
+      background: white !important;
+    }
+
+    .rag-manager-container label {
+      color: #4a5568 !important;
+    }
+
+    .rag-manager-container h3 {
+      color: #2d3748;
     }
 
     .stats-grid {
@@ -21,31 +94,41 @@
     }
 
     .stat-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: white;
+      color: #2d3748;
       padding: 20px;
       border-radius: 12px;
       text-align: center;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-left: 4px solid #667eea;
     }
 
     .stat-card.warning {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      border-left-color: #f59e0b;
     }
 
     .stat-card.success {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      border-left-color: #10b981;
     }
 
     .stat-value {
       font-size: 2.5rem;
       font-weight: bold;
       margin-bottom: 8px;
+      color: #667eea;
+    }
+
+    .stat-card.warning .stat-value {
+      color: #f59e0b;
+    }
+
+    .stat-card.success .stat-value {
+      color: #10b981;
     }
 
     .stat-label {
       font-size: 0.9rem;
-      opacity: 0.9;
+      color: #718096;
     }
 
     .tab-container {
@@ -73,10 +156,11 @@
 
     .tab-btn:hover {
       background: #edf2f7;
+      color: #2d3748;
     }
 
     .tab-btn.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #667eea;
       color: white;
     }
 
