@@ -4510,6 +4510,96 @@ app.get('/api/engines/files', async (req, res) => {
 });
 
 /**
+ * GET /api/engines/file-content
+ * 엔진 파일 내용 읽기
+ * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함
+ */
+app.get('/api/engines/file-content', async (req, res) => {
+  try {
+    const { folder, filename } = req.query;
+
+    if (!folder || !filename) {
+      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
+    }
+
+    // 보안: 경로 탐색 공격 방지
+    const safeFolderName = path.basename(folder);
+    const safeFileName = path.basename(filename);
+
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    let filePath;
+
+    if (folder === 'core' || safeFolderName === 'core') {
+      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
+    } else {
+      // plugins 폴더
+      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
+    }
+
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    res.json({ success: true, content, filename: safeFileName, folder });
+  } catch (error) {
+    console.error('엔진 파일 읽기 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/engines/file
+ * 엔진 파일 삭제
+ * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함
+ */
+app.delete('/api/engines/file', async (req, res) => {
+  try {
+    const { folder, filename } = req.body;
+
+    if (!folder || !filename) {
+      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
+    }
+
+    // 보안: 경로 탐색 공격 방지
+    const safeFolderName = path.basename(folder);
+    const safeFileName = path.basename(filename);
+
+    // 허용된 폴더만 삭제 가능
+    const ALLOWED_FOLDERS = [
+      'core', 'no_asset', 'diagram_2d', 'geometry_2d',
+      'graph_2d', 'numberline_1d', 'table', 'chart_stat',
+      'tree_graph', 'network_flow', 'solid_3d',
+      'net_unfold', 'coordinate_3d', 'mixed'
+    ];
+
+    if (!ALLOWED_FOLDERS.includes(safeFolderName)) {
+      return res.status(400).json({ success: false, error: '유효하지 않은 폴더입니다.' });
+    }
+
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    let filePath;
+
+    if (safeFolderName === 'core') {
+      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
+    } else {
+      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
+    }
+
+    await fs.promises.unlink(filePath);
+    console.log('🗑️ 엔진 파일 삭제: ' + folder + '/' + safeFileName);
+    res.json({ success: true, message: '파일이 삭제되었습니다.', deletedFile: safeFileName });
+  } catch (error) {
+    console.error('엔진 파일 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/engines/:id
  * 특정 엔진 상세 조회
  */
@@ -4993,94 +5083,6 @@ app.post('/api/engines/upload-file', upload.single('engineFile'), async (req, re
   } catch (error) {
     if (filePath) await cleanupFile(filePath);
     console.error('엔진 파일 업로드 오류:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/engines/file-content
- * 엔진 파일 내용 읽기
- */
-app.get('/api/engines/file-content', async (req, res) => {
-  try {
-    const { folder, filename } = req.query;
-
-    if (!folder || !filename) {
-      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
-    }
-
-    // 보안: 경로 탐색 공격 방지
-    const safeFolderName = path.basename(folder);
-    const safeFileName = path.basename(filename);
-
-    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
-    let filePath;
-
-    if (folder === 'core' || safeFolderName === 'core') {
-      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
-    } else {
-      // plugins 폴더
-      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
-    }
-
-    const content = await fs.promises.readFile(filePath, 'utf-8');
-    res.json({ success: true, content, filename: safeFileName, folder });
-  } catch (error) {
-    console.error('엔진 파일 읽기 오류:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * DELETE /api/engines/file
- * 엔진 파일 삭제
- */
-app.delete('/api/engines/file', async (req, res) => {
-  try {
-    const { folder, filename } = req.body;
-
-    if (!folder || !filename) {
-      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
-    }
-
-    // 보안: 경로 탐색 공격 방지
-    const safeFolderName = path.basename(folder);
-    const safeFileName = path.basename(filename);
-
-    // 허용된 폴더만 삭제 가능
-    const ALLOWED_FOLDERS = [
-      'core', 'no_asset', 'diagram_2d', 'geometry_2d',
-      'graph_2d', 'numberline_1d', 'table', 'chart_stat',
-      'tree_graph', 'network_flow', 'solid_3d',
-      'net_unfold', 'coordinate_3d', 'mixed'
-    ];
-
-    if (!ALLOWED_FOLDERS.includes(safeFolderName)) {
-      return res.status(400).json({ success: false, error: '유효하지 않은 폴더입니다.' });
-    }
-
-    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
-    let filePath;
-
-    if (safeFolderName === 'core') {
-      filePath = path.join(ENGINES_DIR, 'core', safeFileName);
-    } else {
-      filePath = path.join(ENGINES_DIR, 'plugins', safeFolderName, safeFileName);
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, error: '파일을 찾을 수 없습니다.' });
-    }
-
-    await fs.promises.unlink(filePath);
-    console.log('🗑️ 엔진 파일 삭제: ' + folder + '/' + safeFileName);
-    res.json({ success: true, message: '파일이 삭제되었습니다.', deletedFile: safeFileName });
-  } catch (error) {
-    console.error('엔진 파일 삭제 오류:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
