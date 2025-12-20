@@ -282,6 +282,67 @@
       border-bottom-left-radius: 4px;
     }
 
+    .chat-message img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .chat-message img:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .chat-image-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .chat-image-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    /* 이미지 확대 모달 */
+    .image-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      cursor: zoom-out;
+    }
+
+    .image-modal-content {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 32px;
+      color: white;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .image-modal-close:hover {
+      opacity: 1;
+    }
+
     .chat-input-area {
       display: flex;
       gap: 8px;
@@ -2211,7 +2272,8 @@
       selectedEngine: null,
       autoEngineMode: true,
       chatHistory: [],
-      savedImageRegions: []
+      savedImageRegions: [],
+      savedProblemRegions: []
     };
 
     // ==================== Panel Management ====================
@@ -2669,7 +2731,9 @@
           const engineName = filename.replace('.py', '');
           addExportedImageToMedia(imageDataUrl, `🐍 ${engineName}`);
 
-          addChatMessage(`✅ Python 엔진 실행 성공!\n\n🖼️ 생성된 이미지가 자료(그림/표) 패널에 추가되었습니다.\n\n엔진: ${filename}`, 'assistant');
+          // 채팅 패널에 이미지 표시
+          addChatImage(imageDataUrl, `${engineName} 엔진 출력`);
+          addChatMessage(`✅ 이미지가 자료(그림/표) 패널에도 추가되었습니다.`, 'assistant');
         } else {
           throw new Error(result.error || '이미지 생성 실패');
         }
@@ -3021,6 +3085,74 @@
       container.scrollTop = container.scrollHeight;
     }
 
+    // 채팅에 이미지 추가
+    function addChatImage(imageDataUrl, label = '', role = 'assistant') {
+      // llmChatPlugin이 있으면 활성 탭의 메시지 배열에 추가
+      if (llmChatPlugin) {
+        const tab = llmChatPlugin.getActiveTab();
+        if (tab) {
+          tab.messages.push({
+            role,
+            content: `[이미지: ${label}]`,
+            imageUrl: imageDataUrl,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        studioState.chatHistory.push({
+          role,
+          content: `[이미지: ${label}]`,
+          imageUrl: imageDataUrl
+        });
+      }
+
+      // DOM에 이미지 메시지 추가
+      const container = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = `chat-message ${role}`;
+
+      let html = '';
+      if (label) {
+        html += `<div style="font-size: 12px; color: #888; margin-bottom: 4px;">📷 ${label}</div>`;
+      }
+      html += `<img src="${imageDataUrl}" alt="${label || '생성된 이미지'}" onclick="showImageModal(this.src)" title="클릭하여 확대" />`;
+
+      div.innerHTML = html;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // 이미지 확대 모달 표시
+    function showImageModal(imageUrl) {
+      // 기존 모달 제거
+      const existingModal = document.querySelector('.image-modal-overlay');
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // 모달 생성
+      const overlay = document.createElement('div');
+      overlay.className = 'image-modal-overlay';
+      overlay.onclick = () => overlay.remove();
+
+      const img = document.createElement('img');
+      img.className = 'image-modal-content';
+      img.src = imageUrl;
+      img.onclick = (e) => e.stopPropagation(); // 이미지 클릭 시 닫기 방지
+
+      overlay.appendChild(img);
+      document.body.appendChild(overlay);
+
+      // ESC 키로 닫기
+      const closeOnEsc = (e) => {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          document.removeEventListener('keydown', closeOnEsc);
+        }
+      };
+      document.addEventListener('keydown', closeOnEsc);
+    }
+
     function handleChatKeypress(event) {
       if (event.key === 'Enter') {
         sendChatMessage();
@@ -3224,8 +3356,9 @@
           problem.structured.statement = statementEditor?.value || ocrResult;
         }
 
-        showNotification(`✅ ${modelName} OCR 완료! ${regionLabel} 결과가 제시문에 입력되었습니다.`, 'success');
-        addChatMessage(`✅ ${modelName} ${regionLabel} OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'assistant');
+        addChatMessage(`✅ ${modelName} OCR 완료!
+
+인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'success');
 
         // 편집 탭으로 전환
         document.querySelector('.editor-tab[onclick*="edit"]')?.click();
@@ -3344,8 +3477,11 @@
 
     // 문제/이미지 영역 모드 활성화
     function activateRegionMode(mode) {
+      // 영역 선택기 탭으로 자동 전환
       if (!regionSelector) {
-        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        switchEditorTabDirect('regionSelector');
+        // 잠시 후 다시 시도
+        setTimeout(() => activateRegionMode(mode), 100);
         return;
       }
       
@@ -3375,33 +3511,47 @@
 
     // 문제 영역 저장
     function saveProblemRegions() {
+      // 영역 선택기 탭으로 자동 전환
       if (!regionSelector) {
-        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        switchEditorTabDirect('regionSelector');
+        setTimeout(() => saveProblemRegions(), 100);
         return;
       }
-      
+
       document.getElementById('regionDropdown').classList.remove('open');
-      
+
       const problemRegions = regionSelector.regions.filter(r => r.type === 'problem');
       if (problemRegions.length === 0) {
         showNotification('저장할 문제 영역이 없습니다.', 'warning');
         return;
       }
-      
+
       // 문제 영역 확정 후 저장
       if (!regionSelector.problemRegionsConfirmed) {
         regionSelector._confirmProblemRegions();
       }
-      
-      // 영역 추출 및 저장
-      exportProblemRegions(problemRegions);
-      showNotification(`✅ 문제 영역 ${problemRegions.length}개 저장됨`, 'success');
+
+      // 문제 영역 크롭 및 임시 저장 (이미지 영역과 동일한 패턴)
+      studioState.savedProblemRegions = [];
+      problemRegions.forEach((region, index) => {
+        const croppedData = regionSelector._cropRegion(region);
+        if (croppedData) {
+          studioState.savedProblemRegions.push({
+            data: croppedData,
+            region: { ...region }
+          });
+        }
+      });
+
+showNotification(`✅ 문제 영역 ${studioState.savedProblemRegions.length}개 저장됨. 이미지 영역을 지정하거나 OCR을 실행하세요.`, 'success');
     }
 
     // 이미지 영역 저장
     function saveImageRegions() {
+      // 영역 선택기 탭으로 자동 전환
       if (!regionSelector) {
-        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        switchEditorTabDirect('regionSelector');
+        setTimeout(() => saveImageRegions(), 100);
         return;
       }
       
@@ -3964,15 +4114,75 @@
         studioState.savedImageRegions = [];
       }
       
-      // 2. 문제 영역에서 OCR 처리 (이미지 제외)
+      // 2. 저장된 문제 영역에서 OCR 처리
+      if (studioState.savedProblemRegions && studioState.savedProblemRegions.length > 0) {
+        addChatMessage(`🔍 ${modelName} OCR 처리 중... (문제 영역 ${studioState.savedProblemRegions.length}개)`, 'assistant');
+        
+        try {
+          let allOcrText = '';
+          
+          for (let i = 0; i < studioState.savedProblemRegions.length; i++) {
+            const saved = studioState.savedProblemRegions[i];
+            
+            if (saved.data) {
+              const ocrResult = await StudioAPI.ocr(saved.data, 'problem', ocrModel);
+              allOcrText += (i > 0 ? '\n\n' : '') + ocrResult;
+            }
+          }
+          
+          // 제시문 편집창에 OCR 결과 입력
+          const statementEditor = document.getElementById('statementEditor');
+          if (statementEditor) {
+            statementEditor.value = allOcrText;
+          }
+          
+          // 기존 편집기에도 입력
+          const problemTextEditor = document.getElementById('problemTextEditor');
+          if (problemTextEditor) {
+            problemTextEditor.value = allOcrText;
+          }
+          
+          // 구조화된 데이터 업데이트
+          if (!problem.structured) {
+            problem.structured = {};
+          }
+          problem.structured.statement = allOcrText;
+          problem.content = allOcrText;
+          
+          // 저장된 문제 영역 초기화
+          studioState.savedProblemRegions = [];
+          
+          // 영역 선택기 초기화 (OCR 완료 후)
+          if (regionSelector) {
+            regionSelector.clearAllRegions();
+          }
+          
+          addChatMessage(`✅ ${modelName} OCR 완료!
+
+인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'success');
+          
+          // 편집 탭으로 전환
+          switchEditorTabDirect('edit');
+          
+          // 자동 엔진 분석
+          if (studioState.autoEngineMode && allOcrText) {
+            analyzeAndSuggestEngine(allOcrText);
+          }
+          
+          return;
+        } catch (error) {
+          addChatMessage(`❌ OCR 오류: ${error.message}`, 'assistant');
+          return;
+        }
+      }
+      
+      // 3. 영역 선택기에 문제 영역이 있는 경우 (저장하지 않고 바로 OCR)
       let imageDataForOCR = null;
       
-      // 영역 선택기에 문제 영역이 있는 경우
       if (regionSelector && regionSelector.regions && regionSelector.regions.length > 0) {
         const problemRegions = regionSelector.regions.filter(r => r.type === 'problem');
         
         if (problemRegions.length > 0) {
-          // 문제 영역 크롭하여 OCR 처리
           addChatMessage(`🔍 ${modelName} OCR 처리 중... (문제 영역 ${problemRegions.length}개)`, 'assistant');
           
           try {
@@ -4010,7 +4220,9 @@
             // 영역 선택기 초기화 (OCR 완료 후)
             regionSelector.clearAllRegions();
             
-            addChatMessage(`✅ ${modelName} OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'success');
+            addChatMessage(`✅ ${modelName} OCR 완료!
+
+인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'success');
             
             // 편집 탭으로 전환
             switchEditorTabDirect('edit');
