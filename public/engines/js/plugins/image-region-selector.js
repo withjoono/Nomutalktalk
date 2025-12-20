@@ -33,6 +33,10 @@ class ImageRegionSelector {
     this.currentRegionType = 'problem';  // 'problem' | 'resource'
     this.nextRegionNumber = { problem: 1, resource: 1 };
 
+    // 워크플로우 상태: 'problem' | 'resource' | 'completed'
+    this.workflowStep = 'problem';
+    this.problemRegionsConfirmed = false;
+
     // 드래그/리사이즈 상태
     this.isDragging = false;
     this.isResizing = false;
@@ -52,6 +56,8 @@ class ImageRegionSelector {
     this.onOCRCallback = null;
     this.onRegionAddCallback = null;
     this.onRegionDeleteCallback = null;
+    this.onProblemConfirmCallback = null;
+    this.onSaveCallback = null;
 
     // DOM 요소 생성
     this._createElements();
@@ -88,26 +94,82 @@ class ImageRegionSelector {
       flex-wrap: wrap;
     `;
     this.toolbar.innerHTML = `
-      <div class="irs-region-type-selector" style="display: flex; gap: 4px; margin-right: 8px;">
-        <button class="irs-type-btn active" data-type="problem" style="
+      <div class="irs-workflow-steps" style="display: flex; align-items: center; gap: 8px; margin-right: 12px;">
+        <div class="irs-step irs-step-problem active" data-step="problem" style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
           padding: 6px 12px;
           background: #4a9eff;
           color: white;
-          border: none;
           border-radius: 4px;
-          cursor: pointer;
           font-size: 12px;
-        ">📝 문제 영역</button>
-        <button class="irs-type-btn" data-type="resource" style="
+          font-weight: bold;
+          cursor: pointer;
+          transition: transform 0.1s, box-shadow 0.1s;
+        " title="클릭하여 문제 영역 모드로 전환">
+          <span class="step-number" style="
+            background: white;
+            color: #4a9eff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+          ">1</span>
+          📝 문제 영역
+        </div>
+        <span style="color: #666;">→</span>
+        <div class="irs-step irs-step-resource" data-step="resource" style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
           padding: 6px 12px;
           background: #363650;
-          color: #e0e0e0;
+          color: #888;
           border: 1px solid #404060;
           border-radius: 4px;
-          cursor: pointer;
           font-size: 12px;
-        ">🖼️ 자료 영역</button>
+          cursor: pointer;
+          transition: transform 0.1s, box-shadow 0.1s;
+        " title="클릭하여 이미지 영역 모드로 전환 (문제 영역 필요)">
+          <span class="step-number" style="
+            background: #555;
+            color: #888;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+          ">2</span>
+          🖼️ 이미지 영역
+        </div>
       </div>
+      <button class="irs-confirm-btn" style="
+        padding: 6px 14px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      " disabled>✓ 문제 영역 완료</button>
+      <button class="irs-save-btn" style="
+        padding: 6px 14px;
+        background: #ff9800;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        display: none;
+      ">💾 저장</button>
       <button class="irs-delete-btn" style="
         padding: 6px 12px;
         background: #f44336;
@@ -130,7 +192,7 @@ class ImageRegionSelector {
         margin-left: auto;
         font-size: 11px;
         color: #a0a0b0;
-      ">드래그하여 영역을 그리세요</span>
+      ">Step 1: 문제 영역을 드래그하여 지정하세요</span>
     `;
 
     // 메인 컨테이너 (캔버스 + 영역 목록)
@@ -210,8 +272,11 @@ class ImageRegionSelector {
     // 요소 참조
     this.deleteBtn = this.toolbar.querySelector('.irs-delete-btn');
     this.clearBtn = this.toolbar.querySelector('.irs-clear-btn');
+    this.confirmBtn = this.toolbar.querySelector('.irs-confirm-btn');
+    this.saveBtn = this.toolbar.querySelector('.irs-save-btn');
     this.infoSpan = this.toolbar.querySelector('.irs-info');
-    this.typeBtns = this.toolbar.querySelectorAll('.irs-type-btn');
+    this.stepProblem = this.toolbar.querySelector('.irs-step-problem');
+    this.stepResource = this.toolbar.querySelector('.irs-step-resource');
     this.regionItems = this.regionListPanel.querySelector('.irs-region-items');
   }
 
@@ -219,23 +284,14 @@ class ImageRegionSelector {
    * 이벤트 바인딩
    */
   _bindEvents() {
-    // 영역 타입 선택
-    this.typeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.typeBtns.forEach(b => {
-          b.classList.remove('active');
-          b.style.background = '#363650';
-          b.style.border = '1px solid #404060';
-          b.style.color = '#e0e0e0';
-        });
-        btn.classList.add('active');
-        btn.style.border = 'none';
+    // 문제 영역 완료 버튼
+    this.confirmBtn.addEventListener('click', () => {
+      this._confirmProblemRegions();
+    });
 
-        const type = btn.dataset.type;
-        this.currentRegionType = type;
-        btn.style.background = type === 'problem' ? '#4a9eff' : '#ff9800';
-        btn.style.color = 'white';
-      });
+    // 저장 버튼
+    this.saveBtn.addEventListener('click', () => {
+      this._saveAllRegions();
     });
 
     // 선택 삭제
@@ -246,6 +302,27 @@ class ImageRegionSelector {
     // 전체 초기화
     this.clearBtn.addEventListener('click', () => {
       this.clearAllRegions();
+      this._resetWorkflow();
+    });
+
+    // Step 클릭으로 모드 전환
+    this.stepProblem.style.cursor = 'pointer';
+    this.stepResource.style.cursor = 'pointer';
+
+    this.stepProblem.addEventListener('click', () => {
+      // 문제 영역 모드로 전환 (언제든지 가능)
+      if (this.workflowStep !== 'problem') {
+        this._resetWorkflow();
+        this._render();
+      }
+    });
+
+    this.stepResource.addEventListener('click', () => {
+      // 이미지 영역 모드로 전환 (문제 영역이 있어야 함)
+      const hasProblemRegions = this.regions.some(r => r.type === 'problem');
+      if (hasProblemRegions && this.workflowStep === 'problem') {
+        this._confirmProblemRegions();
+      }
     });
 
     // 드래그 앤 드롭
@@ -364,7 +441,7 @@ class ImageRegionSelector {
     const regionNumber = this.nextRegionNumber[type]++;
     const defaultLabel = type === 'problem'
       ? `문제 ${regionNumber}`
-      : `자료 ${regionNumber}`;
+      : `이미지 ${regionNumber}`;
 
     const region = {
       id: `region-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -382,6 +459,7 @@ class ImageRegionSelector {
     this._updateRegionList();
     this._render();
     this._updateDeleteButton();
+    this._updateWorkflowUI();
 
     if (this.onRegionAddCallback) {
       this.onRegionAddCallback(region);
@@ -401,6 +479,7 @@ class ImageRegionSelector {
     this._updateRegionList();
     this._render();
     this._updateDeleteButton();
+    this._updateWorkflowUI();
 
     if (this.onRegionDeleteCallback) {
       this.onRegionDeleteCallback(deleted);
@@ -414,6 +493,7 @@ class ImageRegionSelector {
     this.regions = [];
     this.activeRegionIndex = -1;
     this.nextRegionNumber = { problem: 1, resource: 1 };
+    this._resetWorkflow();  // 워크플로우 상태도 초기화
     this._updateRegionList();
     this._render();
     this._updateDeleteButton();
@@ -501,6 +581,221 @@ class ImageRegionSelector {
   }
 
   /**
+   * 문제 영역 완료 확정
+   */
+  _confirmProblemRegions() {
+    const problemRegions = this.regions.filter(r => r.type === 'problem');
+    if (problemRegions.length === 0) {
+      alert('문제 영역을 최소 1개 이상 지정해주세요.');
+      return;
+    }
+
+    this.problemRegionsConfirmed = true;
+    this.workflowStep = 'resource';
+    this.currentRegionType = 'resource';
+    this.activeRegionIndex = -1;
+
+    // UI 업데이트
+    this._updateWorkflowUI();
+    this._updateRegionList();
+    this._render();
+    this._updateDeleteButton();
+
+    // 콜백 호출
+    if (this.onProblemConfirmCallback) {
+      this.onProblemConfirmCallback(problemRegions);
+    }
+  }
+
+  /**
+   * 문제 영역 모드 활성화
+   */
+  _activateProblemMode() {
+    this.workflowStep = 'problem';
+    this.currentRegionType = 'problem';
+    this.problemRegionsConfirmed = false;
+    this.activeRegionIndex = -1;
+    
+    // UI 업데이트
+    this._updateWorkflowUI();
+    this._updateRegionList();
+    this._render();
+  }
+
+  /**
+   * 영역 크롭하여 이미지 데이터 반환
+   */
+  _cropRegion(region) {
+    if (!this.originalImage) return null;
+    
+    // 실제 이미지 좌표로 변환
+    const scaleX = this.originalImage.naturalWidth / this.canvas.width;
+    const scaleY = this.originalImage.naturalHeight / this.canvas.height;
+    
+    const realX = Math.round(region.x * scaleX);
+    const realY = Math.round(region.y * scaleY);
+    const realWidth = Math.round(region.width * scaleX);
+    const realHeight = Math.round(region.height * scaleY);
+    
+    // 임시 캔버스 생성
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = realWidth;
+    tempCanvas.height = realHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // 크롭된 영역 그리기
+    tempCtx.drawImage(
+      this.originalImage,
+      realX, realY, realWidth, realHeight,
+      0, 0, realWidth, realHeight
+    );
+    
+    // base64 데이터 반환
+    return tempCanvas.toDataURL('image/png');
+  }
+
+  /**
+   * 선택된 영역 삭제
+   */
+  _deleteSelectedRegion() {
+    if (this.activeRegionIndex < 0) return;
+    
+    const indexToDelete = this.activeRegionIndex;
+    
+    if (indexToDelete >= 0 && indexToDelete < this.regions.length) {
+      this.regions.splice(indexToDelete, 1);
+      
+      this.activeRegionIndex = -1;
+      
+      this._updateRegionList();
+      this._render();
+      this._updateDeleteButton();
+    }
+  }
+
+  /**
+   * 모든 영역 저장
+   */
+  _saveAllRegions() {
+    const allRegions = this.getAllRegions();
+    const problemRegions = allRegions.filter(r => r.type === 'problem');
+    const resourceRegions = allRegions.filter(r => r.type === 'resource');
+
+    this.workflowStep = 'completed';
+
+    // UI 업데이트
+    this._updateWorkflowUI();
+
+    // 콜백 호출
+    if (this.onSaveCallback) {
+      this.onSaveCallback({
+        problemRegions,
+        resourceRegions,
+        allRegions
+      });
+    }
+
+    // 모든 영역 내보내기
+    this._exportAllRegionsWithCallback();
+  }
+
+  /**
+   * 워크플로우 UI 업데이트
+   */
+  _updateWorkflowUI() {
+    // Step 1: 문제 영역
+    if (this.workflowStep === 'problem') {
+      this.stepProblem.style.background = '#4a9eff';
+      this.stepProblem.style.color = 'white';
+      this.stepProblem.style.border = 'none';
+      this.stepProblem.querySelector('.step-number').style.background = 'white';
+      this.stepProblem.querySelector('.step-number').style.color = '#4a9eff';
+
+      this.stepResource.style.background = '#363650';
+      this.stepResource.style.color = '#888';
+      this.stepResource.style.border = '1px solid #404060';
+      this.stepResource.querySelector('.step-number').style.background = '#555';
+      this.stepResource.querySelector('.step-number').style.color = '#888';
+
+      this.confirmBtn.style.display = '';
+      this.saveBtn.style.display = 'none';
+
+      // 문제 영역이 있으면 완료 버튼 활성화
+      const hasProblemRegions = this.regions.some(r => r.type === 'problem');
+      this.confirmBtn.disabled = !hasProblemRegions;
+      this.confirmBtn.style.opacity = hasProblemRegions ? '1' : '0.5';
+
+      this.infoSpan.textContent = 'Step 1: 문제 영역을 드래그하여 지정하세요';
+    }
+    // Step 2: 이미지 영역
+    else if (this.workflowStep === 'resource') {
+      this.stepProblem.style.background = '#2e7d32';
+      this.stepProblem.style.color = 'white';
+      this.stepProblem.querySelector('.step-number').style.background = 'white';
+      this.stepProblem.querySelector('.step-number').style.color = '#2e7d32';
+      this.stepProblem.querySelector('.step-number').textContent = '✓';
+
+      this.stepResource.style.background = '#ff9800';
+      this.stepResource.style.color = 'white';
+      this.stepResource.style.border = 'none';
+      this.stepResource.querySelector('.step-number').style.background = 'white';
+      this.stepResource.querySelector('.step-number').style.color = '#ff9800';
+
+      this.confirmBtn.style.display = 'none';
+      this.saveBtn.style.display = '';
+
+      this.infoSpan.textContent = 'Step 2: 이미지 영역을 드래그하여 지정하세요 (선택사항)';
+    }
+    // 완료
+    else if (this.workflowStep === 'completed') {
+      this.stepProblem.style.background = '#2e7d32';
+      this.stepResource.style.background = '#2e7d32';
+      this.stepResource.style.color = 'white';
+      this.stepResource.querySelector('.step-number').style.background = 'white';
+      this.stepResource.querySelector('.step-number').style.color = '#2e7d32';
+      this.stepResource.querySelector('.step-number').textContent = '✓';
+
+      this.confirmBtn.style.display = 'none';
+      this.saveBtn.style.display = 'none';
+
+      this.infoSpan.textContent = '✅ 영역 지정이 완료되었습니다.';
+    }
+  }
+
+  /**
+   * 워크플로우 초기화
+   */
+  _resetWorkflow() {
+    this.workflowStep = 'problem';
+    this.currentRegionType = 'problem';
+    this.problemRegionsConfirmed = false;
+
+    // step number 복원
+    this.stepProblem.querySelector('.step-number').textContent = '1';
+    this.stepResource.querySelector('.step-number').textContent = '2';
+
+    this._updateWorkflowUI();
+  }
+
+  /**
+   * 모든 영역 내보내기 (콜백 포함)
+   */
+  _exportAllRegionsWithCallback() {
+    const regions = this.regions;
+    regions.forEach((region, index) => {
+      const dataURL = this.exportRegion(index);
+      if (this.onExportCallback) {
+        this.onExportCallback({
+          dataURL,
+          base64: dataURL.split(',')[1],
+          region: region,
+          format: 'image/png'
+        });
+      }
+    });
+  }
+
+  /**
    * Canvas 렌더링
    */
   _render() {
@@ -544,14 +839,34 @@ class ImageRegionSelector {
     const w = region.width * this.scale;
     const h = region.height * this.scale;
 
-    // 영역 내부 약간 밝게
-    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+    // 확정된 문제 영역인지 확인
+    const isConfirmedProblem = region.type === 'problem' && this.problemRegionsConfirmed;
+    
+    // 영역 내부 색상
+    if (isConfirmedProblem) {
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.2)';  // 확정된 문제 영역은 회색
+    } else if (isActive) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    }
     ctx.fillRect(x, y, w, h);
 
     // 테두리
-    ctx.strokeStyle = isActive ? this.options.activeColor : region.color;
-    ctx.lineWidth = isActive ? 3 : 2;
-    ctx.setLineDash(isActive ? [] : [5, 5]);
+    if (isConfirmedProblem) {
+      // 확정된 문제 영역: 실선, 회색톤
+      ctx.strokeStyle = '#666666';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+    } else if (isActive) {
+      ctx.strokeStyle = this.options.activeColor;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = region.color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+    }
     ctx.strokeRect(x, y, w, h);
     ctx.setLineDash([]);
 
@@ -563,15 +878,22 @@ class ImageRegionSelector {
     const labelHeight = 18;
     const labelWidth = textMetrics.width + labelPadding * 2;
 
-    ctx.fillStyle = region.color;
+    ctx.fillStyle = isConfirmedProblem ? '#666666' : region.color;
     ctx.fillRect(x, y - labelHeight - 2, labelWidth, labelHeight);
 
     // 라벨 텍스트
     ctx.fillStyle = 'white';
     ctx.fillText(labelText, x + labelPadding, y - 6);
 
-    // 활성 영역이면 리사이즈 핸들 그리기
-    if (isActive) {
+    // 확정된 문제 영역에 체크 표시
+    if (isConfirmedProblem) {
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = 'white';
+      ctx.fillText('✓', x + labelWidth + 4, y - 5);
+    }
+
+    // 활성 영역이면 리사이즈 핸들 그리기 (확정된 문제 영역은 제외)
+    if (isActive && !isConfirmedProblem) {
       this._drawHandles(region);
     }
   }
@@ -683,6 +1005,14 @@ class ImageRegionSelector {
     const coords = this._getCanvasCoords(e);
     const handle = this._getHandleAtPoint(coords.x, coords.y);
 
+    // 확정된 문제 영역은 리사이즈/드래그 불가
+    if (handle && this.activeRegionIndex >= 0) {
+      const activeRegion = this.regions[this.activeRegionIndex];
+      if (activeRegion.type === 'problem' && this.problemRegionsConfirmed) {
+        return;
+      }
+    }
+
     if (handle) {
       // 리사이즈 시작
       this.isResizing = true;
@@ -692,19 +1022,24 @@ class ImageRegionSelector {
     } else {
       const regionIndex = this._getRegionAtPoint(coords.x, coords.y);
 
-      if (regionIndex >= 0 && regionIndex === this.activeRegionIndex) {
-        // 드래그 시작
+      // 확정된 문제 영역인지 확인
+      const isConfirmedProblem = regionIndex >= 0 &&
+        this.regions[regionIndex].type === 'problem' &&
+        this.problemRegionsConfirmed;
+
+      if (regionIndex >= 0 && regionIndex === this.activeRegionIndex && !isConfirmedProblem) {
+        // 드래그 시작 (확정된 문제 영역은 드래그 불가)
         this.isDragging = true;
         this.dragStart = coords;
         this.originalRegion = { ...this.regions[this.activeRegionIndex] };
-      } else if (regionIndex >= 0) {
-        // 다른 영역 선택
+      } else if (regionIndex >= 0 && !isConfirmedProblem) {
+        // 다른 영역 선택 (확정된 문제 영역은 선택해도 수정 불가)
         this.activeRegionIndex = regionIndex;
         this._updateRegionList();
         this._render();
         this._updateDeleteButton();
       } else {
-        // 새 영역 그리기 시작
+        // 새 영역 그리기 시작 (빈 공간 또는 확정된 문제영역 위에서)
         this.isDrawing = true;
         this.drawStart = this._toImageCoords(coords.x, coords.y);
         this.drawingRegion = {
@@ -926,7 +1261,7 @@ class ImageRegionSelector {
     if (this.regions.length === 0) {
       this.infoSpan.textContent = '드래그하여 영역을 그리세요';
     } else {
-      this.infoSpan.textContent = `문제: ${problemCount}개, 자료: ${resourceCount}개`;
+      this.infoSpan.textContent = `문제: ${problemCount}개, 이미지: ${resourceCount}개`;
     }
   }
 
@@ -1082,6 +1417,8 @@ class ImageRegionSelector {
   onOCR(callback) { this.onOCRCallback = callback; }
   onRegionAdd(callback) { this.onRegionAddCallback = callback; }
   onRegionDelete(callback) { this.onRegionDeleteCallback = callback; }
+  onProblemConfirm(callback) { this.onProblemConfirmCallback = callback; }
+  onSave(callback) { this.onSaveCallback = callback; }
 
   /**
    * 이미지 로드 여부

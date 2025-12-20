@@ -5026,6 +5026,133 @@ app.get('/api/engines/file-content', async (req, res) => {
 });
 
 /**
+ * POST /api/engines/run
+ * Python 엔진 실행 및 이미지 생성
+ * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함
+ */
+app.post('/api/engines/run', async (req, res) => {
+  try {
+    const { folder, filename, params } = req.body;
+
+    if (!folder || !filename) {
+      return res.status(400).json({ success: false, error: '폴더와 파일명이 필요합니다.' });
+    }
+
+    // 보안: 경로 탐색 공격 방지
+    const safeFolderName = path.basename(folder);
+    const safeFileName = path.basename(filename);
+
+    // 엔진 경로 구성
+    const ENGINES_DIR = path.join(__dirname, 'public', 'engines');
+    let engineRelativePath;
+
+    if (folder === 'core' || safeFolderName === 'core') {
+      engineRelativePath = `core/${safeFileName}`;
+    } else {
+      engineRelativePath = `plugins/${safeFolderName}/${safeFileName}`;
+    }
+
+    const fullEnginePath = path.join(ENGINES_DIR, engineRelativePath.replace(/\//g, path.sep));
+    if (!fs.existsSync(fullEnginePath)) {
+      return res.status(404).json({ success: false, error: '엔진 파일을 찾을 수 없습니다.' });
+    }
+
+    // Python 실행 래퍼 경로
+    const runnerPath = path.join(ENGINES_DIR, 'engine_runner.py');
+    if (!fs.existsSync(runnerPath)) {
+      return res.status(500).json({ success: false, error: 'engine_runner.py가 없습니다.' });
+    }
+
+    // 출력 디렉토리
+    const outputDir = path.join(ENGINES_DIR, 'output', `run_${Date.now()}`);
+
+    // Python 명령어 구성
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const args = [
+      runnerPath,
+      '--engine', engineRelativePath,
+      '--output', outputDir
+    ];
+
+    if (params) {
+      args.push('--params', JSON.stringify(params));
+    }
+
+    console.log(`🐍 Python 엔진 실행: ${pythonCmd} ${args.join(' ')}`);
+
+    // child_process로 Python 실행
+    const { spawn } = require('child_process');
+
+    const pythonProcess = spawn(pythonCmd, args, {
+      cwd: ENGINES_DIR,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      console.log(`🐍 Python 종료 코드: ${code}`);
+      if (stderr) {
+        console.log(`🐍 Python stderr: ${stderr}`);
+      }
+
+      try {
+        // JSON 결과 파싱
+        const result = JSON.parse(stdout);
+
+        if (result.success) {
+          res.json({
+            success: true,
+            png_base64: result.png_base64,
+            svg_base64: result.svg_base64,
+            png_path: result.png_path,
+            svg_path: result.svg_path,
+            engine: safeFileName,
+            folder: safeFolderName
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: result.error || 'Python 엔진 실행 실패',
+            stderr: stderr
+          });
+        }
+      } catch (parseError) {
+        console.error('Python 출력 파싱 오류:', parseError);
+        console.error('stdout:', stdout);
+        res.status(500).json({
+          success: false,
+          error: `Python 출력 파싱 오류: ${parseError.message}`,
+          stdout: stdout,
+          stderr: stderr
+        });
+      }
+    });
+
+    pythonProcess.on('error', (err) => {
+      console.error('Python 프로세스 오류:', err);
+      res.status(500).json({
+        success: false,
+        error: `Python 실행 오류: ${err.message}. Python이 설치되어 있는지 확인하세요.`
+      });
+    });
+
+  } catch (error) {
+    console.error('엔진 실행 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * DELETE /api/engines/file
  * 엔진 파일 삭제
  * NOTE: 이 라우트는 /api/engines/:id 보다 먼저 정의되어야 함

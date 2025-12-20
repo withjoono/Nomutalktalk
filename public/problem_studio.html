@@ -350,6 +350,222 @@
       border-bottom-color: var(--accent-blue);
     }
 
+    .editor-tab:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* 드롭다운 메뉴 스타일 */
+    .editor-tab-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .editor-tab-dropdown .editor-tab {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .editor-tab-dropdown .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .editor-tab-dropdown.open .dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 180px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      padding: 4px 0;
+    }
+
+    .editor-tab-dropdown.open .dropdown-menu {
+      display: block;
+    }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .dropdown-item:hover {
+      background: rgba(74, 158, 255, 0.15);
+      color: var(--text-primary);
+    }
+
+    .dropdown-item.active {
+      background: rgba(74, 158, 255, 0.2);
+      color: var(--accent-blue);
+    }
+
+    .dropdown-item.danger:hover {
+      background: rgba(244, 67, 54, 0.15);
+      color: var(--accent-red);
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    .dropdown-item .item-icon {
+      width: 18px;
+      text-align: center;
+    }
+
+    /* 더보기 메뉴 */
+    .more-menu-btn {
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .more-menu-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .editor-tabs-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+    }
+
+    /* 그룹 기반 툴바 */
+    .grouped-toolbar {
+      display: flex;
+      align-items: stretch;
+      gap: 2px;
+      padding: 6px 8px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .toolbar-group-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      padding: 2px 6px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+
+    .toolbar-group .btn-toolbar {
+      padding: 5px 10px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .toolbar-group .btn-toolbar:hover {
+      background: rgba(74, 158, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .toolbar-group .btn-toolbar.primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .toolbar-group .btn-toolbar.success {
+      background: var(--accent-green);
+      color: white;
+    }
+
+    .toolbar-group .btn-toolbar.warning {
+      background: var(--accent-orange);
+      color: white;
+    }
+
+    .toolbar-group .btn-toolbar.active {
+      background: var(--accent-blue);
+      color: white;
+      box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.3);
+    }
+
+    /* 드롭다운 in 그룹 */
+    .toolbar-group .toolbar-dropdown {
+      position: relative;
+    }
+
+    .toolbar-group .toolbar-dropdown .btn-toolbar {
+      padding-right: 20px;
+    }
+
+    .toolbar-group .toolbar-dropdown .dropdown-arrow {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+
+    .toolbar-group .toolbar-dropdown.open .dropdown-arrow {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    .toolbar-group .toolbar-dropdown.open .dropdown-menu {
+      display: block;
+    }
+
+    .toolbar-group .toolbar-dropdown .dropdown-menu {
+      top: calc(100% + 4px);
+      left: 0;
+    }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
     .editor-content {
       flex: 1;
       display: flex;
@@ -1500,6 +1716,7 @@
         <div class="code-actions">
           <button class="btn btn-primary btn-sm" onclick="saveEngineCode()">💾 저장</button>
           <button class="btn btn-secondary btn-sm" onclick="reloadEngineCode()">🔄 새로고침</button>
+          <button class="btn btn-accent btn-sm" onclick="runPythonEngineFromUI()" title="Python 엔진을 실행하여 이미지 생성">🐍 실행</button>
         </div>
       </div>
     </div>
@@ -1610,6 +1827,11 @@
             <option value="manual">✋ 수동 선택</option>
           </select>
           <span class="engine-auto-badge" id="autoEngineBadge">자동</span>
+          <span style="margin-left: 12px;">OCR:</span>
+          <select id="ocrModelSelect" style="padding: 4px 8px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 12px;">
+            <option value="gemini">🔮 Gemini</option>
+            <option value="openai">🤖 GPT-4o</option>
+          </select>
         </div>
 
         <div class="chat-messages" id="chatMessages">
@@ -1639,36 +1861,71 @@
         <button class="panel-toggle" onclick="togglePanel('problemPanel')">▶</button>
       </div>
       <div class="panel-content" style="padding: 0; display: flex; flex-direction: column;">
-        <!-- Toolbar -->
-        <div class="problem-toolbar">
-          <button class="btn btn-primary btn-sm" onclick="triggerImageUpload()">📷 문제 입력</button>
-          <button class="btn btn-info btn-sm" onclick="loadDBProblems()">📂 저장된 문제 불러오기</button>
-          <select id="ocrModelSelect" class="btn btn-secondary btn-sm" style="padding: 4px 8px; min-width: 100px;">
-            <option value="gemini">🔮 Gemini</option>
-            <option value="openai">🤖 GPT-4o</option>
-          </select>
-          <button class="btn btn-secondary btn-sm" onclick="runOCR()">🔍 OCR</button>
-          <button class="btn btn-secondary btn-sm" onclick="autoLabel()">🏷️ 라벨링</button>
-          <button class="btn btn-secondary btn-sm" onclick="applyRAG()">🔗 RAG 적용</button>
-          <button class="btn btn-warning btn-sm" onclick="reviewProblem()">📋 검수</button>
-          <button class="btn btn-secondary btn-sm" onclick="savePending()">⏳ 대기 저장</button>
-          <button class="btn btn-success btn-sm" onclick="approveAndSave()">✅ 승인 저장</button>
-          <button class="btn btn-primary btn-sm" onclick="renderFinal()">🖨️ 렌더링</button>
+        <!-- 통합 그룹 툴바 -->
+        <div class="grouped-toolbar">
+          <!-- 입력 그룹 -->
+          <div class="toolbar-group">
+            <span class="toolbar-group-label">입력</span>
+            <button class="btn-toolbar" onclick="triggerRegionImageUpload()" title="이미지 업로드">📁 업로드</button>
+          </div>
+
+          <!-- 편집 그룹 -->
+          <div class="toolbar-group">
+            <span class="toolbar-group-label">편집</span>
+            <!-- 영역추출 드롭다운 -->
+            <div class="toolbar-dropdown" id="regionDropdown">
+              <button class="btn-toolbar success" onclick="toggleRegionDropdown(event)">
+                📐 영역추출 <span class="dropdown-arrow">▼</span>
+              </button>
+              <div class="dropdown-menu">
+                <button class="dropdown-item" onclick="activateRegionMode('problem')">
+                  <span class="item-icon">📝</span> 문제영역
+                </button>
+                <button class="dropdown-item" onclick="saveProblemRegions()">
+                  <span class="item-icon">💾</span> 문제저장
+                </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" onclick="activateRegionMode('resource')">
+                  <span class="item-icon">🖼️</span> 이미지영역
+                </button>
+                <button class="dropdown-item" onclick="saveImageRegions()">
+                  <span class="item-icon">💾</span> 이미지저장
+                </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" onclick="deleteSelectedRegion()">
+                  <span class="item-icon">🗑️</span> 선택삭제
+                </button>
+                <button class="dropdown-item danger" onclick="resetRegionSelection()">
+                  <span class="item-icon">↺</span> 전체 초기화
+                </button>
+              </div>
+            </div>
+            <button class="btn-toolbar active" onclick="switchEditorTab('edit')" id="editTabBtn">✏️ 편집</button>
+            <button class="btn-toolbar" onclick="switchEditorTab('preview')" id="previewTabBtn">👁️ 미리보기</button>
+          </div>
+
+          <!-- 처리 그룹 -->
+          <div class="toolbar-group">
+            <span class="toolbar-group-label">처리</span>
+            <button class="btn-toolbar warning" onclick="runOCR()" title="OCR 문자 인식">🔍 OCR</button>
+            <button class="btn-toolbar" onclick="autoLabel()" title="자동 라벨링">🏷️ 라벨링</button>
+            <button class="btn-toolbar" onclick="applyRAG()" title="RAG 적용">🔗 RAG</button>
+          </div>
+
+          <!-- 저장 그룹 -->
+          <div class="toolbar-group">
+            <span class="toolbar-group-label">저장</span>
+            <button class="btn-toolbar" onclick="reviewProblem()" title="문제 검수">📋 검수</button>
+            <button class="btn-toolbar" onclick="savePending()" title="대기 저장">⏳ 대기</button>
+            <button class="btn-toolbar success" onclick="approveAndSave()" title="승인 저장">✅ 승인</button>
+            <button class="btn-toolbar primary" onclick="renderFinal()" title="최종 렌더링">🖨️ 렌더링</button>
+          </div>
         </div>
 
         <!-- Image Upload (hidden) -->
         <input type="file" id="imageUpload" accept="image/*,.pdf" style="display: none" onchange="handleImageUpload(event)">
 
-        <!-- Editor Tabs -->
-        <div class="editor-tabs">
-          <button class="editor-tab" onclick="triggerRegionImageUpload()" title="영역 선택용 이미지 업로드">📁 업로드</button>
-          <button class="editor-tab" onclick="resetRegionSelection()" title="선택 영역 초기화">↺ 초기화</button>
-          <button class="editor-tab" onclick="exportRegion()" title="선택 영역 추출" style="background: #4caf50; color: white;">📤 영역추출</button>
-          <button class="editor-tab" onclick="runRegionOCRFromButton()" title="선택 영역 OCR" style="background: #ff9800; color: white;">🔍 OCR</button>
-          <button class="editor-tab active" onclick="switchEditorTab('edit')">✏️ 편집</button>
-          <button class="editor-tab" onclick="switchEditorTab('preview')">👁️ 미리보기</button>
-        </div>
-
+        <!-- Editor Content -->
         <!-- Editor Content -->
         <div class="editor-content">
           <!-- 편집 탭 - Gridstack 기반 서브창 -->
@@ -1708,6 +1965,7 @@
                       <h4>🖼️ 자료 (그림/표)</h4>
                       <div class="panel-actions">
                         <button onclick="addMediaBox()" title="그림 추가">➕</button>
+                        <button onclick="runPythonEngineFromUI()" title="Python 엔진으로 이미지 생성">🐍</button>
                         <button onclick="clearMediaPanel()" title="지우기">🗑️</button>
                         <button onclick="expandPanel('media')" title="확대">⤢</button>
                       </div>
@@ -1952,7 +2210,8 @@
       currentProblemIndex: 0,
       selectedEngine: null,
       autoEngineMode: true,
-      chatHistory: []
+      chatHistory: [],
+      savedImageRegions: []
     };
 
     // ==================== Panel Management ====================
@@ -2377,6 +2636,46 @@
           studioState.selectedEngine.category,
           studioState.selectedEngine.file
         );
+      }
+    }
+
+    // Python 엔진 실행 및 이미지 생성
+    async function runPythonEngineFromUI() {
+      if (!studioState.selectedEngine) {
+        alert('실행할 엔진 파일을 선택해주세요.');
+        return;
+      }
+
+      const folder = studioState.selectedEngine.category || studioState.selectedEngine.subject;
+      const filename = studioState.selectedEngine.file;
+
+      // .py 파일만 실행 가능
+      if (!filename.endsWith('.py')) {
+        alert('Python 엔진 파일(.py)만 실행할 수 있습니다.');
+        return;
+      }
+
+      try {
+        addChatMessage(`🐍 Python 엔진 실행 중: ${filename}...`, 'assistant');
+
+        // Python 엔진 실행
+        const result = await StudioAPI.runPythonEngine(folder, filename);
+
+        if (result.success && result.png_base64) {
+          // 생성된 이미지를 자료 패널에 추가
+          const imageDataUrl = `data:image/png;base64,${result.png_base64}`;
+
+          // addExportedImageToMedia 함수를 사용하여 미디어 패널에 이미지 추가
+          const engineName = filename.replace('.py', '');
+          addExportedImageToMedia(imageDataUrl, `🐍 ${engineName}`);
+
+          addChatMessage(`✅ Python 엔진 실행 성공!\n\n🖼️ 생성된 이미지가 자료(그림/표) 패널에 추가되었습니다.\n\n엔진: ${filename}`, 'assistant');
+        } else {
+          throw new Error(result.error || '이미지 생성 실패');
+        }
+      } catch (error) {
+        console.error('Python 엔진 실행 오류:', error);
+        addChatMessage(`❌ Python 엔진 실행 실패\n\n오류: ${error.message}\n\n💡 Python과 필요한 라이브러리(matplotlib, numpy)가 설치되어 있는지 확인하세요.`, 'assistant');
       }
     }
 
@@ -3028,6 +3327,180 @@
       }, 100);
     }
 
+    // ==================== 영역추출 드롭다운 메뉴 ====================
+    function toggleRegionDropdown(event) {
+      event.stopPropagation();
+      const dropdown = document.getElementById('regionDropdown');
+      dropdown.classList.toggle('open');
+    }
+
+    // 드롭다운 외부 클릭시 닫기
+    document.addEventListener('click', function(event) {
+      const dropdown = document.getElementById('regionDropdown');
+      if (dropdown && !dropdown.contains(event.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+
+    // 문제/이미지 영역 모드 활성화
+    function activateRegionMode(mode) {
+      if (!regionSelector) {
+        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        return;
+      }
+      
+      if (!regionSelector.hasImage()) {
+        showNotification('먼저 이미지를 업로드해주세요.', 'warning');
+        return;
+      }
+      
+      // 드롭다운 닫기
+      document.getElementById('regionDropdown').classList.remove('open');
+      
+      if (mode === 'problem') {
+        // 문제 영역 모드로 전환
+        regionSelector._activateProblemMode();
+        showNotification('📝 문제 영역 모드 활성화', 'success');
+      } else if (mode === 'resource') {
+        // 이미지 영역 모드로 전환 (문제 영역이 있어야 함)
+        const hasProblemRegions = regionSelector.regions.some(r => r.type === 'problem');
+        if (!hasProblemRegions) {
+          showNotification('먼저 문제 영역을 지정해주세요.', 'warning');
+          return;
+        }
+        regionSelector._confirmProblemRegions();
+        showNotification('🖼️ 이미지 영역 모드 활성화', 'success');
+      }
+    }
+
+    // 문제 영역 저장
+    function saveProblemRegions() {
+      if (!regionSelector) {
+        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        return;
+      }
+      
+      document.getElementById('regionDropdown').classList.remove('open');
+      
+      const problemRegions = regionSelector.regions.filter(r => r.type === 'problem');
+      if (problemRegions.length === 0) {
+        showNotification('저장할 문제 영역이 없습니다.', 'warning');
+        return;
+      }
+      
+      // 문제 영역 확정 후 저장
+      if (!regionSelector.problemRegionsConfirmed) {
+        regionSelector._confirmProblemRegions();
+      }
+      
+      // 영역 추출 및 저장
+      exportProblemRegions(problemRegions);
+      showNotification(`✅ 문제 영역 ${problemRegions.length}개 저장됨`, 'success');
+    }
+
+    // 이미지 영역 저장
+    function saveImageRegions() {
+      if (!regionSelector) {
+        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        return;
+      }
+      
+      document.getElementById('regionDropdown').classList.remove('open');
+      
+      const imageRegions = regionSelector.regions.filter(r => r.type === 'resource');
+      if (imageRegions.length === 0) {
+        showNotification('저장할 이미지 영역이 없습니다.', 'warning');
+        return;
+      }
+      
+      // 이미지 영역 크롭 및 임시 저장
+      studioState.savedImageRegions = [];
+      imageRegions.forEach((region, index) => {
+        const croppedData = regionSelector._cropRegion(region);
+        if (croppedData) {
+          studioState.savedImageRegions.push({
+            data: croppedData,
+            region: { ...region }
+          });
+        }
+      });
+      
+      // 이미지 영역 제거 (구획선 삭제)
+      regionSelector.regions = regionSelector.regions.filter(r => r.type !== 'resource');
+      regionSelector.activeRegionIndex = -1;
+      regionSelector._updateRegionList();
+      regionSelector._render();
+      
+      // 워크플로우 완료 상태로 변경
+      regionSelector.workflowStep = 'completed';
+      regionSelector._updateWorkflowUI();
+      
+      showNotification(`✅ 이미지 영역 ${studioState.savedImageRegions.length}개 저장됨. OCR 버튼을 눌러 처리하세요.`, 'success');
+    }
+
+    // 선택된 영역 삭제
+    function deleteSelectedRegion() {
+      if (!regionSelector) {
+        showNotification('영역 선택기가 초기화되지 않았습니다.', 'error');
+        return;
+      }
+      
+      document.getElementById('regionDropdown').classList.remove('open');
+      
+      if (regionSelector.activeRegionIndex < 0) {
+        showNotification('삭제할 영역을 선택해주세요.', 'warning');
+        return;
+      }
+      
+      regionSelector._deleteSelectedRegion();
+      showNotification('🗑️ 선택된 영역이 삭제되었습니다.', 'success');
+    }
+
+    // 문제 영역 추출 및 저장 (실제 구현)
+    function exportProblemRegions(regions) {
+      regions.forEach((region, index) => {
+        const croppedData = regionSelector._cropRegion(region);
+        if (croppedData) {
+          // 제시문 창에 추가
+          const statementEditor = document.getElementById('statementEditor');
+          if (statementEditor && index === 0) {
+            // 첫 번째 문제 영역의 이미지를 표시할 수 있음
+            console.log('문제 영역 추출됨:', region);
+          }
+        }
+      });
+    }
+
+    // 이미지 영역 추출 및 저장 (실제 구현)
+    function exportImageRegions(regions) {
+      regions.forEach((region, index) => {
+        const croppedData = regionSelector._cropRegion(region);
+        if (croppedData) {
+          // 자료 패널에 이미지 추가
+          addCroppedImageToMediaPanel(croppedData, index + 1);
+        }
+      });
+    }
+
+    // 크롭된 이미지를 미디어 패널에 추가
+    function addCroppedImageToMediaPanel(imageData, index) {
+      const container = document.getElementById('mediaBoxContainer');
+      if (!container) return;
+      
+      // 기존 placeholder 제거
+      const placeholder = container.querySelector('.upload-placeholder');
+      if (placeholder) {
+        placeholder.parentElement.innerHTML = `<img src="${imageData}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+      } else if (index > 1) {
+        // 새 박스 추가
+        addMediaBox();
+        const lastBox = container.querySelector('.multi-box-item:last-child .media-upload-zone');
+        if (lastBox) {
+          lastBox.innerHTML = `<img src="${imageData}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+        }
+      }
+    }
+
     function resetRegionSelection() {
       if (!regionSelector || !regionSelector.hasImage()) {
         showNotification('먼저 이미지를 로드해주세요.', 'warning');
@@ -3476,44 +3949,126 @@
 
     async function runOCR() {
       const problem = studioState.problems[studioState.currentProblemIndex];
-      // 이미지 확인 (새 mediaImage/mediaImages 또는 기존 image 속성 모두 지원)
-      const imageData = problem.mediaImage || problem.image ||
-        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
-
-      if (!imageData) {
-        alert('먼저 이미지를 업로드해주세요.');
-        return;
-      }
-
       const ocrModel = getSelectedOCRModel();
       const modelName = ocrModel === 'openai' ? 'GPT-4o' : 'Gemini';
+      
+      // 1. 저장된 이미지 영역이 있으면 자료 패널에 추가
+      if (studioState.savedImageRegions && studioState.savedImageRegions.length > 0) {
+        addChatMessage(`🖼️ 저장된 이미지 ${studioState.savedImageRegions.length}개를 자료 패널에 추가합니다...`, 'assistant');
+        
+        studioState.savedImageRegions.forEach((saved, index) => {
+          addCroppedImageToMediaPanel(saved.data, index + 1);
+        });
+        
+        // 저장된 이미지 영역 초기화
+        studioState.savedImageRegions = [];
+      }
+      
+      // 2. 문제 영역에서 OCR 처리 (이미지 제외)
+      let imageDataForOCR = null;
+      
+      // 영역 선택기에 문제 영역이 있는 경우
+      if (regionSelector && regionSelector.regions && regionSelector.regions.length > 0) {
+        const problemRegions = regionSelector.regions.filter(r => r.type === 'problem');
+        
+        if (problemRegions.length > 0) {
+          // 문제 영역 크롭하여 OCR 처리
+          addChatMessage(`🔍 ${modelName} OCR 처리 중... (문제 영역 ${problemRegions.length}개)`, 'assistant');
+          
+          try {
+            let allOcrText = '';
+            
+            for (let i = 0; i < problemRegions.length; i++) {
+              const region = problemRegions[i];
+              const croppedData = regionSelector._cropRegion(region);
+              
+              if (croppedData) {
+                const ocrResult = await StudioAPI.ocr(croppedData, 'problem', ocrModel);
+                allOcrText += (i > 0 ? '\n\n' : '') + ocrResult;
+              }
+            }
+            
+            // 제시문 편집창에 OCR 결과 입력
+            const statementEditor = document.getElementById('statementEditor');
+            if (statementEditor) {
+              statementEditor.value = allOcrText;
+            }
+            
+            // 기존 편집기에도 입력
+            const problemTextEditor = document.getElementById('problemTextEditor');
+            if (problemTextEditor) {
+              problemTextEditor.value = allOcrText;
+            }
+            
+            // 구조화된 데이터 업데이트
+            if (!problem.structured) {
+              problem.structured = {};
+            }
+            problem.structured.statement = allOcrText;
+            problem.content = allOcrText;
+            
+            // 영역 선택기 초기화 (OCR 완료 후)
+            regionSelector.clearAllRegions();
+            
+            addChatMessage(`✅ ${modelName} OCR 완료!\n\n인식된 텍스트가 제시문 편집창에 입력되었습니다.`, 'success');
+            
+            // 편집 탭으로 전환
+            switchEditorTabDirect('edit');
+            
+            // 자동 엔진 분석
+            if (studioState.autoEngineMode && allOcrText) {
+              analyzeAndSuggestEngine(allOcrText);
+            }
+            
+            return;
+          } catch (error) {
+            addChatMessage(`❌ OCR 오류: ${error.message}`, 'assistant');
+            return;
+          }
+        }
+      }
+      
+      // 3. 기존 이미지가 있는 경우 (영역 선택 없이)
+      imageDataForOCR = problem.mediaImage || problem.image ||
+        (problem.mediaImages && Object.values(problem.mediaImages)[0]);
+      
+      if (!imageDataForOCR) {
+        // 영역 선택기에 이미지가 있는지 확인
+        if (regionSelector && regionSelector.hasImage()) {
+          // 전체 이미지로 OCR
+          const canvas = regionSelector.canvas;
+          imageDataForOCR = canvas.toDataURL('image/png');
+        } else {
+          showNotification('먼저 이미지를 업로드하거나 문제 영역을 지정해주세요.', 'warning');
+          return;
+        }
+      }
+
       addChatMessage(`🔍 ${modelName} OCR 처리 중...`, 'assistant');
 
       try {
-        // Call real OCR API with selected model
-        const ocrResult = await StudioAPI.ocr(imageData, 'problem', ocrModel);
+        const ocrResult = await StudioAPI.ocr(imageDataForOCR, 'problem', ocrModel);
 
-        document.getElementById('problemTextEditor').value = ocrResult;
+        const problemTextEditor = document.getElementById('problemTextEditor');
+        if (problemTextEditor) {
+          problemTextEditor.value = ocrResult;
+        }
         problem.content = ocrResult;
 
-        // OCR 결과를 보이는 편집기(statementEditor)에도 표시
         const statementEditor = document.getElementById('statementEditor');
         if (statementEditor) {
           statementEditor.value = ocrResult;
         }
 
-        // 구조화된 데이터도 업데이트
         if (!problem.structured) {
           problem.structured = {};
         }
         problem.structured.statement = ocrResult;
 
-        addChatMessage(`✅ ${modelName} OCR 완료!\n\n인식된 텍스트가 편집창에 입력되었습니다. 필요시 수정해주세요.`, 'assistant');
+        addChatMessage(`✅ ${modelName} OCR 완료!\n\n인식된 텍스트가 편집창에 입력되었습니다.`, 'assistant');
 
-        // Switch to edit tab
-        document.querySelectorAll('.editor-tab')[0].click();
+        switchEditorTabDirect('edit');
 
-        // Auto-analyze for engine suggestion if in auto mode
         if (studioState.autoEngineMode) {
           analyzeAndSuggestEngine(ocrResult);
         }
@@ -4074,6 +4629,13 @@
           <br><small>Ctrl+V 붙여넣기 가능</small>
         </div>
       `;
+      
+      // 엔진 생성 이미지 컨테이너도 초기화
+      const mediaBoxContainer = document.getElementById('mediaBoxContainer');
+      if (mediaBoxContainer) {
+        mediaBoxContainer.innerHTML = '';
+      }
+
       studioState.problems[studioState.currentProblemIndex].mediaImage = null;
     }
 
