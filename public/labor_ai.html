@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>노무 AI - 법령·판례 검색 시스템</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .main-content {
+      padding: 30px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1em;
+      color: #666;
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .tab.active {
+      color: #2a5298;
+      font-weight: 600;
+    }
+
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #2a5298;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .query-section {
+      margin-bottom: 30px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 1em;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.3s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #2a5298;
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    select, input[type="text"] {
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .btn {
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #5f6368 0%, #3c4043 100%);
+    }
+
+    .result-section {
+      margin-top: 30px;
+      display: none;
+    }
+
+    .result-section.show {
+      display: block;
+    }
+
+    .result-box {
+      background: #f8f9fa;
+      border-left: 4px solid #2a5298;
+      padding: 20px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      line-height: 1.8;
+      font-size: 1em;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #2a5298;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: #fee;
+      border-left: 4px solid #e53935;
+      padding: 15px;
+      border-radius: 8px;
+      color: #c62828;
+      margin-top: 15px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .template-params {
+      display: grid;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .category-card {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border: 2px solid #e0e0e0;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .category-card:hover {
+      border-color: #2a5298;
+      transform: translateY(-2px);
+    }
+
+    .category-card h3 {
+      color: #2a5298;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+
+    .category-card .keywords {
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 8px;
+    }
+
+    .status-indicator.online {
+      background: #4caf50;
+      box-shadow: 0 0 8px #4caf50;
+    }
+
+    .status-indicator.offline {
+      background: #f44336;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8em;
+      }
+
+      .filters {
+        flex-direction: column;
+      }
+
+      .categories-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚖️ 노무 AI</h1>
+      <p>법령·판례 기반 노무 상담 시스템 <span class="status-indicator online" id="statusIndicator"></span></p>
+    </div>
+
+    <div class="main-content">
+      <!-- 탭 메뉴 -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('query')">질의응답</button>
+        <button class="tab" onclick="switchTab('cases')">판례 검색</button>
+        <button class="tab" onclick="switchTab('law')">법령 조회</button>
+        <button class="tab" onclick="switchTab('template')">템플릿 상담</button>
+        <button class="tab" onclick="switchTab('categories')">카테고리</button>
+      </div>
+
+      <!-- 질의응답 탭 -->
+      <div id="tab-query" class="tab-content active">
+        <div class="info-box">
+          <strong>💡 사용 방법:</strong> 노무 관련 질문을 입력하세요. AI가 관련 법령과 판례를 찾아 답변합니다.
+        </div>
+
+        <div class="query-section">
+          <div class="input-group">
+            <label for="queryInput">질문 입력</label>
+            <textarea id="queryInput" placeholder="예: 직원을 해고하려면 어떤 절차를 거쳐야 하나요?"></textarea>
+          </div>
+
+          <div class="filters">
+            <select id="categorySelect">
+              <option value="">전체 카테고리</option>
+              <option value="근로계약">근로계약</option>
+              <option value="임금">임금</option>
+              <option value="근로시간">근로시간</option>
+              <option value="휴가휴직">휴가휴직</option>
+              <option value="해고징계">해고징계</option>
+              <option value="산재보험">산재보험</option>
+              <option value="고용보험">고용보험</option>
+              <option value="차별">차별</option>
+              <option value="노동조합">노동조합</option>
+              <option value="안전보건">안전보건</option>
+            </select>
+
+            <div class="checkbox-group">
+              <input type="checkbox" id="includeCases" checked>
+              <label for="includeCases">판례 포함</label>
+            </div>
+
+            <div class="checkbox-group">
+              <input type="checkbox" id="includeInterpretations" checked>
+              <label for="includeInterpretations">행정해석 포함</label>
+            </div>
+          </div>
+
+          <button class="btn" onclick="askQuestion()">질문하기</button>
+        </div>
+
+        <div class="loading" id="queryLoading">
+          <div class="spinner"></div>
+          <p>답변을 생성하고 있습니다...</p>
+        </div>
+
+        <div class="result-section" id="queryResult">
+          <h3>답변</h3>
+          <div class="result-box" id="queryAnswer"></div>
+        </div>
+
+        <div class="error-message" id="queryError"></div>
+      </div>
+
+      <!-- 판례 검색 탭 -->
+      <div id="tab-cases" class="tab-content">
+        <div class="info-box">
+          <strong>⚖️ 판례 검색:</strong> 사건 내용을 설명하면 유사한 판례를 찾아드립니다.
+        </div>
+
+        <div class="query-section">
+          <div class="input-group">
+            <label for="caseDescription">사건 설명</label>
+            <textarea id="caseDescription" placeholder="예: 근무 중 안전수칙을 위반하여 해고된 사안..."></textarea>
+          </div>
+
+          <button class="btn" onclick="searchSimilarCases()">유사 판례 검색</button>
+        </div>
+
+        <div class="loading" id="casesLoading">
+          <div class="spinner"></div>
+          <p>유사 판례를 검색하고 있습니다...</p>
+        </div>
+
+        <div class="result-section" id="casesResult">
+          <h3>유사 판례</h3>
+          <div class="result-box" id="casesAnswer"></div>
+        </div>
+
+        <div class="error-message" id="casesError"></div>
+      </div>
+
+      <!-- 법령 조회 탭 -->
+      <div id="tab-law" class="tab-content">
+        <div class="info-box">
+          <strong>📜 법령 조회:</strong> 특정 법령 조항의 상세 내용을 조회합니다.
+        </div>
+
+        <div class="query-section">
+          <div class="filters">
+            <input type="text" id="lawName" placeholder="법령명 (예: 근로기준법)">
+            <input type="text" id="lawArticle" placeholder="조문 (예: 제23조)">
+          </div>
+
+          <button class="btn" onclick="searchLawArticle()">법령 조회</button>
+        </div>
+
+        <div class="loading" id="lawLoading">
+          <div class="spinner"></div>
+          <p>법령을 조회하고 있습니다...</p>
+        </div>
+
+        <div class="result-section" id="lawResult">
+          <h3>법령 상세</h3>
+          <div class="result-box" id="lawAnswer"></div>
+        </div>
+
+        <div class="error-message" id="lawError"></div>
+      </div>
+
+      <!-- 템플릿 상담 탭 -->
+      <div id="tab-template" class="tab-content">
+        <div class="info-box">
+          <strong>📋 템플릿 상담:</strong> 상황별 구조화된 상담을 제공합니다.
+        </div>
+
+        <div class="query-section">
+          <div class="input-group">
+            <label for="templateType">상담 유형</label>
+            <select id="templateType" onchange="updateTemplateParams()">
+              <option value="dismissal">부당해고</option>
+              <option value="wages">임금 관련</option>
+              <option value="worktime">근로시간</option>
+              <option value="leave">휴가/휴직</option>
+            </select>
+          </div>
+
+          <div class="template-params" id="templateParams">
+            <!-- 동적으로 파라미터 필드가 추가됩니다 -->
+          </div>
+
+          <button class="btn" onclick="consultWithTemplate()">상담 시작</button>
+        </div>
+
+        <div class="loading" id="templateLoading">
+          <div class="spinner"></div>
+          <p>상담 내용을 생성하고 있습니다...</p>
+        </div>
+
+        <div class="result-section" id="templateResult">
+          <h3>상담 결과</h3>
+          <div class="result-box" id="templateAnswer"></div>
+        </div>
+
+        <div class="error-message" id="templateError"></div>
+      </div>
+
+      <!-- 카테고리 탭 -->
+      <div id="tab-categories" class="tab-content">
+        <div class="info-box">
+          <strong>📚 카테고리:</strong> 노무 질의 카테고리 및 키워드 목록
+        </div>
+
+        <div class="categories-grid" id="categoriesGrid">
+          <!-- 동적으로 카테고리가 추가됩니다 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="labor_ai.js"></script>
+</body>
+</html>

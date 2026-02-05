@@ -1,0 +1,119 @@
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f9fafb; /* Light gray background */
+  overflow: hidden; /* Prevent body scroll */
+}
+
+/* Sidebar (Desktop) */
+.sidebar {
+  width: 260px;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  color: #111827;
+  padding-left: 0.5rem;
+  /* Premium gradient text */
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.navItem {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.navItem:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.navItem.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* Main Content */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  background-color: #ffffff; /* Chat mostly white */
+}
+
+/* Bottom Tabs (Mobile) */
+.bottomTabs {
+  display: none; /* Hidden by default (Desktop) */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: #ffffff;
+  border-top: 1px solid #f3f4f6;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 50;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.02);
+}
+
+.tabItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #9ca3af;
+  text-decoration: none;
+  gap: 2px;
+}
+
+.tabItem.activeTab {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* Responsive Breakpoint */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  .bottomTabs {
+    display: flex;
+    justify-content: space-around;
+  }
+
+  .main {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom)); /* Make space for tabs */
+  }
+}

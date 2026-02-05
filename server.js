@@ -22,6 +22,22 @@ if (process.env.OPENAI_API_KEY) {
   console.warn('⚠️  OPENAI_API_KEY가 설정되지 않았습니다. OpenAI 모델은 사용할 수 없습니다.');
 }
 
+// 대화형 챗봇 모듈
+const { getInstance: getConversationManager } = require('./models/ConversationManager');
+const DialogueFlowEngine = require('./models/DialogueFlowEngine');
+const ConversationStorage = require('./models/ConversationStorage');
+const { LaborMetadataBuilder } = require('./models/laborSchemas');
+
+// 대화 관리자 및 엔진 초기화
+const conversationManager = getConversationManager();
+let conversationStorage = null;
+let dialogueEngine = null;
+
+if (db) {
+  conversationStorage = new ConversationStorage(db);
+  console.log('✅ 대화 저장소 초기화 완료');
+}
+
 // Firebase Admin SDK
 const admin = require('firebase-admin');
 
@@ -8058,18 +8074,736 @@ app.post('/api/rag-manager/chunking/auto', async (req, res) => {
   }
 });
 
+// ==================== 노무 AI 전용 API ====================
+
+/**
+ * 노무 AI 전용 RAG Agent 인스턴스 관리
+ */
+let laborAgentInstance = null;
+
+function getLaborAgent() {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
+  }
+
+  const laborStoreName = process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base';
+
+  if (!laborAgentInstance) {
+    laborAgentInstance = new RAGAgent(process.env.GEMINI_API_KEY, {
+      storeName: laborStoreName
+    });
+  }
+
+  return laborAgentInstance;
+}
+
+/**
+ * 노무 AI - 질의응답
+ * POST /api/labor/ask
+ * Body: { query, category?, includeCases?, includeInterpretations?, model? }
+ */
+app.post('/api/labor/ask', async (req, res) => {
+  try {
+    const { query, category, includeCases, includeInterpretations, model } = req.body;
+
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '질문 내용이 필요합니다.'
+      });
+    }
+
+    console.log(`[노무 AI] 질의: ${query.substring(0, 50)}...`);
+
+    const agent = getLaborAgent();
+    const answer = await agent.askLabor(query, {
+      category,
+      includeCases,
+      includeInterpretations,
+      model
+    });
+
+    res.json({
+      success: true,
+      data: {
+        query,
+        answer,
+        category: category || agent.detectLaborCategory(query),
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 질의응답 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 유사 판례 검색
+ * POST /api/labor/similar-cases
+ * Body: { description, model? }
+ */
+app.post('/api/labor/similar-cases', async (req, res) => {
+  try {
+    const { description, model } = req.body;
+
+    if (!description || typeof description !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '사건 설명이 필요합니다.'
+      });
+    }
+
+    console.log(`[노무 AI] 유사 판례 검색 중...`);
+
+    const agent = getLaborAgent();
+    const result = await agent.findSimilarCases(description, { model });
+
+    res.json({
+      success: true,
+      data: {
+        description,
+        result,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 유사 판례 검색 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 법령 조항 검색
+ * POST /api/labor/law-article
+ * Body: { lawName, article, model? }
+ */
+app.post('/api/labor/law-article', async (req, res) => {
+  try {
+    const { lawName, article, model } = req.body;
+
+    if (!lawName || !article) {
+      return res.status(400).json({
+        success: false,
+        error: '법령명과 조문이 필요합니다.'
+      });
+    }
+
+    console.log(`[노무 AI] 법령 조항 검색: ${lawName} ${article}`);
+
+    const agent = getLaborAgent();
+    const result = await agent.searchLawArticle(lawName, article, { model });
+
+    res.json({
+      success: true,
+      data: {
+        lawName,
+        article,
+        result,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 법령 조항 검색 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 템플릿 상담
+ * POST /api/labor/consult
+ * Body: { templateType, params }
+ */
+app.post('/api/labor/consult', async (req, res) => {
+  try {
+    const { templateType, params } = req.body;
+
+    if (!templateType || !params) {
+      return res.status(400).json({
+        success: false,
+        error: '템플릿 유형과 파라미터가 필요합니다.'
+      });
+    }
+
+    console.log(`[노무 AI] 템플릿 상담: ${templateType}`);
+
+    const agent = getLaborAgent();
+    const result = await agent.consultWithTemplate(templateType, params);
+
+    res.json({
+      success: true,
+      data: {
+        templateType,
+        params,
+        result,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 템플릿 상담 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 카테고리 목록 조회
+ * GET /api/labor/categories
+ */
+app.get('/api/labor/categories', (req, res) => {
+  try {
+    const { LaborCategories } = require('./models/laborSchemas');
+    
+    const categories = Object.entries(LaborCategories).map(([name, config]) => ({
+      name,
+      keywords: config.keywords,
+      subcategories: config.subcategories
+    }));
+
+    res.json({
+      success: true,
+      data: categories
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 카테고리 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 법령 업로드
+ * POST /api/labor/upload-law
+ * Body: { title, metadata } + file upload
+ */
+app.post('/api/labor/upload-law', upload.single('file'), async (req, res) => {
+  let filePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '파일이 업로드되지 않았습니다.'
+      });
+    }
+
+    filePath = req.file.path;
+    const { title, metadata } = req.body;
+
+    // metadata는 JSON 문자열로 전달됨
+    const parsedMetadata = typeof metadata === 'string' 
+      ? JSON.parse(metadata) 
+      : metadata;
+
+    console.log(`[노무 AI] 법령 업로드: ${title}`);
+
+    const agent = getLaborAgent();
+    
+    // 스토어가 없으면 초기화
+    if (!agent.storeName) {
+      await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
+    }
+
+    const result = await agent.uploadLaborLaw({
+      filePath,
+      title,
+      metadata: parsedMetadata
+    });
+
+    // 업로드 성공 후 임시 파일 삭제
+    await cleanupFile(filePath);
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 법령 업로드 오류:', error);
+    
+    // 오류 시에도 임시 파일 삭제
+    if (filePath) {
+      await cleanupFile(filePath);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 판례 업로드
+ * POST /api/labor/upload-case
+ * Body: { title, metadata } + file upload
+ */
+app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
+  let filePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '파일이 업로드되지 않았습니다.'
+      });
+    }
+
+    filePath = req.file.path;
+    const { title, metadata } = req.body;
+
+    // metadata는 JSON 문자열로 전달됨
+    const parsedMetadata = typeof metadata === 'string' 
+      ? JSON.parse(metadata) 
+      : metadata;
+
+    console.log(`[노무 AI] 판례 업로드: ${title}`);
+
+    const agent = getLaborAgent();
+    
+    // 스토어가 없으면 초기화
+    if (!agent.storeName) {
+      await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
+    }
+
+    const result = await agent.uploadLaborCase({
+      filePath,
+      title,
+      metadata: parsedMetadata
+    });
+
+    // 업로드 성공 후 임시 파일 삭제
+    await cleanupFile(filePath);
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 판례 업로드 오류:', error);
+    
+    // 오류 시에도 임시 파일 삭제
+    if (filePath) {
+      await cleanupFile(filePath);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 스토어 상태 조회
+ * GET /api/labor/store-status
+ */
+app.get('/api/labor/store-status', async (req, res) => {
+  try {
+    const agent = getLaborAgent();
+    
+    if (!agent.storeName) {
+      return res.json({
+        success: true,
+        data: {
+          initialized: false,
+          message: '스토어가 초기화되지 않았습니다.'
+        }
+      });
+    }
+
+    const status = await agent.getStatus();
+
+    res.json({
+      success: true,
+      data: {
+        initialized: true,
+        storeName: agent.storeName,
+        status
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 스토어 상태 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - 스토어 초기화
+ * POST /api/labor/initialize
+ * Body: { storeName? }
+ */
+app.post('/api/labor/initialize', async (req, res) => {
+  try {
+    const { storeName } = req.body;
+    const targetStoreName = storeName || process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base';
+
+    console.log(`[노무 AI] 스토어 초기화: ${targetStoreName}`);
+
+    const agent = getLaborAgent();
+    await agent.initialize(targetStoreName);
+
+    res.json({
+      success: true,
+      data: {
+        storeName: agent.storeName,
+        message: '스토어가 초기화되었습니다.'
+      }
+    });
+
+  } catch (error) {
+    console.error('[노무 AI] 스토어 초기화 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 노무 AI - Health Check
+ * GET /api/labor/health
+ */
+app.get('/api/labor/health', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      service: 'Labor AI',
+      status: 'running',
+      apiKeyConfigured: !!process.env.GEMINI_API_KEY,
+      laborStoreName: process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base',
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
+// ==================== 대화형 챗봇 API 엔드포인트 ====================
+
+/**
+ * 새 대화 세션 생성
+ * POST /api/chat/session/new
+ * Body: { userId? }
+ */
+app.post('/api/chat/session/new', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const session = conversationManager.createSession(userId);
+
+    // Firebase에 저장 (선택적)
+    if (conversationStorage) {
+      await conversationStorage.saveSession(session);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sessionId: session.sessionId,
+        stage: session.stage,
+        message: '새로운 상담 세션이 시작되었습니다. 어떤 노무 문제로 상담하시나요?'
+      }
+    });
+  } catch (error) {
+    console.error('[챗봇] 세션 생성 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 메시지 전송 및 응답 받기
+ * POST /api/chat/message
+ * Body: { sessionId, message }
+ */
+app.post('/api/chat/message', async (req, res) => {
+  try {
+    const { sessionId, message } = req.body;
+
+    if (!sessionId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId와 message가 필요합니다.'
+      });
+    }
+
+    // DialogueFlowEngine 초기화 (최초 사용 시)
+    if (!dialogueEngine) {
+      const laborAgent = getLaborAgent();
+      // 스토어가 없으면 초기화
+      if (!laborAgent.storeName) {
+        await laborAgent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
+      }
+      dialogueEngine = new DialogueFlowEngine(conversationManager, laborAgent);
+      console.log('✅ DialogueFlowEngine 초기화 완료');
+    }
+
+    // 세션 확인
+    const session = conversationManager.getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: '세션을 찾을 수 없습니다. 새 세션을 생성하세요.'
+      });
+    }
+
+    console.log(`[챗봇] 메시지 처리 중 (세션: ${sessionId}, 단계: ${session.stage})`);
+
+    // 메시지 처리
+    const response = await dialogueEngine.processMessage(sessionId, message);
+
+    // Firebase에 업데이트 (선택적)
+    if (conversationStorage) {
+      await conversationStorage.updateSession(sessionId, {
+        stage: response.nextStage || session.stage,
+        category: session.category,
+        context: session.context
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        message: response.content,
+        stage: response.stage,
+        nextStage: response.nextStage,
+        category: session.category,
+        metadata: response
+      }
+    });
+
+  } catch (error) {
+    console.error('[챗봇] 메시지 처리 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 세션 조회
+ * GET /api/chat/session/:sessionId
+ */
+app.get('/api/chat/session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = conversationManager.getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: '세션을 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sessionId: session.sessionId,
+        stage: session.stage,
+        category: session.category,
+        metadata: session.metadata,
+        messageCount: session.context.conversationHistory.length
+      }
+    });
+  } catch (error) {
+    console.error('[챗봇] 세션 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 대화 내역 조회
+ * GET /api/chat/session/:sessionId/messages
+ */
+app.get('/api/chat/session/:sessionId/messages', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = conversationManager.getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: '세션을 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        messages: session.context.conversationHistory,
+        stage: session.stage
+      }
+    });
+  } catch (error) {
+    console.error('[챗봇] 대화 내역 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 세션 요약
+ * GET /api/chat/session/:sessionId/summary
+ */
+app.get('/api/chat/session/:sessionId/summary', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const summary = conversationManager.generateSessionSummary(sessionId);
+
+    if (!summary) {
+      return res.status(404).json({
+        success: false,
+        error: '세션을 찾을 수 없습니다.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    console.error('[챗봇] 세션 요약 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 세션 삭제
+ * DELETE /api/chat/session/:sessionId
+ */
+app.delete('/api/chat/session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    // 메모리에서 삭제
+    const deleted = conversationManager.deleteSession(sessionId);
+
+    // Firebase에서 삭제 (선택적)
+    if (conversationStorage && deleted) {
+      await conversationStorage.deleteSession(sessionId);
+    }
+
+    res.json({
+      success: true,
+      message: '세션이 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('[챗봇] 세션 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 활성 세션 목록
+ * GET /api/chat/sessions
+ */
+app.get('/api/chat/sessions', async (req, res) => {
+  try {
+    const sessions = conversationManager.getAllSessions();
+    
+    res.json({
+      success: true,
+      data: {
+        total: sessions.length,
+        sessions: sessions.map(s => ({
+          sessionId: s.sessionId,
+          userId: s.userId,
+          stage: s.stage,
+          category: s.category,
+          startTime: s.metadata.startTime,
+          lastUpdate: s.metadata.lastUpdate,
+          turnCount: s.metadata.turnCount
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('[챗봇] 세션 목록 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ==================== 서버 시작 ====================
 
 app.listen(PORT, () => {
   console.log(`
-🚀 Google File Search RAG Agent 서버 시작
-📡 URL: http://localhost:${PORT}
-🔑 API 키 설정: ${process.env.GEMINI_API_KEY ? '✅' : '❌ (.env 파일 확인 필요)'}
-📚 RAG 문서 관리 시스템: ✅
+╔═══════════════════════════════════════════════════════════════╗
+║                    노무 AI 시스템 시작                         ║
+╠═══════════════════════════════════════════════════════════════╣
+║  📡 URL: http://localhost:${PORT}                                  
+║  🔑 Gemini API: ${process.env.GEMINI_API_KEY ? '✅ 설정됨' : '❌ 미설정'}                              
+║  ⚖️  노무 AI: ✅ 활성화                                          
+║  📚 RAG 시스템: ✅ 활성화                                        
+╚═══════════════════════════════════════════════════════════════╝
+
+📋 노무 AI API 엔드포인트:
+   POST   /api/labor/ask                - 노무 질의응답
+   POST   /api/labor/similar-cases      - 유사 판례 검색
+   POST   /api/labor/law-article        - 법령 조항 검색
+   POST   /api/labor/consult             - 템플릿 상담
+   GET    /api/labor/categories          - 카테고리 목록
+   POST   /api/labor/upload-law          - 법령 업로드
+   POST   /api/labor/upload-case         - 판례 업로드
+   GET    /api/labor/store-status        - 스토어 상태
+   POST   /api/labor/initialize          - 스토어 초기화
+   GET    /api/labor/health              - Health Check
+
+📋 대화형 챗봇 API 엔드포인트:
+   POST   /api/chat/session/new          - 새 세션 생성
+   POST   /api/chat/message              - 메시지 전송
+   GET    /api/chat/session/:id          - 세션 조회
+   GET    /api/chat/session/:id/messages - 대화 내역
+   GET    /api/chat/session/:id/summary  - 세션 요약
+   DELETE /api/chat/session/:id          - 세션 삭제
+   GET    /api/chat/sessions             - 활성 세션 목록
+
+🌐 웹 인터페이스:
+   http://localhost:${PORT}/labor_ai.html    - 노무 AI (기존 기능)
+   http://localhost:${PORT}/chat.html        - 대화형 챗봇 (신규)
   `);
 
   if (!process.env.GEMINI_API_KEY) {
-    console.warn('⚠️  GEMINI_API_KEY가 설정되지 않았습니다.');
-    console.warn('   .env 파일에 API 키를 추가하세요.');
+    console.warn('\n⚠️  GEMINI_API_KEY가 설정되지 않았습니다.');
+    console.warn('   .env 파일에 API 키를 추가하세요.\n');
   }
 });

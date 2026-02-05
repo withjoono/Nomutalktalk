@@ -1,533 +1,361 @@
-# Google File Search RAG Agent
+# 노무 AI - 법령·판례 기반 노무 상담 시스템
 
-Google Gemini API의 File Search 기능을 활용한 RAG (Retrieval-Augmented Generation) 에이전트 라이브러리입니다.
+<div align="center">
+
+⚖️ **노동법령과 판례를 기반으로 한 AI 노무 상담 시스템**
+
+[![Node.js](https://img.shields.io/badge/Node.js-22.x-green.svg)](https://nodejs.org/)
+[![Google Gemini](https://img.shields.io/badge/Google-Gemini%20API-blue.svg)](https://ai.google.dev/)
+[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
+
+[빠른 시작](#-빠른-시작) • [주요 기능](#-주요-기능) • [문서](#-문서) • [API](#-api)
+
+</div>
+
+---
 
 ## 📋 목차
-- [주요 기능](#주요-기능)
-- [설치](#설치)
-- [빠른 시작](#빠른-시작)
-- [웹 인터페이스](#웹-인터페이스)
-- [Google Cloud Run 배포](#google-cloud-run-배포)
-- [API 레퍼런스](#api-레퍼런스)
-- [예제](#예제)
-- [보안](#보안)
 
-## 🎯 주요 기능
+- [개요](#-개요)
+- [주요 기능](#-주요-기능)
+- [빠른 시작](#-빠른-시작)
+- [시스템 구조](#-시스템-구조)
+- [문서](#-문서)
+- [API 문서](#-api-문서)
+- [개발 가이드](#-개발-가이드)
 
-### RAGAgent (고수준 API)
-- ✅ **파일 직접 업로드**: 로컬 파일을 File Search Store에 직접 업로드 (1단계)
-- ✅ **Files API Import**: Files API를 통한 업로드 후 스토어로 가져오기 (2단계)
-- ✅ **일괄 업로드**: 여러 파일을 한 번에 업로드 (두 방식 모두 지원)
-- ✅ **청킹(Chunking) 구성**: 맞춤형 청크 크기 및 오버랩 설정으로 검색 최적화
-- ✅ **커스텀 메타데이터**: 파일에 사용자 정의 메타데이터 추가 (문자열, 숫자)
-- ✅ **질의응답**: 업로드된 파일 기반 검색 및 답변 생성
-- ✅ **스토어 관리**: 생성, 조회, 삭제 등 전체 라이프사이클 관리
-- ✅ **Files API 관리**: 업로드된 파일 목록 조회 및 삭제
-- ✅ **에러 처리**: 포괄적인 검증 및 에러 처리
+---
 
-### FileSearchManager (저수준 API)
-- File Search Store CRUD 작업
-- 문서 업로드 및 관리
-- Files API 파일 업로드 및 Import
-- 파일 검색 기반 콘텐츠 생성
+## 🎯 개요
 
-## 📦 설치
+노무 AI는 Google Gemini의 File Search 기능을 활용하여 노동 법령과 판례를 검색하고, 법적 근거를 바탕으로 노무 상담을 제공하는 RAG(Retrieval-Augmented Generation) 시스템입니다.
 
-```bash
-npm install @google/genai
-```
+### 핵심 기술
+- **Google Gemini File Search**: 문서 검색 및 RAG
+- **커스텀 메타데이터**: 법령/판례 분류 및 필터링
+- **프롬프트 엔지니어링**: 법률 전문가 역할 프롬프트
+- **Express.js**: REST API 서버
+- **반응형 웹 UI**: 5개 탭 인터페이스
+
+---
+
+## 🌟 주요 기능
+
+### 1. 노무 질의응답
+- 자연어 질문 입력
+- 카테고리 자동 감지 (10개 카테고리)
+- 법령 조항 자동 인용
+- 판례 기반 답변 생성
+- 구조화된 답변 형식
+
+### 2. 유사 판례 검색
+- 사건 설명 기반 검색
+- 판시사항 및 법리 분석
+- 적용 가능성 판단
+
+### 3. 법령 조항 검색
+- 특정 법령 조항 상세 조회
+- 관련 판례 제공
+- 실무 적용 방법 안내
+
+### 4. 템플릿 상담
+- 4가지 상황별 구조화 상담
+  - 부당해고
+  - 임금 관련
+  - 근로시간
+  - 휴가/휴직
+
+### 5. 카테고리 시스템
+- 10개 주요 카테고리 자동 분류
+- 키워드 기반 카테고리 감지
+
+---
 
 ## 🚀 빠른 시작
 
-### 1. API 키 설정
-
-`.env` 파일을 생성하고 API 키를 추가하세요:
-
+### 1. 환경 설정
 ```bash
-cp .env.example .env
-# .env 파일을 편집하여 API 키 입력
+# .env 파일 생성
+GEMINI_API_KEY=your_api_key
+LABOR_STORE_NAME=labor-law-knowledge-base
+PORT=3005
 ```
 
-### 2. RAG Agent 사용
-
-```javascript
-const RAGAgent = require('./RAGAgent');
-require('dotenv').config();
-
-const agent = new RAGAgent(process.env.GEMINI_API_KEY);
-
-// 에이전트 초기화
-await agent.initialize('my-knowledge-base');
-
-// 파일 업로드
-await agent.uploadFile('document.pdf', {
-  displayName: 'Important Document',
-  mimeType: 'application/pdf'
-});
-
-// 질문하기
-const answer = await agent.ask('문서의 주요 내용은?');
-console.log(answer);
+### 2. 의존성 설치
+```bash
+npm install
 ```
 
-## 🌐 웹 인터페이스
+### 3. 데이터 준비
+```bash
+# 데이터 폴더 생성 (이미 생성됨)
+# 법령 파일을 data/labor_laws/ 에 배치
+# 판례 파일을 data/labor_cases/ 에 배치
+```
 
-로컬 웹 브라우저에서 쉽게 사용할 수 있는 웹 인터페이스를 제공합니다.
+### 4. 데이터 임포트
+```bash
+# 테스트 (dry run)
+node scripts/import_labor_data.js laws --dry-run
 
-### 웹 서버 시작
+# 실제 임포트
+node scripts/import_labor_data.js laws
+```
 
+### 5. 서버 시작
 ```bash
 npm start
-# 또는
-npm run dev
 ```
 
-브라우저에서 `http://localhost:3000` 접속
+### 6. 접속
+- **웹 UI**: http://localhost:3005
+- **API**: http://localhost:3005/api/labor/*
 
-### 주요 기능
+---
 
-- ✅ **스토어 관리**: 브라우저에서 스토어 생성, 조회, 삭제
-- ✅ **파일 업로드**: 드래그 앤 드롭 파일 업로드
-- ✅ **청킹 설정**: UI에서 청킹 파라미터 조정
-- ✅ **메타데이터 추가**: 동적 메타데이터 필드 추가
-- ✅ **질의응답**: 실시간 AI 답변
-- ✅ **문서 관리**: 업로드된 문서 목록 및 삭제
+## 🏗 시스템 구조
 
-### 웹 인터페이스 특징
+```
+Labor_Rag/
+├── models/
+│   └── laborSchemas.js          # 데이터 스키마 정의
+├── scripts/
+│   ├── import_labor_data.js     # 데이터 임포트
+│   └── split_labor_json.js      # JSON 분할
+├── tests/
+│   └── test_labor_ai.js         # 테스트
+├── public/
+│   ├── labor_ai.html            # 웹 UI
+│   ├── labor_ai.js              # 웹 UI 스크립트
+│   ├── styles.css               # 스타일
+│   └── index.html               # 리다이렉트
+├── data/
+│   ├── labor_laws/              # 법령 파일
+│   ├── labor_cases/             # 판례 파일
+│   └── metadata/                # 메타데이터 (선택)
+├── RAGAgent.js                  # 노무 AI 핵심 로직
+├── FileSearchManager.js         # Gemini API 래퍼
+├── server.js                    # Express 서버
+└── package.json
+```
 
-- 📱 **반응형 디자인**: 모바일, 태블릿, 데스크톱 지원
-- 🎨 **현대적인 UI**: 그라디언트 디자인과 직관적인 인터페이스
-- ⚡ **실시간 피드백**: 로딩 상태 및 진행 상황 표시
-- 🔒 **보안**: 환경 변수 기반 API 키 관리
+---
 
-자세한 사용 방법은 [WEB_GUIDE.md](WEB_GUIDE.md)를 참조하세요.
+## 📚 문서
 
-## ☁️ Google Cloud Run 배포
+### 시작하기
+- [빠른 시작 가이드](QUICK_START_LABOR_AI.md) - 5단계로 시작하기
+- [데이터 임포트 가이드](LABOR_DATA_IMPORT_GUIDE.md) - 법령/판례 데이터 준비
 
-프로덕션 환경에서 사용하기 위해 Google Cloud Run에 배포할 수 있습니다.
+### 사용 가이드
+- [노무 AI 전체 가이드](LABOR_AI_GUIDE.md) - 전체 기능 상세 설명
+- [API 문서](#-api-문서) - REST API 엔드포인트
 
-### 빠른 배포
+### 개발 문서
+- [프로젝트 요약](PROJECT_SUMMARY.md) - 시스템 구조 및 파일 설명
+- [API 키 갱신 가이드](API_KEY_RENEWAL_GUIDE.md) - API 키 관리
+- [청킹 가이드](CHUNKING_GUIDE.md) - 문서 청킹 최적화
+- [배포 가이드](DEPLOYMENT_GUIDE.md) - Google Cloud Run 배포
 
+---
+
+## 🔌 API 문서
+
+### 기본 URL
+```
+http://localhost:3005/api/labor
+```
+
+### 엔드포인트
+
+#### 1. 질의응답
+```http
+POST /api/labor/ask
+Content-Type: application/json
+
+{
+  "query": "직원을 해고하려면?",
+  "category": "해고징계",
+  "includeCases": true,
+  "includeInterpretations": true
+}
+```
+
+#### 2. 유사 판례 검색
+```http
+POST /api/labor/similar-cases
+Content-Type: application/json
+
+{
+  "description": "근무 중 안전수칙 위반으로 해고"
+}
+```
+
+#### 3. 법령 조항 검색
+```http
+POST /api/labor/law-article
+Content-Type: application/json
+
+{
+  "lawName": "근로기준법",
+  "article": "제23조"
+}
+```
+
+#### 4. 템플릿 상담
+```http
+POST /api/labor/consult
+Content-Type: application/json
+
+{
+  "templateType": "dismissal",
+  "params": {
+    "employeeType": "정규직",
+    "workPeriod": "3년"
+  }
+}
+```
+
+#### 5. 카테고리 목록
+```http
+GET /api/labor/categories
+```
+
+#### 6. 스토어 상태
+```http
+GET /api/labor/store-status
+```
+
+#### 7. Health Check
+```http
+GET /api/labor/health
+```
+
+전체 API 문서: [LABOR_AI_GUIDE.md#api-문서](LABOR_AI_GUIDE.md#-api-문서)
+
+---
+
+## 💻 개발 가이드
+
+### 테스트
 ```bash
-# 1. 이미지 빌드 및 푸시
-gcloud builds submit --tag gcr.io/PROJECT_ID/filesearch-rag
+# 자동 테스트
+node tests/test_labor_ai.js
 
-# 2. Cloud Run에 배포
-gcloud run deploy filesearch-rag \
-  --image gcr.io/PROJECT_ID/filesearch-rag \
-  --platform managed \
-  --region asia-northeast3 \
-  --allow-unauthenticated
+# 실제 질의응답 테스트 (스토어 필요)
+node tests/test_labor_ai.js --real-query
 ```
 
-### 환경 변수 설정
-
-**Secret Manager 사용 (권장):**
-```bash
-# 시크릿 생성
-echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
-
-# Cloud Run에 시크릿 연결
-gcloud run services update filesearch-rag \
-  --update-secrets GEMINI_API_KEY=gemini-api-key:latest \
-  --region asia-northeast3
-```
-
-### 배포 스크립트
-
-```bash
-# Docker 로컬 테스트
-npm run docker:build
-npm run docker:run
-
-# GCP 배포
-npm run gcp:build    # 이미지 빌드 및 푸시
-npm run gcp:deploy   # Cloud Run 배포
-npm run gcp:logs     # 로그 확인
-```
-
-**⚠️ 주의**: `package.json`의 스크립트에서 `PROJECT_ID`를 실제 GCP 프로젝트 ID로 교체하세요.
-
-### 배포 후 확인
-
-```bash
-# 서비스 URL 확인
-gcloud run services describe filesearch-rag \
-  --region asia-northeast3 \
-  --format 'value(status.url)'
-
-# 헬스 체크
-curl https://YOUR-SERVICE-URL/api/health
-```
-
-### 무료 할당량
-
-Cloud Run 무료 티어 (월간):
-- ✅ 2,000,000 요청
-- ✅ 360,000 vCPU-초
-- ✅ 180,000 GiB-초
-
-**예상 비용**: 소규모 사용 시 무료 할당량 내에서 운영 가능
-
-### 상세 가이드
-
-완전한 배포 가이드는 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)를 참조하세요:
-- 사전 준비 및 GCP 설정
-- 단계별 배포 방법
-- Secret Manager 설정
-- 비용 관리 및 최적화
-- CI/CD 파이프라인 구성
-- 문제 해결
-
-## 📚 API 레퍼런스
-
-### RAGAgent
-
-#### Constructor
-```javascript
-new RAGAgent(apiKey, options)
-```
-- `apiKey` (string): Google Gemini API 키
-- `options` (object, optional):
-  - `storeName` (string): 기존 스토어 이름
-  - `model` (string): 사용할 모델 (기본값: 'gemini-2.5-flash')
-  - `uploadPollInterval` (number): 업로드 체크 간격 (ms, 기본값: 5000)
-
-#### Methods
-
-##### `initialize(displayName)`
-에이전트 초기화 및 스토어 생성
-- **Returns**: `Promise<string>` - 스토어 이름
-
-##### `uploadFile(filePath, options)`
-파일을 스토어에 업로드
-- `filePath` (string): 파일 경로
-- `options` (object):
-  - `displayName` (string): 표시 이름
-  - `mimeType` (string): MIME 타입
-  - `chunkingConfig` (object): 청킹 구성 (선택사항)
-    - `whiteSpaceConfig` (object):
-      - `maxTokensPerChunk` (number): 청크당 최대 토큰 수
-      - `maxOverlapTokens` (number): 청크 간 오버랩 토큰 수
-- **Returns**: `Promise<Object>` - 업로드 결과
-
-##### `uploadFiles(files)`
-여러 파일 일괄 업로드 (직접 업로드 방식)
-- `files` (Array): 파일 경로 배열 또는 설정 객체 배열
-- **Returns**: `Promise<Array>` - 업로드 결과 배열
-
-##### `uploadAndImportFile(filePath, options)`
-Files API를 통한 파일 업로드 및 스토어 가져오기 (2단계 프로세스)
-- `filePath` (string): 파일 경로
-- `options` (object):
-  - `displayName` (string): 표시 이름
-  - `mimeType` (string): MIME 타입
-  - `chunkingConfig` (object): 청킹 구성 (선택사항)
-  - `customMetadata` (array): 커스텀 메타데이터 배열 (선택사항)
-    - `key` (string): 메타데이터 키
-    - `stringValue` (string): 문자열 값 (stringValue 또는 numericValue 중 하나 필수)
-    - `numericValue` (number): 숫자 값 (stringValue 또는 numericValue 중 하나 필수)
-- **Returns**: `Promise<Object>` - 가져오기 결과 (filesAPIName 포함)
-
-##### `uploadAndImportFiles(files)`
-여러 파일 일괄 업로드 및 가져오기 (Files API 방식)
-- `files` (Array): 파일 경로 배열 또는 설정 객체 배열
-- **Returns**: `Promise<Array>` - 가져오기 결과 배열
-
-##### `listUploadedFiles()`
-Files API에 업로드된 파일 목록 조회
-- **Returns**: `Promise<Array>` - 파일 목록
-
-##### `deleteUploadedFile(fileName)`
-Files API에서 파일 삭제
-- `fileName` (string): 파일 이름 (예: 'files/xxx')
-
-##### `ask(query, options)`
-질의응답 수행
-- `query` (string): 질문
-- `options` (object):
-  - `model` (string): 사용할 모델
-- **Returns**: `Promise<string>` - 답변
-
-##### `getStatus()`
-현재 스토어 상태 조회
-- **Returns**: `Promise<Object>` - 문서 개수 및 목록
-
-##### `listDocuments()`
-현재 스토어의 모든 문서 조회
-- **Returns**: `Promise<Array>` - 문서 목록
-
-##### `deleteDocument(documentName)`
-특정 문서 삭제
-- `documentName` (string): 문서 이름
-
-##### `listStores(pageSize)`
-모든 File Search Store 목록 조회
-- `pageSize` (number): 페이지당 항목 수 (기본값: 20)
-- **Returns**: `Promise<Array>` - 스토어 목록
-
-##### `getStore(storeName)`
-특정 File Search Store 정보 조회
-- `storeName` (string): 스토어 이름 (기본값: 현재 에이전트의 스토어)
-- **Returns**: `Promise<Object>` - 스토어 상세 정보
-
-##### `deleteStore(storeName, force)`
-특정 File Search Store 삭제
-- `storeName` (string): 삭제할 스토어 이름
-- `force` (boolean): 강제 삭제 여부 (기본값: true)
-
-##### `cleanup(force)`
-현재 스토어 삭제 및 정리
-- `force` (boolean): 강제 삭제 여부 (기본값: true)
-
-## 💡 예제
-
-### 기본 워크플로우
-
+### 프로그래밍 방식 사용
 ```javascript
 const RAGAgent = require('./RAGAgent');
-require('dotenv').config();
 
-async function example() {
-  const agent = new RAGAgent(process.env.GEMINI_API_KEY);
-
-  // 초기화
-  await agent.initialize('knowledge-base');
-
-  // 단일 파일 업로드
-  await agent.uploadFile('data.txt', {
-    displayName: 'Data File'
-  });
-
-  // 질문
-  const answer = await agent.ask('데이터에서 주요 트렌드는?');
-  console.log(answer);
-
-  // 정리
-  await agent.cleanup();
-}
-
-example();
-```
-
-### 여러 파일 업로드
-
-```javascript
-// 방법 1: 직접 업로드 (빠름)
-await agent.uploadFiles([
-  'doc1.txt',
-  { path: 'doc2.pdf', displayName: 'Report', mimeType: 'application/pdf' }
-]);
-
-// 방법 2: Files API Import (파일 재사용 가능)
-await agent.uploadAndImportFiles([
-  'doc1.txt',
-  { path: 'doc2.pdf', displayName: 'Report', mimeType: 'application/pdf' }
-]);
-```
-
-### Files API를 통한 업로드 및 가져오기
-
-```javascript
-// 2단계 프로세스: Files API 업로드 → Store Import
-const result = await agent.uploadAndImportFile('document.pdf', {
-  displayName: 'Important Doc',
-  mimeType: 'application/pdf'
-});
-
-console.log('Files API 이름:', result.filesAPIName);
-console.log('Store 이름:', result.storeName);
-
-// Files API 파일 목록 조회
-const files = await agent.listUploadedFiles();
-console.log('업로드된 파일:', files.map(f => f.name));
-
-// Files API에서 파일 삭제
-await agent.deleteUploadedFile(files[0].name);
-```
-
-### 청킹(Chunking) 구성
-
-파일을 최적화된 조각으로 나누어 검색 성능 향상:
-
-```javascript
-await agent.uploadFile('document.pdf', {
-  displayName: 'My Document',
-  mimeType: 'application/pdf',
-  chunkingConfig: {
-    whiteSpaceConfig: {
-      maxTokensPerChunk: 200,    // 청크당 최대 200 토큰
-      maxOverlapTokens: 20       // 청크 간 20 토큰 오버랩
-    }
-  }
-});
-```
-
-**문서 타입별 권장 설정**:
-- **코드 파일**: 150 토큰, 15 오버랩
-- **기술 문서**: 250 토큰, 25 오버랩
-- **장문 텍스트**: 400 토큰, 40 오버랩
-
-자세한 내용은 [CHUNKING_GUIDE.md](CHUNKING_GUIDE.md)를 참조하세요.
-
-### 커스텀 메타데이터
-
-파일에 사용자 정의 메타데이터를 추가하여 파일 분류, 검색, 관리를 향상:
-
-```javascript
-await agent.uploadAndImportFile('document.pdf', {
-  displayName: 'I, Claudius',
-  mimeType: 'application/pdf',
-  customMetadata: [
-    { key: 'author', stringValue: 'Robert Graves' },
-    { key: 'year', numericValue: 1934 },
-    { key: 'genre', stringValue: 'Historical Fiction' },
-    { key: 'rating', numericValue: 4.5 }
-  ]
-});
-```
-
-**메타데이터 특징**:
-- **두 가지 값 타입**: `stringValue` (문자열) 또는 `numericValue` (숫자)
-- **필수 항목**: `key`와 값 타입 중 하나 (`stringValue` 또는 `numericValue`)
-- **사용 사례**: 문서 분류, 저자 정보, 버전 관리, 평점, 날짜 등
-- **자동 검증**: 메타데이터 형식 및 타입 자동 검증
-
-**실전 예제**:
-```javascript
-// 도서 관리 시스템
-await agent.uploadAndImportFile('book.txt', {
-  displayName: 'The Great Gatsby',
-  customMetadata: [
-    { key: 'author', stringValue: 'F. Scott Fitzgerald' },
-    { key: 'year', numericValue: 1925 },
-    { key: 'pages', numericValue: 180 },
-    { key: 'isbn', stringValue: '978-0743273565' }
-  ]
-});
-
-// 문서 분류 시스템
-await agent.uploadAndImportFile('report.pdf', {
-  displayName: 'Q1 Report',
-  customMetadata: [
-    { key: 'doc_type', stringValue: 'report' },
-    { key: 'quarter', numericValue: 1 },
-    { key: 'year', numericValue: 2024 },
-    { key: 'confidential', stringValue: 'yes' }
-  ]
-});
-```
-
-**주의사항**:
-- 메타데이터는 **Files API Import 방식**에서만 사용 가능 (`uploadAndImportFile`)
-- 각 항목은 `stringValue`와 `numericValue` 중 **하나만** 가져야 함
-- 청킹 구성과 메타데이터를 **동시에 사용** 가능
-
-더 많은 예제는 [example-metadata.js](example-metadata.js)를 참조하세요.
-
-### 두 가지 업로드 방식 비교
-
-| 특징 | 직접 업로드 (`uploadFile`) | Files API Import (`uploadAndImportFile`) |
-|------|---------------------------|----------------------------------------|
-| 단계 | 1단계 | 2단계 (Upload → Import) |
-| 속도 | 빠름 | 다소 느림 |
-| Files API 관리 | 불가 | 가능 |
-| 인용 표시 | 기본 | displayName 사용 |
-| 파일 재사용 | 불가 | 가능 (여러 스토어) |
-| 청킹 설정 | ✅ 지원 | ✅ 지원 |
-| 커스텀 메타데이터 | ❌ 미지원 | ✅ 지원 |
-| 사용 시나리오 | 단순 업로드 | 파일 관리 필요 시 |
-
-### 스토어 관리
-
-```javascript
-// 모든 스토어 목록 조회
-const stores = await agent.listStores();
-console.log(`총 ${stores.length}개 스토어`);
-stores.forEach(store => {
-  console.log(`- ${store.displayName}: ${store.name}`);
-});
-
-// 특정 스토어 정보 조회
-const storeInfo = await agent.getStore('fileSearchStores/abc123');
-console.log('스토어 정보:', storeInfo);
-
-// 현재 에이전트의 스토어 정보 조회
-const currentStore = await agent.getStore();
-console.log('현재 스토어:', currentStore);
-
-// 특정 스토어 삭제
-await agent.deleteStore('fileSearchStores/abc123', true);
-
-// 현재 스토어 정리
-await agent.cleanup();
-```
-
-### 기존 스토어 재사용
-
-```javascript
 const agent = new RAGAgent(process.env.GEMINI_API_KEY, {
-  storeName: 'fileSearchStores/existing-store-id'
+  storeName: 'labor-law-knowledge-base'
 });
 
-// initialize() 없이 바로 사용 가능
-await agent.uploadFile('new-file.txt');
-const answer = await agent.ask('새 파일 내용은?');
+// 노무 질의
+const answer = await agent.askLabor('해고 절차는?');
+
+// 유사 판례
+const cases = await agent.findSimilarCases('출근 중 사고');
+
+// 법령 조회
+const law = await agent.searchLawArticle('근로기준법', '제23조');
 ```
+
+### 프롬프트 수정
+프롬프트를 수정하려면 `RAGAgent.js`의 `buildLaborPrompt()` 메서드를 편집하세요.
+
+### 카테고리 추가
+카테고리를 추가하려면 `models/laborSchemas.js`의 `LaborCategories`를 편집하세요.
+
+---
+
+## 📊 데이터 스키마
+
+### 법령 메타데이터
+- `lawName`: 법령명
+- `lawType`: 법령 유형 (act, decree, rule, notice, directive)
+- `category`: 카테고리 (10개 중 1개)
+- `keywords`: 검색 키워드
+
+### 판례 메타데이터
+- `caseNumber`: 사건번호
+- `courtType`: 법원 유형 (supreme, high, district)
+- `subject`: 사건 주제
+- `judgmentResult`: 판결 결과
+- `precedentValue`: 선례가치 (high, medium, low)
+
+### 카테고리 (10개)
+1. 근로계약
+2. 임금
+3. 근로시간
+4. 휴가휴직
+5. 해고징계
+6. 산재보험
+7. 고용보험
+8. 차별
+9. 노동조합
+10. 안전보건
+
+---
 
 ## 🔒 보안
 
 ### API 키 보호
-- ✅ **환경 변수 사용**: `.env` 파일에 API 키 저장
-- ✅ **Git 제외**: `.gitignore`에 `.env` 추가
-- ❌ **코드에 하드코딩 금지**: 소스 코드에 직접 입력하지 마세요
+- `.env` 파일 사용
+- `.gitignore`에 `.env` 추가
+- 코드에 하드코딩 금지
 
-### .gitignore 설정
-```
-.env
-node_modules/
-```
+### 법률 자문 한계
+⚠️ **중요**: 이 시스템은 참고용 정보 제공이며, 공식적인 법률 자문을 대체할 수 없습니다.
 
-## 📁 프로젝트 구조
+---
 
-```
-GoogleFileSearch/
-├── RAGAgent.js                  # RAG Agent 클래스 (고수준 API)
-├── FileSearchManager.js         # File Search Manager (저수준 API)
-├── server.js                    # Express.js 웹 서버
-├── public/                      # 웹 인터페이스 파일
-│   ├── index.html               # 메인 HTML
-│   ├── styles.css               # 스타일시트
-│   └── app.js                   # 프론트엔드 JavaScript
-├── uploads/                     # 임시 파일 업로드 디렉토리 (자동 생성)
-├── example-rag-agent.js         # RAG Agent 기본 사용 예제
-├── example-import-workflow.js   # Files API Import 워크플로우 예제
-├── example-chunking.js          # 청킹 구성 예제
-├── example-store-management.js  # 스토어 관리 예제
-├── example-metadata.js          # 커스텀 메타데이터 예제
-├── example.js                   # FileSearchManager 사용 예제
-├── package.json
-├── .env.example                 # 환경 변수 템플릿
-├── .gitignore
-├── README.md
-├── WEB_GUIDE.md                 # 웹 인터페이스 사용 가이드
-├── WORKFLOW_GUIDE.md            # 워크플로우 가이드
-└── CHUNKING_GUIDE.md            # 청킹 구성 가이드
-```
+## 📈 시스템 요구사항
 
-## 🔧 의존성
+- Node.js 18.x 이상
+- Google Gemini API 키
+- 최소 2GB RAM
+- 약 1GB 디스크 공간 (데이터 포함)
 
-- `@google/genai` (^1.29.1): Google Gemini API SDK
-
-## 📝 라이선스
-
-ISC
+---
 
 ## 🤝 기여
 
 이슈 및 풀 리퀘스트를 환영합니다!
 
+---
+
+## 📝 라이선스
+
+ISC
+
+---
+
+## 🙏 감사의 말
+
+- Google Gemini API
+- Firebase
+- Express.js
+- 노동법령 및 판례 데이터 제공처
+
+---
+
 ## 📞 문의
 
-- [Google AI Studio](https://aistudio.google.com/)
-- [Gemini API 문서](https://ai.google.dev/)
+문제가 발생하면:
+1. [이슈 등록](../../issues)
+2. [문서 참조](LABOR_AI_GUIDE.md)
+3. [테스트 실행](tests/test_labor_ai.js)
+
+---
+
+<div align="center">
+
+Made with ❤️ for Labor Law Professionals
+
+[시작하기](QUICK_START_LABOR_AI.md) • [문서](LABOR_AI_GUIDE.md) • [API](LABOR_AI_GUIDE.md#-api-문서)
+
+</div>

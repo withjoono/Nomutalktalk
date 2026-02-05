@@ -1,36 +1,27 @@
-# Environment variables
-.env
-
-# Dependencies
+# Node
 node_modules/
-
-# Uploaded files
-uploads/
-
-# Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# 환경 변수
+.env
+.env.local
+.env.*.local
 
-# Optional npm cache directory
-.npm
+# 로그
+logs/
+*.log
 
-# Optional eslint cache
-.eslintcache
+# 빌드
+dist/
+build/
 
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
+# 임시 파일
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -39,21 +30,21 @@ pids
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
+# 업로드된 파일
+uploads/
 
-# Sensitive credentials
+# Firebase
 firebase-service-account.json
-*-service-account.json
-*.pem
-*.key
 
-# Playwright MCP
-.playwright-mcp/
+# 테스트
+coverage/
+.nyc_output/
 
-# Misc
-nul
+# 대용량 데이터 파일 (로컬에서만 사용)
+data/labor_laws/*.json
+data/labor_laws/*.xlsx
+data/labor_laws/split/
 
-# TypeScript build output
-dist/
+# 기타
+*.bak
+*.old

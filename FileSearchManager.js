@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require('@google/genai');
+const path = require('path');
 
 /**
  * Gemini API의 File Search 기능을 쉽게 사용할 수 있도록 추상화한 클래스
@@ -453,6 +454,7 @@ ${query}`;
   }
 
   /**
+  /**
    * Files API를 사용하여 파일 업로드 (Store와 독립적)
    * @param {string} filePath - 업로드할 파일 경로
    * @param {Object} options - 업로드 옵션
@@ -461,23 +463,54 @@ ${query}`;
    * @returns {Promise<Object>} 업로드된 파일 정보
    */
   async uploadFileToFilesAPI(filePath, options = {}) {
-    const uploadParams = {
-      file: filePath
-    };
+    // Check if filePath contains non-ASCII characters
+    // The Google GenAI SDK (Node.js) has an issue with non-ASCII characters in file paths for uploads
+    // Workaround: Copy to a temp ASCII file, upload, then delete
+    const hasNonAscii = /[^\x00-\x7F]/.test(path.basename(filePath));
+    let uploadPath = filePath;
+    let tempFilePath = null;
 
-    // config 설정 (displayName 또는 name)
-    if (options.displayName || options.mimeType) {
-      uploadParams.config = {};
-      if (options.displayName) {
-        uploadParams.config.name = options.displayName;
-      }
-      if (options.mimeType) {
-        uploadParams.config.mimeType = options.mimeType;
-      }
+    if (hasNonAscii) {
+      const fs = require('fs');
+      const os = require('os');
+      const ext = path.extname(filePath);
+      // Create a random ASCII filename
+      const randomName = `upload_${Date.now()}_${Math.random().toString(36).substring(7)}${ext}`;
+      tempFilePath = path.join(os.tmpdir(), randomName);
+
+      console.log(`⚠️ Non-ASCII file path detected. Copying to temp file: ${tempFilePath}`);
+      fs.copyFileSync(filePath, tempFilePath);
+      uploadPath = tempFilePath;
     }
 
-    const file = await this.ai.files.upload(uploadParams);
-    return file;
+    try {
+      const uploadParams = {
+        file: uploadPath
+      };
+
+      // config 설정 (displayName 또는 name)
+      if (options.displayName || options.mimeType) {
+        uploadParams.config = {};
+        if (options.displayName) {
+          uploadParams.config.displayName = options.displayName;
+        }
+        if (options.mimeType) {
+          uploadParams.config.mimeType = options.mimeType;
+        }
+      }
+
+      const file = await this.ai.files.upload(uploadParams);
+      return file;
+
+    } finally {
+      // Clean up temp file
+      if (tempFilePath) {
+        const fs = require('fs');
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    }
   }
 
   /**

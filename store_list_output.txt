@@ -1,0 +1,15 @@
+🔍 Listing ALL stores...
+
+Found 2 stores:
+
+------------------------------------------------
+Store Name: fileSearchStores/laborlawknowledgebase-17zrywsmu7u6
+Display Name: labor-law-knowledge-base
+Document Count: 10
+Sample Doc: case_43303.txt
+
+------------------------------------------------
+Store Name: fileSearchStores/teststore-b24m5us5sopx
+Display Name: test-store
+Document Count: 2
+Sample Doc: 5p3nz6vtdbzz
