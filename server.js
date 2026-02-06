@@ -22,22 +22,6 @@ if (process.env.OPENAI_API_KEY) {
   console.warn('⚠️  OPENAI_API_KEY가 설정되지 않았습니다. OpenAI 모델은 사용할 수 없습니다.');
 }
 
-// 대화형 챗봇 모듈
-const { getInstance: getConversationManager } = require('./models/ConversationManager');
-const DialogueFlowEngine = require('./models/DialogueFlowEngine');
-const ConversationStorage = require('./models/ConversationStorage');
-const { LaborMetadataBuilder } = require('./models/laborSchemas');
-
-// 대화 관리자 및 엔진 초기화
-const conversationManager = getConversationManager();
-let conversationStorage = null;
-let dialogueEngine = null;
-
-if (db) {
-  conversationStorage = new ConversationStorage(db);
-  console.log('✅ 대화 저장소 초기화 완료');
-}
-
 // Firebase Admin SDK
 const admin = require('firebase-admin');
 
@@ -62,8 +46,24 @@ try {
   console.error('❌ Firebase 초기화 오류:', error.message);
 }
 
+// 대화형 챗봇 모듈
+const { getInstance: getConversationManager } = require('./models/ConversationManager');
+const DialogueFlowEngine = require('./models/DialogueFlowEngine');
+const ConversationStorage = require('./models/ConversationStorage');
+const { LaborMetadataBuilder } = require('./models/laborSchemas');
+
+// 대화 관리자 및 엔진 초기화
+const conversationManager = getConversationManager();
+let conversationStorage = null;
+let dialogueEngine = null;
+
+if (db) {
+  conversationStorage = new ConversationStorage(db);
+  console.log('✅ 대화 저장소 초기화 완료');
+}
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4010;
 
 // 업로드 디렉토리 설정
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -94,25 +94,29 @@ const corsOptions = {
     const allowedOrigins = process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
       : [
-          'http://localhost:3000',
-          'http://localhost:3001',
-          'http://localhost:3005',
-          'http://localhost:8080',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:3001',
-          'http://127.0.0.1:3005',
-          'http://127.0.0.1:8080',
-          'https://google-file-search.vercel.app',
-          'https://google-file-search.netlify.app'
-        ];
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3005',
+        'http://localhost:3010',
+        'http://localhost:4010',
+        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:3005',
+        'http://127.0.0.1:3010',
+        'http://127.0.0.1:4010',
+        'http://127.0.0.1:8080',
+        'https://google-file-search.vercel.app',
+        'https://google-file-search.netlify.app'
+      ];
 
     // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
     if (!origin || allowedOrigins.includes(origin) ||
-        origin.endsWith('.vercel.app') ||
-        origin.endsWith('.netlify.app') ||
-        origin.endsWith('.railway.app') ||
-        origin.endsWith('.render.com') ||
-        origin.endsWith('.run.app')) {
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.netlify.app') ||
+      origin.endsWith('.railway.app') ||
+      origin.endsWith('.render.com') ||
+      origin.endsWith('.run.app')) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -1242,7 +1246,7 @@ app.delete('/api/records/:id', async (req, res) => {
 app.post('/api/generate-variation', async (req, res) => {
   try {
     const { images, metadata, geminiModel, openaiModel, variationCount, instructions,
-            llmType // 하위 호환성
+      llmType // 하위 호환성
     } = req.body;
 
     // 하위 호환성: 기존 llmType 파라미터 지원
@@ -8268,7 +8272,7 @@ app.post('/api/labor/consult', async (req, res) => {
 app.get('/api/labor/categories', (req, res) => {
   try {
     const { LaborCategories } = require('./models/laborSchemas');
-    
+
     const categories = Object.entries(LaborCategories).map(([name, config]) => ({
       name,
       keywords: config.keywords,
@@ -8309,14 +8313,14 @@ app.post('/api/labor/upload-law', upload.single('file'), async (req, res) => {
     const { title, metadata } = req.body;
 
     // metadata는 JSON 문자열로 전달됨
-    const parsedMetadata = typeof metadata === 'string' 
-      ? JSON.parse(metadata) 
+    const parsedMetadata = typeof metadata === 'string'
+      ? JSON.parse(metadata)
       : metadata;
 
     console.log(`[노무 AI] 법령 업로드: ${title}`);
 
     const agent = getLaborAgent();
-    
+
     // 스토어가 없으면 초기화
     if (!agent.storeName) {
       await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
@@ -8338,7 +8342,7 @@ app.post('/api/labor/upload-law', upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error('[노무 AI] 법령 업로드 오류:', error);
-    
+
     // 오류 시에도 임시 파일 삭제
     if (filePath) {
       await cleanupFile(filePath);
@@ -8371,14 +8375,14 @@ app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
     const { title, metadata } = req.body;
 
     // metadata는 JSON 문자열로 전달됨
-    const parsedMetadata = typeof metadata === 'string' 
-      ? JSON.parse(metadata) 
+    const parsedMetadata = typeof metadata === 'string'
+      ? JSON.parse(metadata)
       : metadata;
 
     console.log(`[노무 AI] 판례 업로드: ${title}`);
 
     const agent = getLaborAgent();
-    
+
     // 스토어가 없으면 초기화
     if (!agent.storeName) {
       await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
@@ -8400,7 +8404,7 @@ app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error('[노무 AI] 판례 업로드 오류:', error);
-    
+
     // 오류 시에도 임시 파일 삭제
     if (filePath) {
       await cleanupFile(filePath);
@@ -8420,7 +8424,7 @@ app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
 app.get('/api/labor/store-status', async (req, res) => {
   try {
     const agent = getLaborAgent();
-    
+
     if (!agent.storeName) {
       return res.json({
         success: true,
@@ -8709,7 +8713,7 @@ app.get('/api/chat/session/:sessionId/summary', async (req, res) => {
 app.delete('/api/chat/session/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    
+
     // 메모리에서 삭제
     const deleted = conversationManager.deleteSession(sessionId);
 
@@ -8738,7 +8742,7 @@ app.delete('/api/chat/session/:sessionId', async (req, res) => {
 app.get('/api/chat/sessions', async (req, res) => {
   try {
     const sessions = conversationManager.getAllSessions();
-    
+
     res.json({
       success: true,
       data: {
