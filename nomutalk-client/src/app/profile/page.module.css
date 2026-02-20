@@ -1,0 +1,133 @@
+.container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: var(--toss-spacing-xl);
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--toss-spacing-xs);
+}
+
+.subtitle {
+    color: var(--toss-text-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+.profileCard {
+    background: var(--toss-bg-card);
+    border-radius: var(--toss-radius-xl);
+    padding: var(--toss-spacing-xl);
+    box-shadow: var(--toss-shadow-card);
+    border: 1px solid var(--toss-border-light);
+}
+
+.avatarWrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.avatarImg {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatarFallback {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--toss-blue-light);
+    color: var(--toss-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.info {
+    text-align: center;
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 4px;
+}
+
+.email {
+    font-size: 0.85rem;
+    color: var(--toss-text-tertiary);
+}
+
+.menuList {
+    margin-bottom: var(--toss-spacing-lg);
+    border-top: 1px solid var(--toss-border-light);
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--toss-border-light);
+    font-size: 0.95rem;
+    color: var(--toss-text-primary);
+    cursor: pointer;
+    transition: color var(--toss-transition);
+}
+
+.menuItem:hover {
+    color: var(--toss-blue);
+}
+
+.chevron {
+    color: var(--toss-text-disabled);
+    font-size: 1.2rem;
+}
+
+.logoutButton {
+    width: 100%;
+    padding: 14px;
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-secondary);
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--toss-transition);
+}
+
+.logoutButton:hover {
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-primary);
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--toss-spacing-2xl) 0;
+}
+
+.emptyIcon {
+    font-size: 3rem;
+    margin-bottom: var(--toss-spacing-md);
+    opacity: 0.6;
+}
+
+.emptyDesc {
+    font-size: 0.95rem;
+    color: var(--toss-text-tertiary);
+}

@@ -1,22 +1,22 @@
 .card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 1.5rem;
-    padding: 2rem;
+    background: var(--toss-bg-card);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-xl);
+    padding: var(--toss-spacing-xl);
     display: flex;
     flex-direction: column;
     position: relative;
-    transition: transform 0.2s;
+    transition: all var(--toss-transition);
 }
 
 .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    box-shadow: var(--toss-shadow-lg);
 }
 
 .popular {
-    border-color: #2563eb;
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+    border-color: var(--toss-blue);
+    box-shadow: 0 0 0 1px var(--toss-blue);
 }
 
 .badge {
@@ -24,66 +24,73 @@
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: #2563eb;
+    background-color: var(--toss-blue);
     color: white;
-    padding: 0.25rem 1rem;
-    border-radius: 9999px;
-    font-size: 0.8rem;
+    padding: 4px 16px;
+    border-radius: var(--toss-radius-full);
+    font-size: 0.78rem;
     font-weight: 600;
 }
 
 .title {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: #111827;
-    margin-bottom: 0.5rem;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-xs);
 }
 
 .price {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 800;
-    color: #111827;
-    margin-bottom: 2rem;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-lg);
+    letter-spacing: -0.03em;
 }
 
 .features {
     list-style: none;
     padding: 0;
-    margin: 0 0 2rem 0;
+    margin: 0 0 var(--toss-spacing-lg) 0;
     flex: 1;
 }
 
 .featureItem {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    color: #4b5563;
+    gap: var(--toss-spacing-sm);
+    margin-bottom: 12px;
+    color: var(--toss-text-secondary);
+    font-size: 0.9rem;
 }
 
 .checkIcon {
-    width: 20px;
-    height: 20px;
-    color: #10b981;
+    width: 18px;
+    height: 18px;
+    color: var(--toss-blue);
 }
 
 .button {
     width: 100%;
-    padding: 1rem;
-    border-radius: 0.75rem;
+    padding: 14px;
+    border-radius: var(--toss-radius-md);
     font-weight: 600;
     cursor: pointer;
     border: none;
-    background-color: #f3f4f6;
-    color: #111827;
-    transition: all 0.2s;
+    background-color: var(--toss-bg-secondary);
+    color: var(--toss-text-primary);
+    transition: all var(--toss-transition);
+    font-size: 0.95rem;
+}
+
+.button:hover {
+    background-color: var(--toss-bg-tertiary);
 }
 
 .popular .button {
-    background-color: #2563eb;
+    background-color: var(--toss-blue);
     color: white;
 }
 
 .popular .button:hover {
-    background-color: #1d4ed8;
+    background-color: var(--toss-blue-hover);
 }

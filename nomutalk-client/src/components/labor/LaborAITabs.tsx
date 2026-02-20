@@ -9,8 +9,10 @@ import {
     consultWithTemplate,
     getCategories,
     checkHealth,
-    Category
+    Category,
+    Citation
 } from '@/lib/api';
+import GraphView from './GraphView';
 
 type TabType = 'query' | 'cases' | 'law' | 'template' | 'categories';
 
@@ -65,12 +67,14 @@ export default function LaborAITabs() {
     const [queryResult, setQueryResult] = useState('');
     const [queryLoading, setQueryLoading] = useState(false);
     const [queryError, setQueryError] = useState('');
+    const [queryCitations, setQueryCitations] = useState<Citation[]>([]);
 
     // Cases tab state
     const [caseDescription, setCaseDescription] = useState('');
     const [casesResult, setCasesResult] = useState('');
     const [casesLoading, setCasesLoading] = useState(false);
     const [casesError, setCasesError] = useState('');
+    const [caseCitations, setCaseCitations] = useState<Citation[]>([]);
 
     // Law tab state
     const [lawName, setLawName] = useState('');
@@ -78,6 +82,7 @@ export default function LaborAITabs() {
     const [lawResult, setLawResult] = useState('');
     const [lawLoading, setLawLoading] = useState(false);
     const [lawError, setLawError] = useState('');
+    const [lawCitations, setLawCitations] = useState<Citation[]>([]);
 
     // Template tab state
     const [templateType, setTemplateType] = useState('dismissal');
@@ -85,6 +90,7 @@ export default function LaborAITabs() {
     const [templateResult, setTemplateResult] = useState('');
     const [templateLoading, setTemplateLoading] = useState(false);
     const [templateError, setTemplateError] = useState('');
+    const [templateCitations, setTemplateCitations] = useState<Citation[]>([]);
 
     useEffect(() => {
         checkHealth().then(setIsOnline);
@@ -103,13 +109,14 @@ export default function LaborAITabs() {
         setQueryResult('');
 
         try {
-            const answer = await askQuestion({
+            const { answer, citations } = await askQuestion({
                 query: queryInput,
                 category: selectedCategory || undefined,
                 includeCases,
                 includeInterpretations
             });
             setQueryResult(answer);
+            setQueryCitations(citations);
         } catch (error) {
             setQueryError(error instanceof Error ? error.message : '답변 생성에 실패했습니다.');
         } finally {
@@ -129,8 +136,9 @@ export default function LaborAITabs() {
         setCasesResult('');
 
         try {
-            const result = await searchSimilarCases(caseDescription);
-            setCasesResult(result);
+            const { answer, citations } = await searchSimilarCases(caseDescription);
+            setCasesResult(answer);
+            setCaseCitations(citations);
         } catch (error) {
             setCasesError(error instanceof Error ? error.message : '판례 검색에 실패했습니다.');
         } finally {
@@ -150,8 +158,9 @@ export default function LaborAITabs() {
         setLawResult('');
 
         try {
-            const result = await searchLawArticle(lawName, lawArticle);
-            setLawResult(result);
+            const { answer, citations } = await searchLawArticle(lawName, lawArticle);
+            setLawResult(answer);
+            setLawCitations(citations);
         } catch (error) {
             setLawError(error instanceof Error ? error.message : '법령 조회에 실패했습니다.');
         } finally {
@@ -166,8 +175,9 @@ export default function LaborAITabs() {
         setTemplateResult('');
 
         try {
-            const result = await consultWithTemplate(templateType, templateParams);
-            setTemplateResult(result);
+            const { answer, citations } = await consultWithTemplate(templateType, templateParams);
+            setTemplateResult(answer);
+            setTemplateCitations(citations);
         } catch (error) {
             setTemplateError(error instanceof Error ? error.message : '템플릿 상담에 실패했습니다.');
         } finally {
@@ -183,9 +193,9 @@ export default function LaborAITabs() {
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <h1>⚖️ 노무 AI</h1>
+                <h1>🔍 관련 검색</h1>
                 <p>
-                    법령·판례 기반 노무 상담 시스템
+                    법령·판례 기반 검색 시스템
                     <span className={`${styles.statusIndicator} ${isOnline ? styles.online : styles.offline}`}></span>
                 </p>
             </div>
@@ -269,9 +279,28 @@ export default function LaborAITabs() {
                             </label>
                         </div>
 
-                        <button className={styles.btn} onClick={handleAskQuestion} disabled={queryLoading}>
-                            {queryLoading ? '답변 생성 중...' : '질문하기'}
-                        </button>
+                        <div className={styles.buttonGroup}>
+                            <button className={styles.btn} onClick={handleAskQuestion} disabled={queryLoading}>
+                                {queryLoading ? '답변 생성 중...' : '상담/검색 시작'}
+                            </button>
+                            <button
+                                className={`${styles.btn} ${styles.btnSecondary}`}
+                                onClick={() => {
+                                    setQueryInput('부당해고 구제신청 절차와 기간');
+                                    setQueryResult('부당해고 구제신청은 해고가 있은 날로부터 3개월 이내에 노동위원회에 신청해야 합니다. 근로기준법 제28조에 따라 구제신청을 할 수 있으며, 노동위원회는 조사를 거쳐 심문회의를 개최하고 부당해고 여부를 판정합니다.');
+                                    setQueryCitations([
+                                        { title: '근로기준법 제23조 (해고 등의 제한)', source: 'citation' },
+                                        { title: '근로기준법 제28조 (부당해고등의 구제신청)', source: 'citation' },
+                                        { title: '노동위원회법 제15조', source: 'citation' },
+                                        { title: '대법원 2011두12345 판결', source: 'citation' },
+                                        { title: '행정해석 근기 68207-1234', source: 'citation' }
+                                    ]);
+                                }}
+                                disabled={queryLoading}
+                            >
+                                📊 그래프 예시 보기
+                            </button>
+                        </div>
 
                         {queryLoading && <div className={styles.loading}><div className={styles.spinner}></div></div>}
                         {queryError && <div className={styles.error}>{queryError}</div>}
@@ -279,6 +308,9 @@ export default function LaborAITabs() {
                             <div className={styles.resultSection}>
                                 <h3>답변</h3>
                                 <div className={styles.resultBox}>{queryResult}</div>
+                                {queryCitations.length > 0 && (
+                                    <GraphView query={queryInput} citations={queryCitations} />
+                                )}
                             </div>
                         )}
                     </div>
@@ -310,6 +342,9 @@ export default function LaborAITabs() {
                             <div className={styles.resultSection}>
                                 <h3>유사 판례</h3>
                                 <div className={styles.resultBox}>{casesResult}</div>
+                                {caseCitations.length > 0 && (
+                                    <GraphView query={caseDescription} citations={caseCitations} />
+                                )}
                             </div>
                         )}
                     </div>
@@ -347,6 +382,9 @@ export default function LaborAITabs() {
                             <div className={styles.resultSection}>
                                 <h3>법령 상세</h3>
                                 <div className={styles.resultBox}>{lawResult}</div>
+                                {lawCitations.length > 0 && (
+                                    <GraphView query={`${lawName} ${lawArticle}`} citations={lawCitations} />
+                                )}
                             </div>
                         )}
                     </div>
@@ -400,6 +438,9 @@ export default function LaborAITabs() {
                             <div className={styles.resultSection}>
                                 <h3>상담 결과</h3>
                                 <div className={styles.resultBox}>{templateResult}</div>
+                                {templateCitations.length > 0 && (
+                                    <GraphView query={templateType} citations={templateCitations} />
+                                )}
                             </div>
                         )}
                     </div>

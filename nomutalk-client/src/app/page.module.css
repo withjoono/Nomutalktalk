@@ -1,141 +1,118 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
+.container {
   display: flex;
-  min-height: 100vh;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  min-height: 100%;
+  padding: var(--toss-spacing-xl);
+  background: var(--toss-bg-primary);
 }
 
-.main {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
-}
-
-.intro {
+.hero {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
+  align-items: center;
+  text-align: center;
+  margin-bottom: var(--toss-spacing-2xl);
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
+.iconWrapper {
+  width: 72px;
+  height: 72px;
+  background: var(--toss-blue-light);
+  border-radius: var(--toss-radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--toss-spacing-lg);
+}
+
+.icon {
+  font-size: 2rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--toss-text-primary);
+  line-height: 1.35;
+  letter-spacing: -0.04em;
+  margin-bottom: var(--toss-spacing-md);
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: var(--toss-text-tertiary);
+  line-height: 1.6;
+  margin-bottom: var(--toss-spacing-xl);
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 32px;
+  background: var(--toss-blue);
+  color: #ffffff;
+  border-radius: var(--toss-radius-md);
   font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+  font-size: 1rem;
+  text-decoration: none;
+  transition: background var(--toss-transition), transform var(--toss-transition);
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
+.ctaButton:hover {
+  background: var(--toss-blue-hover);
+  transform: translateY(-1px);
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.ctas {
-  display: flex;
-  flex-direction: row;
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--toss-spacing-md);
   width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+  max-width: 720px;
 }
 
-.ctas a {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+.featureCard {
+  background: var(--toss-bg-secondary);
+  border-radius: var(--toss-radius-lg);
+  padding: var(--toss-spacing-lg);
+  text-align: center;
+  transition: transform var(--toss-transition), box-shadow var(--toss-transition);
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+.featureCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--toss-shadow-md);
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.featureIcon {
+  font-size: 1.75rem;
+  display: block;
+  margin-bottom: var(--toss-spacing-sm);
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.featureTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--toss-text-primary);
+  margin-bottom: var(--toss-spacing-xs);
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
-
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+.featureDesc {
+  font-size: 0.8rem;
+  color: var(--toss-text-tertiary);
+  line-height: 1.5;
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
+@media (max-width: 640px) {
+  .title {
+    font-size: 1.6rem;
   }
 
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
+  .features {
+    grid-template-columns: 1fr;
+    max-width: 360px;
   }
 }

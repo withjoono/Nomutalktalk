@@ -1,0 +1,109 @@
+.container {
+    padding: var(--toss-spacing-xl);
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.container h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-sm);
+    letter-spacing: -0.03em;
+}
+
+.description {
+    color: var(--toss-text-tertiary);
+    margin-bottom: var(--toss-spacing-xl);
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+
+.uploadArea {
+    border: 2px dashed var(--toss-border);
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-2xl) var(--toss-spacing-lg);
+    text-align: center;
+    margin-bottom: var(--toss-spacing-lg);
+    background-color: var(--toss-bg-secondary);
+    transition: all var(--toss-transition);
+}
+
+.uploadArea:hover {
+    border-color: var(--toss-blue);
+    background-color: var(--toss-blue-light);
+}
+
+.fileInput {
+    display: none;
+}
+
+.uploadButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background-color: var(--toss-bg-primary);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--toss-text-secondary);
+    transition: all var(--toss-transition);
+}
+
+.uploadButton:hover {
+    background-color: var(--toss-bg-primary);
+    border-color: var(--toss-blue);
+    color: var(--toss-blue);
+}
+
+.fileList {
+    list-style: none;
+    padding: 0;
+    margin-top: var(--toss-spacing-md);
+    text-align: left;
+}
+
+.fileList li {
+    padding: 10px 14px;
+    border-radius: var(--toss-radius-sm);
+    background: var(--toss-bg-primary);
+    margin-bottom: 6px;
+    color: var(--toss-text-secondary);
+    font-size: 0.9rem;
+}
+
+.submitButton {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--toss-blue);
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--toss-transition);
+}
+
+.submitButton:hover {
+    background-color: var(--toss-blue-hover);
+    transform: translateY(-1px);
+}
+
+.submitButton:disabled {
+    background-color: var(--toss-bg-tertiary);
+    color: var(--toss-text-disabled);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.status {
+    margin-top: var(--toss-spacing-md);
+    text-align: center;
+    font-weight: 600;
+    color: var(--toss-green);
+    font-size: 0.95rem;
+}

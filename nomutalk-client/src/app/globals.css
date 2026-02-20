@@ -1,11 +1,60 @@
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+/* ============================================
+   Toss Design System (TDS) - Design Tokens
+   ============================================ */
 
-  /* Primary Colors */
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+:root {
+  /* Primary */
+  --toss-blue: #3182f6;
+  --toss-blue-hover: #1b64da;
+  --toss-blue-light: #e8f3ff;
+  --toss-blue-50: #4d94f8;
+
+  /* Semantic */
+  --toss-red: #f04452;
+  --toss-green: #30b566;
+  --toss-orange: #f59f00;
+
+  /* Backgrounds */
+  --toss-bg-primary: #ffffff;
+  --toss-bg-secondary: #f2f4f6;
+  --toss-bg-tertiary: #e5e8eb;
+  --toss-bg-card: #ffffff;
+
+  /* Text */
+  --toss-text-primary: #191f28;
+  --toss-text-secondary: #4e5968;
+  --toss-text-tertiary: #8b95a1;
+  --toss-text-disabled: #b0b8c1;
+
+  /* Borders */
+  --toss-border: #e5e8eb;
+  --toss-border-light: #f2f4f6;
+
+  /* Shadows */
+  --toss-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --toss-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --toss-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --toss-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04);
+
+  /* Radius */
+  --toss-radius-sm: 8px;
+  --toss-radius-md: 12px;
+  --toss-radius-lg: 16px;
+  --toss-radius-xl: 20px;
+  --toss-radius-full: 9999px;
+
+  /* Spacing */
+  --toss-spacing-xs: 4px;
+  --toss-spacing-sm: 8px;
+  --toss-spacing-md: 16px;
+  --toss-spacing-lg: 24px;
+  --toss-spacing-xl: 32px;
+  --toss-spacing-2xl: 48px;
+
+  /* Transition */
+  --toss-transition: 0.2s cubic-bezier(0.33, 0, 0.3, 1);
 }
 
 * {
@@ -15,14 +64,50 @@
 }
 
 body {
-  color: #111827;
-  background: white;
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  color: var(--toss-text-primary);
+  background: var(--toss-bg-primary);
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo',
+    'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', sans-serif;
   overflow: hidden;
-  /* AppShell handles scroll */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.02em;
+  line-height: 1.5;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  letter-spacing: -0.02em;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  letter-spacing: -0.02em;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--toss-border);
+  border-radius: var(--toss-radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--toss-text-disabled);
 }

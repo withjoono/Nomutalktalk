@@ -1,25 +1,3 @@
-{
-  "name": "nomutalk-client",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev -p 3010",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "firebase": "^12.8.0",
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "typescript": "^5"
-  }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:276dca5d0b0d1d2aff0df29ce0d19a455c0a95d867ef4bc8ddd020d2d1f695dc
+size 551

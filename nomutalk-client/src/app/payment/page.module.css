@@ -1,26 +1,376 @@
 .container {
-    padding: 3rem 1rem;
-    max-width: 1200px;
+    max-width: 720px;
     margin: 0 auto;
+    padding: var(--toss-spacing-xl) var(--toss-spacing-md);
+}
+
+.loadingText {
     text-align: center;
+    color: var(--toss-text-secondary);
+    padding: var(--toss-spacing-xl);
 }
 
+/* Header */
 .header {
-    font-size: 2rem;
-    font-weight: 800;
-    margin-bottom: 1rem;
-    color: #111827;
+    text-align: center;
+    margin-bottom: var(--toss-spacing-xl);
 }
 
-.subheader {
-    color: #6b7280;
-    margin-bottom: 4rem;
-    font-size: 1.1rem;
+.header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 8px;
 }
 
-.grid {
+.header p {
+    color: var(--toss-text-secondary);
+    font-size: 15px;
+}
+
+/* Login Prompt */
+.loginPrompt {
+    background: #f0f6ff;
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    text-align: center;
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.loginPrompt p {
+    color: var(--toss-blue);
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+
+.loginButton {
+    display: inline-block;
+    background: var(--toss-blue);
+    color: white;
+    padding: 10px 24px;
+    border-radius: var(--toss-radius-md);
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.loginButton:hover {
+    background: #1b64da;
+}
+
+/* Error Box */
+.errorBox {
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+    border-radius: var(--toss-radius-md);
+    padding: var(--toss-spacing-md);
+    margin-bottom: var(--toss-spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.errorBox p {
+    color: #cf1322;
+    font-size: 14px;
+    flex: 1;
+}
+
+.errorBox button {
+    background: none;
+    border: none;
+    color: #cf1322;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 4px 12px;
+}
+
+/* Product Grid */
+.productGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--toss-spacing-md);
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+@media (max-width: 600px) {
+    .productGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.productCard {
+    position: relative;
+    background: white;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-xl);
+    padding: var(--toss-spacing-xl) var(--toss-spacing-lg);
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.productCard:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--toss-shadow-lg);
+}
+
+.popularCard {
+    border-color: var(--toss-blue);
+    border-width: 2px;
+}
+
+.popularBadge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--toss-blue);
+    color: white;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.productTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 12px;
+    margin-top: 8px;
+}
+
+.productPrice {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--toss-text-primary);
+    margin-bottom: 4px;
+}
+
+.productPeriod {
+    font-size: 13px;
+    color: var(--toss-text-tertiary);
+    margin-bottom: 20px;
+}
+
+.featureList {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    text-align: left;
+}
+
+.featureList li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 14px;
+    color: var(--toss-text-secondary);
+}
+
+.featureList li svg {
+    color: var(--toss-blue);
+    flex-shrink: 0;
+}
+
+.purchaseButton {
+    width: 100%;
+    padding: 14px;
+    background: var(--toss-blue);
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.purchaseButton:hover:not(:disabled) {
+    background: #1b64da;
+}
+
+.purchaseButton:disabled {
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-tertiary);
+    cursor: not-allowed;
+}
+
+.currentButton {
+    width: 100%;
+    padding: 14px;
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-tertiary);
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: default;
+}
+
+/* History Section */
+.historySection {
+    margin-top: var(--toss-spacing-xl);
+}
+
+.historySection h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.historyList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.historyItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--toss-border);
+}
+
+.historyItem:last-child {
+    border-bottom: none;
+}
+
+.historyInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.historyDate {
+    font-size: 12px;
+    color: var(--toss-text-tertiary);
+}
+
+.historyProduct {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+}
+
+.historyRight {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.historyAmount {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+.historyStatus {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.statusComplete {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.statusFailed {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* Success Modal */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
     justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.successModal {
+    background: white;
+    border-radius: var(--toss-radius-xl);
+    padding: 40px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: var(--toss-shadow-lg);
+    animation: modalIn 0.3s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.successIcon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.successModal h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 12px;
+}
+
+.successProduct {
+    font-size: 16px;
+    color: var(--toss-text-secondary);
+    margin-bottom: 4px;
+}
+
+.successAmount {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--toss-blue);
+    margin-bottom: 24px;
+}
+
+.successButton {
+    width: 100%;
+    padding: 14px;
+    background: var(--toss-blue);
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.successButton:hover {
+    background: #1b64da;
+}
+
+/* SDK Status */
+.sdkStatus {
+    text-align: center;
+    color: var(--toss-text-tertiary);
+    font-size: 12px;
+    margin-top: var(--toss-spacing-md);
 }

@@ -61,6 +61,20 @@ export async function deleteSession(sessionId: string): Promise<void> {
     });
 }
 
+
+export interface Citation {
+    title: string;
+    uri?: string;
+    source: 'grounding' | 'citation';
+    startIndex?: number; // For detailed citations
+    endIndex?: number;
+}
+
+export interface LaborAIResponse {
+    answer: string;
+    citations: Citation[];
+}
+
 // ==================== Labor AI API ====================
 
 /**
@@ -73,7 +87,7 @@ export interface AskQuestionParams {
     includeInterpretations?: boolean;
 }
 
-export async function askQuestion(params: AskQuestionParams): Promise<string> {
+export async function askQuestion(params: AskQuestionParams): Promise<LaborAIResponse> {
     const response = await fetch(`${API_BASE_URL}/api/labor/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,13 +100,16 @@ export async function askQuestion(params: AskQuestionParams): Promise<string> {
         throw new Error(data.error || '답변 생성 실패');
     }
 
-    return data.data.answer;
+    return {
+        answer: data.data.answer,
+        citations: data.data.citations || []
+    };
 }
 
 /**
  * 유사 판례 검색
  */
-export async function searchSimilarCases(description: string): Promise<string> {
+export async function searchSimilarCases(description: string): Promise<LaborAIResponse> {
     const response = await fetch(`${API_BASE_URL}/api/labor/similar-cases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,13 +122,16 @@ export async function searchSimilarCases(description: string): Promise<string> {
         throw new Error(data.error || '판례 검색 실패');
     }
 
-    return data.data.result;
+    return {
+        answer: data.data.result,
+        citations: data.data.citations || []
+    };
 }
 
 /**
  * 법령 조항 검색
  */
-export async function searchLawArticle(lawName: string, article: string): Promise<string> {
+export async function searchLawArticle(lawName: string, article: string): Promise<LaborAIResponse> {
     const response = await fetch(`${API_BASE_URL}/api/labor/law-article`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,7 +144,10 @@ export async function searchLawArticle(lawName: string, article: string): Promis
         throw new Error(data.error || '법령 조회 실패');
     }
 
-    return data.data.result;
+    return {
+        answer: data.data.result,
+        citations: data.data.citations || []
+    };
 }
 
 /**
@@ -133,7 +156,7 @@ export async function searchLawArticle(lawName: string, article: string): Promis
 export async function consultWithTemplate(
     templateType: string,
     params: Record<string, string>
-): Promise<string> {
+): Promise<LaborAIResponse> {
     const response = await fetch(`${API_BASE_URL}/api/labor/consult`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,7 +169,10 @@ export async function consultWithTemplate(
         throw new Error(data.error || '템플릿 상담 실패');
     }
 
-    return data.data.result;
+    return {
+        answer: data.data.result,
+        citations: data.data.citations || []
+    };
 }
 
 /**
@@ -194,6 +220,7 @@ export interface SearchResultItem {
     category?: string;
     date?: string;
     source?: string;
+    citations?: Citation[];
 }
 
 /**
@@ -237,18 +264,101 @@ export async function searchLaws(params: SearchParams): Promise<SearchResultItem
     }
 
     // 검색 결과를 파싱하여 구조화된 형태로 반환
-    const answer = data.data.answer || '';
+    const { answer, citations } = data.data;
 
     // 단일 결과 항목으로 반환 (AI 응답은 구조화하기 어려우므로)
     const results: SearchResultItem[] = [{
         id: `search-${Date.now()}`,
         type: type === 'all' ? 'law' : type,
         title: `"${query}" 검색 결과`,
-        summary: answer,
+        summary: answer || '',
         category: category || undefined,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        citations: citations || []
     }];
 
     return results;
 }
 
+
+// ==================== Payment API ====================
+
+export interface PaymentProduct {
+    id: number;
+    name: string;
+    code: string;
+    price: number;
+    description: string;
+    features: string[];
+    period: number;
+}
+
+export interface PaymentOrder {
+    id: number;
+    merchantUid: string;
+    productName: string;
+    productPrice: number;
+    amount: number;
+    status: string;
+    cardName: string | null;
+    cardNumber: string | null;
+    paidAt: string | null;
+    createdAt: string;
+}
+
+export interface PreparePaymentResponse {
+    merchantUid: string;
+    amount: number;
+    productName: string;
+    storeCode: string;
+}
+
+export async function getStoreCode(): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/api/payments/store-code`);
+    const data = await response.json();
+    return data.data.storeCode;
+}
+
+export async function getProducts(): Promise<PaymentProduct[]> {
+    const response = await fetch(`${API_BASE_URL}/api/payments/products`);
+    const data = await response.json();
+    return data.data || [];
+}
+
+export async function preparePayment(productId: number, userId?: string, userEmail?: string): Promise<PreparePaymentResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/payments/prepare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, userId, userEmail })
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '결제 준비 실패');
+    return data.data;
+}
+
+export async function verifyPayment(impUid: string, merchantUid: string): Promise<{ orderId: number; status: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/payments/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ impUid, merchantUid })
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '결제 검증 실패');
+    return data.data;
+}
+
+export async function getPaymentHistory(userId?: string): Promise<PaymentOrder[]> {
+    const url = userId
+        ? `${API_BASE_URL}/api/payments/history?userId=${userId}`
+        : `${API_BASE_URL}/api/payments/history`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data.data || [];
+}
+
+export async function getPaymentDetail(id: number): Promise<PaymentOrder> {
+    const response = await fetch(`${API_BASE_URL}/api/payments/history/${id}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '결제 상세 조회 실패');
+    return data.data;
+}

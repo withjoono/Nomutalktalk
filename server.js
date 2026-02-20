@@ -98,13 +98,17 @@ const corsOptions = {
         'http://localhost:3001',
         'http://localhost:3005',
         'http://localhost:3010',
+        'http://localhost:3030',
         'http://localhost:4010',
+        'http://localhost:4030',
         'http://localhost:8080',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:3005',
         'http://127.0.0.1:3010',
+        'http://127.0.0.1:3030',
         'http://127.0.0.1:4010',
+        'http://127.0.0.1:4030',
         'http://127.0.0.1:8080',
         'https://google-file-search.vercel.app',
         'https://google-file-search.netlify.app'
@@ -8120,7 +8124,7 @@ app.post('/api/labor/ask', async (req, res) => {
     console.log(`[노무 AI] 질의: ${query.substring(0, 50)}...`);
 
     const agent = getLaborAgent();
-    const answer = await agent.askLabor(query, {
+    const result = await agent.askLabor(query, {
       category,
       includeCases,
       includeInterpretations,
@@ -8131,7 +8135,9 @@ app.post('/api/labor/ask', async (req, res) => {
       success: true,
       data: {
         query,
-        answer,
+        answer: result.text || result, // 객체인 경우 text, 문자인 경우 그대로
+        citations: result.citations || [],
+        groundingMetadata: result.groundingMetadata,
         category: category || agent.detectLaborCategory(query),
         timestamp: new Date().toISOString()
       }
@@ -8171,7 +8177,8 @@ app.post('/api/labor/similar-cases', async (req, res) => {
       success: true,
       data: {
         description,
-        result,
+        result: result.text || result,
+        citations: result.citations || [],
         timestamp: new Date().toISOString()
       }
     });
@@ -8211,7 +8218,8 @@ app.post('/api/labor/law-article', async (req, res) => {
       data: {
         lawName,
         article,
-        result,
+        result: result.text || result,
+        citations: result.citations || [],
         timestamp: new Date().toISOString()
       }
     });
@@ -8251,7 +8259,8 @@ app.post('/api/labor/consult', async (req, res) => {
       data: {
         templateType,
         params,
-        result,
+        result: result.text || result,
+        citations: result.citations || [],
         timestamp: new Date().toISOString()
       }
     });
@@ -8765,6 +8774,259 @@ app.get('/api/chat/sessions', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// ==================== 결제 시스템 (PortOne/아임포트) ====================
+
+/**
+ * 아임포트 테스트 키 설정
+ */
+const IMP_KEY = process.env.IMP_KEY || 'imp_apikey';  // 테스트용
+const IMP_SECRET = process.env.IMP_SECRET || 'ekKoeW8RyKuT0zgaZsUtXXTLQ4AhPFW3ZGQEBNfd87oBzDKscqWUnJH6Atx75EIJyLemDsWv0p6KBl0a';
+const IMP_STORE_CODE = process.env.IMP_STORE_CODE || 'imp19424728'; // 테스트 가맹점
+
+/**
+ * 상품 정의 (인메모리)
+ */
+const PRODUCTS = [
+  {
+    id: 1,
+    name: '노무톡 프리미엄',
+    code: 'NOMUTALK_PREMIUM',
+    price: 10000,
+    description: '무제한 AI 노무 상담, 심층 판례 분석, 광고 제거',
+    features: ['무제한 AI 상담', '심층 판례 분석', '변호사 연계 할인', '광고 제거'],
+    period: 30, // 일
+  }
+];
+
+/**
+ * 결제 기록 저장소 (인메모리 — 서버 재시작 시 초기화됨)
+ */
+const paymentOrders = [];
+
+/**
+ * 아임포트 액세스 토큰 가져오기
+ */
+async function getIamportToken() {
+  const res = await fetch('https://api.iamport.kr/users/getToken', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imp_key: IMP_KEY, imp_secret: IMP_SECRET })
+  });
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || '아임포트 인증 실패');
+  return data.response.access_token;
+}
+
+/**
+ * 아임포트 결제 정보 조회
+ */
+async function getIamportPayment(impUid) {
+  const token = await getIamportToken();
+  const res = await fetch(`https://api.iamport.kr/payments/${impUid}`, {
+    headers: { Authorization: token }
+  });
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(data.message || '결제 정보 조회 실패');
+  return data.response;
+}
+
+/**
+ * 상점 코드 조회
+ * GET /api/payments/store-code
+ */
+app.get('/api/payments/store-code', (req, res) => {
+  res.json({ success: true, data: { storeCode: IMP_STORE_CODE } });
+});
+
+/**
+ * 상품 목록 조회
+ * GET /api/payments/products
+ */
+app.get('/api/payments/products', (req, res) => {
+  res.json({ success: true, data: PRODUCTS });
+});
+
+/**
+ * 결제 사전등록 (아임포트 API)
+ * POST /api/payments/prepare
+ * Body: { productId, userId, userEmail }
+ */
+app.post('/api/payments/prepare', async (req, res) => {
+  try {
+    const { productId, userId, userEmail } = req.body;
+    const product = PRODUCTS.find(p => p.id === productId);
+    if (!product) {
+      return res.status(404).json({ success: false, error: '상품을 찾을 수 없습니다.' });
+    }
+
+    // 고유 주문번호 생성
+    const merchantUid = `nomutalk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const amount = product.price;
+
+    // 아임포트 사전등록
+    const token = await getIamportToken();
+    const prepareRes = await fetch('https://api.iamport.kr/payments/prepare', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token
+      },
+      body: JSON.stringify({ merchant_uid: merchantUid, amount })
+    });
+    const prepareData = await prepareRes.json();
+
+    if (prepareData.code !== 0) {
+      throw new Error(prepareData.message || '사전등록 실패');
+    }
+
+    // 인메모리에 주문 기록 생성
+    const order = {
+      id: paymentOrders.length + 1,
+      merchantUid,
+      productId: product.id,
+      productName: product.name,
+      productPrice: product.price,
+      amount,
+      userId: userId || null,
+      userEmail: userEmail || null,
+      status: 'PENDING',
+      impUid: null,
+      cardName: null,
+      cardNumber: null,
+      paidAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    paymentOrders.push(order);
+
+    console.log(`[결제] 사전등록 완료: ${merchantUid} / ₩${amount}`);
+
+    res.json({
+      success: true,
+      data: {
+        merchantUid,
+        amount,
+        productName: product.name,
+        storeCode: IMP_STORE_CODE,
+      }
+    });
+
+  } catch (error) {
+    console.error('[결제] 사전등록 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 결제 검증
+ * POST /api/payments/verify
+ * Body: { impUid, merchantUid }
+ */
+app.post('/api/payments/verify', async (req, res) => {
+  try {
+    const { impUid, merchantUid } = req.body;
+    if (!impUid || !merchantUid) {
+      return res.status(400).json({ success: false, error: 'impUid와 merchantUid가 필요합니다.' });
+    }
+
+    // 아임포트에서 실제 결제 정보 조회
+    const paymentData = await getIamportPayment(impUid);
+
+    // 인메모리에서 주문 찾기
+    const order = paymentOrders.find(o => o.merchantUid === merchantUid);
+    if (!order) {
+      return res.status(404).json({ success: false, error: '주문을 찾을 수 없습니다.' });
+    }
+
+    // 금액 위변조 검증
+    if (paymentData.amount !== order.amount) {
+      // 금액 불일치 — 위변조 의심
+      order.status = 'FORGERY';
+      order.updatedAt = new Date().toISOString();
+      console.error(`[결제] 금액 불일치! 예상: ${order.amount}, 실제: ${paymentData.amount}`);
+      return res.status(400).json({
+        success: false,
+        error: '결제 금액이 일치하지 않습니다. 위변조 의심',
+      });
+    }
+
+    if (paymentData.status === 'paid') {
+      // 결제 성공
+      order.status = 'COMPLETE';
+      order.impUid = impUid;
+      order.cardName = paymentData.card_name || null;
+      order.cardNumber = paymentData.card_number || null;
+      order.paidAt = paymentData.paid_at ? new Date(paymentData.paid_at * 1000).toISOString() : new Date().toISOString();
+      order.updatedAt = new Date().toISOString();
+
+      console.log(`[결제] 검증 성공: ${merchantUid} / ₩${order.amount}`);
+
+      res.json({
+        success: true,
+        data: {
+          orderId: order.id,
+          merchantUid,
+          status: 'COMPLETE',
+          amount: order.amount,
+          productName: order.productName,
+          cardName: order.cardName,
+          paidAt: order.paidAt,
+        }
+      });
+    } else {
+      order.status = paymentData.status === 'cancelled' ? 'CANCELLED' : 'FAILED';
+      order.updatedAt = new Date().toISOString();
+
+      res.status(400).json({
+        success: false,
+        error: `결제가 완료되지 않았습니다. 상태: ${paymentData.status}`,
+      });
+    }
+
+  } catch (error) {
+    console.error('[결제] 검증 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 결제 내역 조회
+ * GET /api/payments/history?userId=xxx
+ */
+app.get('/api/payments/history', (req, res) => {
+  const { userId } = req.query;
+  let orders = paymentOrders.filter(o => o.status !== 'PENDING');
+  if (userId) {
+    orders = orders.filter(o => o.userId === userId);
+  }
+  orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  res.json({
+    success: true,
+    data: orders.map(o => ({
+      id: o.id,
+      productName: o.productName,
+      amount: o.amount,
+      status: o.status,
+      cardName: o.cardName,
+      paidAt: o.paidAt,
+      createdAt: o.createdAt,
+    }))
+  });
+});
+
+/**
+ * 결제 상세 조회
+ * GET /api/payments/history/:id
+ */
+app.get('/api/payments/history/:id', (req, res) => {
+  const order = paymentOrders.find(o => o.id === parseInt(req.params.id));
+  if (!order) {
+    return res.status(404).json({ success: false, error: '결제 내역을 찾을 수 없습니다.' });
+  }
+  res.json({ success: true, data: order });
 });
 
 // ==================== 서버 시작 ====================

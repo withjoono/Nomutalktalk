@@ -1,0 +1,64 @@
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--toss-spacing-xl);
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--toss-spacing-xs);
+}
+
+.subtitle {
+    color: var(--toss-text-tertiary);
+    font-size: 0.95rem;
+    margin-bottom: var(--toss-spacing-2xl);
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--toss-spacing-2xl) 0;
+}
+
+.emptyIcon {
+    font-size: 3rem;
+    margin-bottom: var(--toss-spacing-md);
+    opacity: 0.6;
+}
+
+.emptyTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-sm);
+}
+
+.emptyDesc {
+    font-size: 0.9rem;
+    color: var(--toss-text-tertiary);
+    line-height: 1.6;
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.ctaButton {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 24px;
+    background: var(--toss-blue);
+    color: white;
+    border-radius: var(--toss-radius-md);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all var(--toss-transition);
+}
+
+.ctaButton:hover {
+    background: var(--toss-blue-hover);
+    transform: translateY(-1px);
+}

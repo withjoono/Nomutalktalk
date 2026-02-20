@@ -18,7 +18,7 @@ export default function AppShell({ children }: AppShellProps) {
 
     return (
         <div className={styles.container}>
-            {/* Top Header - Login, Payment, Notification icons */}
+            {/* Top Header */}
             <header className={styles.topHeader}>
                 <Link href="/" className={styles.headerLogo}>
                     NomuTalk
@@ -37,52 +37,55 @@ export default function AppShell({ children }: AppShellProps) {
             </header>
 
             <div className={styles.bodyWrapper}>
-                {/* Sidebar - Hidden on Mobile */}
+                {/* Sidebar */}
                 <aside className={styles.sidebar}>
                     <div className={styles.logo}>NomuTalk</div>
                     <nav className={styles.nav}>
+                        <Link href="/case-input" className={`${styles.navItem} ${isActive('/case-input') ? styles.active : ''}`}>
+                            📁 사건 입력
+                        </Link>
+                        <Link href="/case-search" className={`${styles.navItem} ${isActive('/case-search') ? styles.active : ''}`}>
+                            🔎 사건 분석
+                        </Link>
                         <Link href="/chat" className={`${styles.navItem} ${isActive('/chat') ? styles.active : ''}`}>
-                            💬 Chat
+                            💬 AI 상담
                         </Link>
                         <Link href="/laws" className={`${styles.navItem} ${isActive('/laws') ? styles.active : ''}`}>
-                            📚 Laws
-                        </Link>
-                        <Link href="/history" className={`${styles.navItem} ${isActive('/history') ? styles.active : ''}`}>
-                            📜 History
+                            📚 법령 검색
                         </Link>
                         <div className={styles.spacer} />
                         <Link href="/payment" className={`${styles.navItem} ${isActive('/payment') ? styles.active : ''}`}>
-                            💳 Payment
+                            💳 결제
                         </Link>
                         <Link href="/profile" className={`${styles.navItem} ${isActive('/profile') ? styles.active : ''}`}>
-                            👤 Profile
+                            👤 내 정보
                         </Link>
                     </nav>
                 </aside>
 
-                {/* Main Content Area */}
+                {/* Main Content */}
                 <main className={styles.main}>
                     {children}
                 </main>
             </div>
 
-            {/* Bottom Tabs - Hidden on Desktop */}
+            {/* Bottom Tabs (Mobile) */}
             <nav className={styles.bottomTabs}>
+                <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
+                    <span>📁</span>
+                    <span>입력</span>
+                </Link>
+                <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
+                    <span>🔎</span>
+                    <span>분석</span>
+                </Link>
                 <Link href="/chat" className={`${styles.tabItem} ${isActive('/chat') ? styles.activeTab : ''}`}>
                     <span>💬</span>
-                    <span>Chat</span>
+                    <span>상담</span>
                 </Link>
                 <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
                     <span>📚</span>
-                    <span>Laws</span>
-                </Link>
-                <Link href="/history" className={`${styles.tabItem} ${isActive('/history') ? styles.activeTab : ''}`}>
-                    <span>📜</span>
-                    <span>History</span>
-                </Link>
-                <Link href="/profile" className={`${styles.tabItem} ${isActive('/profile') ? styles.activeTab : ''}`}>
-                    <span>👤</span>
-                    <span>Profile</span>
+                    <span>법령</span>
                 </Link>
             </nav>
         </div>

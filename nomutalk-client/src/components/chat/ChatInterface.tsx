@@ -141,7 +141,7 @@ export default function ChatInterface() {
             <header className={styles.header}>
                 <div className={styles.headerContent}>
                     <div style={{ flex: 1 }}>
-                        <h1 className={styles.title}>⚖️ 노무 AI 상담</h1>
+                        <h1 className={styles.title}>💬 노무 상담</h1>
                         <div className={styles.statusLine}>
                             <span className={styles.statusDot}></span>
                             <span className={styles.statusText}>

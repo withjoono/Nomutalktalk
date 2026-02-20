@@ -3,16 +3,16 @@
     flex-direction: column;
     height: 100%;
     position: relative;
-    background-color: #ffffff;
+    background-color: var(--toss-bg-primary);
 }
 
 .header {
-    height: 60px;
-    border-bottom: 1px solid #f3f4f6;
+    height: 56px;
+    border-bottom: 1px solid var(--toss-border);
     display: flex;
     align-items: center;
-    padding: 0 1rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 0 var(--toss-spacing-md);
+    background: var(--toss-bg-primary);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -25,70 +25,72 @@
 }
 
 .title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: white;
+    color: var(--toss-text-primary);
     margin: 0;
     line-height: 1.2;
+    letter-spacing: -0.02em;
 }
 
 .statusLine {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
 }
 
 .statusDot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background-color: #10b981;
-    box-shadow: 0 0 6px #10b981;
+    background-color: var(--toss-green);
 }
 
 .statusText {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary);
 }
 
 .newChatButton {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-secondary);
     border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
+    padding: 8px 16px;
+    border-radius: var(--toss-radius-full);
     cursor: pointer;
     font-size: 0.85rem;
-    transition: background 0.3s;
+    font-weight: 500;
+    transition: all var(--toss-transition);
 }
 
 .newChatButton:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-primary);
 }
 
 /* Messages */
 .messageList {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding: var(--toss-spacing-md);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--toss-spacing-md);
     scroll-behavior: smooth;
-    background: #f8f9fa;
+    background: var(--toss-bg-secondary);
 }
 
 .row {
     display: flex;
-    gap: 0.75rem;
-    max-width: 80%;
-    animation: fadeIn 0.3s ease-in;
+    gap: 10px;
+    max-width: 85%;
+    animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
 
     to {
@@ -107,90 +109,91 @@
 }
 
 .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--toss-radius-md);
+    background: var(--toss-blue);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.8rem;
     flex-shrink: 0;
 }
 
 .messageBubble {
-    padding: 1rem 1.25rem;
-    border-radius: 18px;
+    padding: 12px 16px;
+    border-radius: var(--toss-radius-lg);
     font-size: 0.95rem;
     line-height: 1.6;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .bot {
-    background-color: white;
-    color: #1f2937;
-    border: 1px solid #e0e0e0;
+    background-color: var(--toss-bg-primary);
+    color: var(--toss-text-primary);
+    box-shadow: var(--toss-shadow-sm);
 }
 
 .user {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--toss-blue);
     color: #ffffff;
 }
 
 .messageMeta {
-    font-size: 0.75rem;
-    color: #666;
-    margin-top: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+    margin-top: 6px;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 6px;
 }
 
 .stageBadge {
     display: inline-block;
-    padding: 0.2rem 0.6rem;
-    border-radius: 12px;
-    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: var(--toss-radius-full);
+    font-size: 0.68rem;
+    font-weight: 500;
 }
 
 .diagnosis {
-    background: #e3f2fd;
-    color: #1976d2;
+    background: var(--toss-blue-light);
+    color: var(--toss-blue);
 }
 
 .analysis {
-    background: #fff3e0;
-    color: #f57c00;
+    background: #fff4e6;
+    color: #e67700;
 }
 
 .solution {
-    background: #e8f5e9;
-    color: #388e3c;
+    background: #ebfbee;
+    color: #2b8a3e;
 }
 
 .followup {
-    background: #f3e5f5;
-    color: #7b1fa2;
+    background: #f3f0ff;
+    color: #7048e8;
 }
 
 /* Typing Indicator */
 .typingIndicator {
     display: flex;
-    gap: 0.4rem;
-    padding: 0.75rem 1.25rem;
-    background: white;
-    border-radius: 18px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    gap: 5px;
+    padding: 12px 16px;
+    background: var(--toss-bg-primary);
+    border-radius: var(--toss-radius-lg);
+    box-shadow: var(--toss-shadow-sm);
 }
 
 .typingDot {
-    width: 8px;
-    height: 8px;
-    background: #667eea;
+    width: 7px;
+    height: 7px;
+    background: var(--toss-blue);
     border-radius: 50%;
     animation: typingAnimation 1.4s infinite;
+    opacity: 0.6;
 }
 
 .typingDot:nth-child(2) {
@@ -207,10 +210,12 @@
     60%,
     100% {
         transform: translateY(0);
+        opacity: 0.4;
     }
 
     30% {
-        transform: translateY(-10px);
+        transform: translateY(-8px);
+        opacity: 1;
     }
 }
 
@@ -222,35 +227,36 @@
     justify-content: center;
     height: 100%;
     text-align: center;
-    padding: 2rem;
+    padding: var(--toss-spacing-xl);
 }
 
 .welcomeIcon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
+    font-size: 3.5rem;
+    margin-bottom: var(--toss-spacing-md);
 }
 
 .welcomeTitle {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-    color: #333;
+    font-size: 1.5rem;
+    margin-bottom: var(--toss-spacing-sm);
+    color: var(--toss-text-primary);
     font-weight: 700;
+    letter-spacing: -0.03em;
 }
 
 .welcomeDescription {
-    font-size: 1rem;
-    color: #666;
-    max-width: 500px;
+    font-size: 0.95rem;
+    color: var(--toss-text-tertiary);
+    max-width: 440px;
     line-height: 1.6;
-    margin-bottom: 2rem;
+    margin-bottom: var(--toss-spacing-xl);
 }
 
 .exampleGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
+    gap: var(--toss-spacing-sm);
     width: 100%;
-    max-width: 600px;
+    max-width: 520px;
 }
 
 @media (max-width: 640px) {
@@ -260,31 +266,33 @@
 }
 
 .exampleCard {
-    padding: 1rem;
-    background: white;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
+    padding: 14px 12px;
+    background: var(--toss-bg-primary);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-md);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all var(--toss-transition);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: 6px;
 }
 
 .exampleCard:hover {
-    border-color: #667eea;
-    transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    border-color: var(--toss-blue);
+    background: var(--toss-blue-light);
+    transform: translateY(-2px);
+    box-shadow: var(--toss-shadow-md);
 }
 
 .exampleIcon {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
 }
 
 .exampleLabel {
-    font-size: 0.9rem;
-    color: #555;
+    font-size: 0.82rem;
+    color: var(--toss-text-secondary);
+    font-weight: 500;
 }
 
 /* Input Area */
@@ -293,59 +301,63 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
-    padding: 1rem;
-    border-top: 1px solid #e0e0e0;
+    background: var(--toss-bg-primary);
+    padding: var(--toss-spacing-md);
+    border-top: 1px solid var(--toss-border);
     z-index: 20;
 }
 
 .inputWrapper {
     display: flex;
-    gap: 0.75rem;
+    gap: 10px;
     align-items: flex-end;
 }
 
 .textInput {
     flex: 1;
-    border: 2px solid #e0e0e0;
-    background: white;
-    padding: 0.875rem 1.25rem;
-    border-radius: 24px;
-    font-size: 1rem;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    padding: 12px 16px;
+    border-radius: var(--toss-radius-full);
+    font-size: 0.95rem;
     outline: none;
-    color: #111827;
-    transition: border-color 0.3s;
+    color: var(--toss-text-primary);
+    transition: all var(--toss-transition);
 }
 
 .textInput:focus {
-    border-color: #667eea;
+    border-color: var(--toss-blue);
+    background: var(--toss-bg-primary);
+    box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.08);
 }
 
 .textInput:disabled {
-    background: #f3f4f6;
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-disabled);
 }
 
 .sendButton {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--toss-blue);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all var(--toss-transition);
+    flex-shrink: 0;
 }
 
 .sendButton:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    background: var(--toss-blue-hover);
+    transform: scale(1.05);
 }
 
 .sendButton:disabled {
-    opacity: 0.6;
+    opacity: 0.4;
     cursor: not-allowed;
     transform: none;
 }

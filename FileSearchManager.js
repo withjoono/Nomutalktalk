@@ -435,7 +435,8 @@ ${query}`;
     console.log('response.candidates:', JSON.stringify(response.candidates, null, 2));
 
     // response에서 텍스트 추출 (모든 parts 합치기)
-    const parts = response.candidates?.[0]?.content?.parts;
+    const candidate = response.candidates?.[0];
+    const parts = candidate?.content?.parts;
     let answerText = '응답을 생성할 수 없습니다.';
 
     if (parts && Array.isArray(parts)) {
@@ -450,7 +451,69 @@ ${query}`;
     console.log('추출된 answerText (처음 200자):', answerText.substring(0, 200));
     console.log('='.repeat(80) + '\n');
 
-    return answerText;
+    // 메타데이터 추출 (인용 및 근거 자료)
+    const groundingMetadata = candidate?.groundingMetadata;
+    const citationMetadata = candidate?.citationMetadata;
+
+    // 하위 호환성을 위해 text 속성을 최상위에 노출하면서 메타데이터 포함
+    return {
+      text: answerText,
+      groundingMetadata,
+      citationMetadata,
+      // 편의를 위해 가공된 인용 목록 제공
+      citations: this._extractCitations(groundingMetadata, citationMetadata)
+    };
+  }
+
+  /**
+   * 메타데이터에서 인용 정보 추출 및 가공
+   * @param {Object} groundingMetadata - Gemini Grounding Metadata
+   * @param {Object} citationMetadata - Gemini Citation Metadata
+   * @returns {Array} 가공된 인용 목록
+   * @private
+   */
+  _extractCitations(groundingMetadata, citationMetadata) {
+    const citations = [];
+    const seenTitles = new Set();
+
+    // 1. Grounding Metadata에서 청크 정보 추출
+    if (groundingMetadata?.groundingChunks) {
+      groundingMetadata.groundingChunks.forEach(chunk => {
+        if (chunk.retrievedContext) {
+          const title = chunk.retrievedContext.title;
+          const uri = chunk.retrievedContext.uri;
+
+          if (title && !seenTitles.has(title)) {
+            citations.push({
+              title,
+              uri,
+              source: 'grounding'
+            });
+            seenTitles.add(title);
+          }
+        }
+      });
+    }
+
+    // 2. Citation Metadata에서 소스 정보 추출
+    if (citationMetadata?.citationSources) {
+      citationMetadata.citationSources.forEach(source => {
+        const title = source.uri ? path.basename(source.uri) : 'Unknown Source';
+
+        if (!seenTitles.has(title)) {
+          citations.push({
+            title,
+            uri: source.uri,
+            startIndex: source.startIndex,
+            endIndex: source.endIndex,
+            source: 'citation'
+          });
+          seenTitles.add(title);
+        }
+      });
+    }
+
+    return citations;
   }
 
   /**
