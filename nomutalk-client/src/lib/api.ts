@@ -5,15 +5,44 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4010';
 
+/**
+ * 전역 인증 토큰 관리 (AuthContext에서 설정)
+ */
+let authToken: string | null = null;
+
+export function setApiToken(token: string | null) {
+    authToken = token;
+}
+
+/**
+ * 인증 헤더를 포함한 fetch 래퍼
+ */
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+    const headers = {
+        ...options.headers,
+        'Content-Type': 'application/json',
+    };
+
+    if (authToken) {
+        (headers as any)['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const response = await fetch(url, {
+        ...options,
+        headers,
+    });
+
+    return response;
+}
+
 // ==================== Chat API ====================
 
 /**
  * 새 챗 세션 생성
  */
 export async function createSession(): Promise<{ sessionId: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/chat/session/new`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/chat/session/new`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
     });
 
@@ -37,9 +66,8 @@ export interface ChatResponse {
 }
 
 export async function sendChatMessage(sessionId: string, message: string): Promise<ChatResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/chat/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, message })
     });
 
@@ -56,7 +84,7 @@ export async function sendChatMessage(sessionId: string, message: string): Promi
  * 세션 삭제
  */
 export async function deleteSession(sessionId: string): Promise<void> {
-    await fetch(`${API_BASE_URL}/api/chat/session/${sessionId}`, {
+    await fetchWithAuth(`${API_BASE_URL}/api/chat/session/${sessionId}`, {
         method: 'DELETE'
     });
 }
@@ -88,9 +116,8 @@ export interface AskQuestionParams {
 }
 
 export async function askQuestion(params: AskQuestionParams): Promise<LaborAIResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/labor/ask`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
     });
 

@@ -17,18 +17,17 @@
     text-align: center;
 }
 
-.logo {
-    width: 56px;
-    height: 56px;
-    background-color: var(--toss-blue);
-    border-radius: var(--toss-radius-lg);
-    color: white;
-    font-size: 1.4rem;
-    font-weight: 700;
+.logoContainer {
+    width: 140px;
+    margin: 0 auto var(--toss-spacing-md);
     display: flex;
-    align-items: center;
     justify-content: center;
-    margin: 0 auto var(--toss-spacing-lg);
+}
+
+.logoImage {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
 }
 
 .title {
@@ -77,9 +76,101 @@
     height: 20px;
 }
 
-.footerText {
-    margin-top: var(--toss-spacing-xl);
+.form {
+    text-align: left;
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+.inputGroup {
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--toss-text-secondary);
+    margin-bottom: 6px;
+    margin-left: 4px;
+}
+
+.input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    background-color: var(--toss-bg-primary);
+    font-size: 1rem;
+    color: var(--toss-text-primary);
+    transition: all var(--toss-transition);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--toss-blue);
+    box-shadow: 0 0 0 3px rgba(0, 100, 255, 0.1);
+}
+
+.submitButton {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--toss-blue);
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: var(--toss-spacing-md);
+    transition: opacity var(--toss-transition);
+}
+
+.submitButton:hover {
+    opacity: 0.9;
+}
+
+.submitButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--toss-spacing-xl);
+    color: var(--toss-text-disabled);
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--toss-border);
+}
+
+.divider span {
+    padding: 0 var(--toss-spacing-md);
     font-size: 0.8rem;
+}
+
+.toggleText {
+    margin-top: var(--toss-spacing-xl);
+    font-size: 0.9rem;
     color: var(--toss-text-tertiary);
-    line-height: 1.6;
+}
+
+.toggleButton {
+    background: none;
+    border: none;
+    color: var(--toss-blue);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    text-decoration: underline;
+}
+
+.toggleButton:hover {
+    opacity: 0.8;
 }

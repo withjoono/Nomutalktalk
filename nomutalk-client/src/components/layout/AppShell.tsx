@@ -21,7 +21,8 @@ export default function AppShell({ children }: AppShellProps) {
             {/* Top Header */}
             <header className={styles.topHeader}>
                 <Link href="/" className={styles.headerLogo}>
-                    NomuTalk
+                    <img src="/logo.png" alt="Logo" className={styles.headerLogoImage} />
+                    <span>노무톡</span>
                 </Link>
                 <div className={styles.headerIcons}>
                     <Link href="/payment" className={`${styles.headerIcon} ${isActive('/payment') ? styles.headerIconActive : ''}`} title="결제">
@@ -39,7 +40,10 @@ export default function AppShell({ children }: AppShellProps) {
             <div className={styles.bodyWrapper}>
                 {/* Sidebar */}
                 <aside className={styles.sidebar}>
-                    <div className={styles.logo}>NomuTalk</div>
+                    <div className={styles.logo}>
+                        <img src="/logo.png" alt="Logo" className={styles.sidebarLogoImage} />
+                        <span>노무톡</span>
+                    </div>
                     <nav className={styles.nav}>
                         <Link href="/case-input" className={`${styles.navItem} ${isActive('/case-input') ? styles.active : ''}`}>
                             📁 사건 입력
@@ -65,7 +69,29 @@ export default function AppShell({ children }: AppShellProps) {
 
                 {/* Main Content */}
                 <main className={styles.main}>
-                    {children}
+                    <div className={styles.content}>
+                        {children}
+                    </div>
+
+                    {/* Footer */}
+                    <footer className={styles.footer}>
+                        <div className={styles.footerContent}>
+                            <div className={styles.footerBrand}>
+                                <img src="/logo.png" alt="Company Logo" className={styles.footerLogo} />
+                                <span className={styles.companyName}>(주)청사에이아이</span>
+                            </div>
+                            <div className={styles.footerInfo}>
+                                <p>대표 : 성시웅 | 사업자등록번호 : 512-88-03060</p>
+                                <p>개업연월일 : 2024년 09월 12일 | 법인등록번호 : 160111-0700462</p>
+                                <p>사업장 : 대전광역시 서구 청사로 228, 11층 1110호, 35209</p>
+                                <p>업태 : 정보통신업 | 종목 : 응용 소프트웨어 개발업</p>
+                                <p>연락처 : 070-4448-6960</p>
+                            </div>
+                            <div className={styles.copyright}>
+                                © 2024 Cheongsa AI Co., Ltd. All rights reserved.
+                            </div>
+                        </div>
+                    </footer>
                 </main>
             </div>
 

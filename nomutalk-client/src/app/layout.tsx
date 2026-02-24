@@ -3,7 +3,7 @@ import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: "NomuTalk - AI 공인노무사",
+  title: "노무 AI 컨설턴트 '노무톡'",
   description: "언제 어디서나 내 손안의 AI 노무사, 노무톡",
 };
 

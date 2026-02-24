@@ -7,6 +7,36 @@ const RAGAgent = require('./RAGAgent');
 const OpenAI = require('openai');
 require('dotenv').config();
 
+// GCP Secret Manager (프로덕션 환경)
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+
+/**
+ * GCP Secret Manager에서 시크릿 로드
+ * 로컬 환경에서는 .env 파일 사용, 프로덕션(App Engine)에서는 Secret Manager 사용
+ */
+async function loadSecrets() {
+  // 이미 환경변수에 설정되어 있으면 스킵 (로컬 개발 환경)
+  if (process.env.GEMINI_API_KEY) {
+    console.log('🔑 GEMINI_API_KEY: .env 파일에서 로드됨');
+    return;
+  }
+
+  try {
+    const client = new SecretManagerServiceClient();
+    const projectId = 'nomutalk-889bd'; // 고정된 프로젝트 ID 사용
+
+    // GEMINI_API_KEY 시크릿 로드
+    const [version] = await client.accessSecretVersion({
+      name: `projects/${projectId}/secrets/GEMINI_API_KEY/versions/latest`,
+    });
+    process.env.GEMINI_API_KEY = version.payload.data.toString('utf8');
+    console.log('🔑 GEMINI_API_KEY: Secret Manager에서 로드됨');
+  } catch (error) {
+    console.warn('⚠️  Secret Manager에서 시크릿 로드 실패:', error.message);
+    console.warn('   로컬 환경에서는 .env 파일에 GEMINI_API_KEY를 설정하세요.');
+  }
+}
+
 // RAG 문서 관리 시스템 모듈
 const validators = require('./models/validators');
 const ChunkingService = require('./services/ChunkingService');
@@ -32,18 +62,27 @@ try {
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
 
   if (fs.existsSync(serviceAccountPath)) {
+    console.log('📂 Firebase 서비스 계정 파일 사용:', serviceAccountPath);
     const serviceAccount = require(serviceAccountPath);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    db = admin.firestore();
-    console.log('✅ Firebase Firestore 연결 성공');
   } else {
-    console.warn('⚠️  Firebase 서비스 계정 파일이 없습니다:', serviceAccountPath);
-    console.warn('   저장 기능을 사용하려면 firebase-service-account.json 파일을 프로젝트 루트에 추가하세요.');
+    console.log('☁️  GCP 인프라 기본 인증 사용 (App Engine)');
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault()
+    });
   }
+
+  db = admin.firestore();
+  console.log('✅ Firebase Admin SDK 초기화 성공');
 } catch (error) {
   console.error('❌ Firebase 초기화 오류:', error.message);
+  // 인증 없이 초기화 시도 (일부 기능 제한될 수 있음)
+  if (!admin.apps.length) {
+    admin.initializeApp();
+    db = admin.firestore();
+  }
 }
 
 // 대화형 챗봇 모듈
@@ -66,7 +105,11 @@ const app = express();
 const PORT = process.env.PORT || 4010;
 
 // 업로드 디렉토리 설정
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+// App Engine Standard에서는 /tmp 디렉토리에만 쓰기가 가능합니다.
+const UPLOAD_DIR = process.env.NODE_ENV === 'production'
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, 'uploads');
+
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
@@ -111,7 +154,9 @@ const corsOptions = {
         'http://127.0.0.1:4030',
         'http://127.0.0.1:8080',
         'https://google-file-search.vercel.app',
-        'https://google-file-search.netlify.app'
+        'https://google-file-search.netlify.app',
+        'https://laborlawtech.web.app',
+        'https://laborlawtech.firebaseapp.com'
       ];
 
     // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
@@ -138,6 +183,28 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
+
+/**
+ * Firebase ID Token 검증 미들웨어
+ */
+async function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: '인증 토큰이 없습니다.' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error.message);
+    res.status(401).json({ success: false, error: '유효하지 않은 토큰입니다.' });
+  }
+}
 
 // RAG Agent 인스턴스 관리
 let agentInstance = null;
@@ -194,7 +261,7 @@ app.get('/api/health', (req, res) => {
  * POST /api/store/initialize
  * 새 스토어 초기화 또는 기존 스토어 사용
  */
-app.post('/api/store/initialize', async (req, res) => {
+app.post('/api/store/initialize', verifyToken, async (req, res) => {
   try {
     const { displayName, storeName } = req.body;
 
@@ -353,7 +420,7 @@ app.patch('/api/store/:storeName/rename', async (req, res) => {
  * POST /api/upload
  * 파일 업로드 (직접 업로드 방식)
  */
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     if (!currentStoreName) {
       return res.status(400).json({
@@ -8110,7 +8177,7 @@ function getLaborAgent() {
  * POST /api/labor/ask
  * Body: { query, category?, includeCases?, includeInterpretations?, model? }
  */
-app.post('/api/labor/ask', async (req, res) => {
+app.post('/api/labor/ask', verifyToken, async (req, res) => {
   try {
     const { query, category, includeCases, includeInterpretations, model } = req.body;
 
@@ -8520,7 +8587,7 @@ app.get('/api/labor/health', (req, res) => {
  * POST /api/chat/session/new
  * Body: { userId? }
  */
-app.post('/api/chat/session/new', async (req, res) => {
+app.post('/api/chat/session/new', verifyToken, async (req, res) => {
   try {
     const { userId } = req.body;
     const session = conversationManager.createSession(userId);
@@ -8552,7 +8619,7 @@ app.post('/api/chat/session/new', async (req, res) => {
  * POST /api/chat/message
  * Body: { sessionId, message }
  */
-app.post('/api/chat/message', async (req, res) => {
+app.post('/api/chat/message', verifyToken, async (req, res) => {
   try {
     const { sessionId, message } = req.body;
 
@@ -9031,22 +9098,30 @@ app.get('/api/payments/history/:id', (req, res) => {
 
 // ==================== 서버 시작 ====================
 
-app.listen(PORT, () => {
-  console.log(`
+async function startServer() {
+  // Secret Manager에서 시크릿 로드 (프로덕션 환경)
+  await loadSecrets();
+
+  app.listen(PORT, () => {
+    console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                    노무 AI 시스템 시작                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  📡 URL: http://localhost:${PORT}                                  
 ║  🔑 Gemini API: ${process.env.GEMINI_API_KEY ? '✅ 설정됨' : '❌ 미설정'}                              
-║  ⚖️  노무 AI: ✅ 활성화                                          
-║  📚 RAG 시스템: ✅ 활성화                                        
+║  🗂️  현재 Store: ${currentStoreName || '미설정'}                          
+║  🌐 환경: ${process.env.NODE_ENV || 'development'}                          
 ╚═══════════════════════════════════════════════════════════════╝
 
+📋 기본 API 엔드포인트:
+   GET    /api/health        - 서버 상태 확인
+   POST   /api/store/initialize - 스토어 초기화
+   POST   /api/upload         - 파일 업로드
+   POST   /api/query          - 질의
+   GET    /api/stores         - 스토어 목록
+
 📋 노무 AI API 엔드포인트:
-   POST   /api/labor/ask                - 노무 질의응답
-   POST   /api/labor/similar-cases      - 유사 판례 검색
-   POST   /api/labor/law-article        - 법령 조항 검색
-   POST   /api/labor/consult             - 템플릿 상담
+   POST   /api/labor/ask              - 노무 상담
    GET    /api/labor/categories          - 카테고리 목록
    POST   /api/labor/upload-law          - 법령 업로드
    POST   /api/labor/upload-case         - 판례 업로드
@@ -9066,10 +9141,16 @@ app.listen(PORT, () => {
 🌐 웹 인터페이스:
    http://localhost:${PORT}/labor_ai.html    - 노무 AI (기존 기능)
    http://localhost:${PORT}/chat.html        - 대화형 챗봇 (신규)
-  `);
+    `);
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('\n⚠️  GEMINI_API_KEY가 설정되지 않았습니다.');
-    console.warn('   .env 파일에 API 키를 추가하세요.\n');
-  }
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn('\n⚠️  GEMINI_API_KEY가 설정되지 않았습니다.');
+      console.warn('   .env 파일에 API 키를 추가하거나 Secret Manager를 설정하세요.\n');
+    }
+  });
+}
+
+startServer().catch(err => {
+  console.error('❌ 서버 시작 실패:', err);
+  process.exit(1);
 });

@@ -1,21 +1,35 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import {
+    User,
+    onAuthStateChanged,
+    signInWithPopup,
+    signOut,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword
+} from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { setApiToken } from '@/lib/api';
 
 interface AuthContextType {
     user: User | null;
+    token: string | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<void>;
+    signUpWithEmail: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
+    token: null,
     loading: true,
     signInWithGoogle: async () => { },
+    signInWithEmail: async () => { },
+    signUpWithEmail: async () => { },
     logout: async () => { },
 });
 
@@ -23,12 +37,22 @@ export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const idToken = await user.getIdToken();
+                setUser(user);
+                setToken(idToken);
+                setApiToken(idToken);
+            } else {
+                setUser(null);
+                setToken(null);
+                setApiToken(null);
+            }
             setLoading(false);
         });
 
@@ -37,25 +61,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signInWithGoogle = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
-            router.push('/chat'); // Redirect to chat after login
+            const result = await signInWithPopup(auth, googleProvider);
+            const idToken = await result.user.getIdToken();
+            setToken(idToken);
+            setApiToken(idToken);
+            router.push('/chat');
         } catch (error) {
             console.error("Error signing in with Google", error);
-            alert("로그인 중 오류가 발생했습니다.");
+            alert("구글 로그인 중 오류가 발생했습니다.");
+        }
+    };
+
+    const signInWithEmail = async (email: string, password: string) => {
+        try {
+            const result = await signInWithEmailAndPassword(auth, email, password);
+            const idToken = await result.user.getIdToken();
+            setToken(idToken);
+            setApiToken(idToken);
+            router.push('/chat');
+        } catch (error: any) {
+            console.error("Error signing in with email", error);
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+            } else {
+                alert("로그인 중 오류가 발생했습니다.");
+            }
+        }
+    };
+
+    const signUpWithEmail = async (email: string, password: string) => {
+        try {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            const idToken = await result.user.getIdToken();
+            setToken(idToken);
+            setApiToken(idToken);
+            router.push('/chat');
+        } catch (error: any) {
+            console.error("Error signing up with email", error);
+            if (error.code === 'auth/email-already-in-use') {
+                alert("이미 사용 중인 이메일입니다.");
+            } else if (error.code === 'auth/weak-password') {
+                alert("비밀번호가 너무 취약합니다 (최소 6자).");
+            } else {
+                alert("회원가입 중 오류가 발생했습니다.");
+            }
         }
     };
 
     const logout = async () => {
         try {
             await signOut(auth);
-            router.push('/'); // Redirect to home after logout
+            setToken(null);
+            setApiToken(null);
+            router.push('/');
         } catch (error) {
             console.error("Error signing out", error);
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+        <AuthContext.Provider value={{ user, token, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout }}>
             {children}
         </AuthContext.Provider>
     );

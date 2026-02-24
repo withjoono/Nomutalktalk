@@ -21,11 +21,20 @@
 }
 
 .headerLogo {
-  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--toss-text-primary);
   text-decoration: none;
   letter-spacing: -0.03em;
+}
+
+.headerLogoImage {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
 }
 
 .headerIcons {
@@ -78,12 +87,21 @@
 }
 
 .logo {
-  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.2rem;
   font-weight: 800;
   margin-bottom: var(--toss-spacing-xl);
   color: var(--toss-text-primary);
   padding-left: var(--toss-spacing-sm);
   letter-spacing: -0.03em;
+}
+
+.sidebarLogoImage {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
 }
 
 .nav {
@@ -130,6 +148,55 @@
   position: relative;
   background-color: var(--toss-bg-primary);
   overflow-y: auto;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+}
+
+/* ===== Footer ===== */
+.footer {
+  padding: var(--toss-spacing-2xl) var(--toss-spacing-lg);
+  background-color: var(--toss-bg-secondary);
+  border-top: 1px solid var(--toss-border);
+  color: var(--toss-text-tertiary);
+  font-size: 0.85rem;
+}
+
+.footerContent {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--toss-spacing-md);
+}
+
+.footerLogo {
+  height: 30px;
+  width: auto;
+  opacity: 0.8;
+  filter: grayscale(0.5);
+}
+
+.companyName {
+  font-weight: 600;
+  color: var(--toss-text-secondary);
+}
+
+.footerInfo p {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+.copyright {
+  margin-top: var(--toss-spacing-lg);
+  font-size: 0.75rem;
+  opacity: 0.6;
 }
 
 /* ===== Bottom Tabs (Mobile) ===== */

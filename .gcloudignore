@@ -1,0 +1,38 @@
+# Node modules (reinstalled during deployment)
+node_modules/
+
+# Frontend (deployed separately to Firebase Hosting)
+nomutalk-client/
+
+# Data files (too large for App Engine)
+data/
+temp_cases/
+uploads/
+latest_labor_laws.xlsx
+
+# Development & build tools
+scripts/
+crawlers/
+tests/
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+
+# Environment files (secrets managed via Secret Manager)
+.env
+.env.local
+.env.*.local
+
+# Docker files (not needed for App Engine Standard)
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+store_list_output.txt
+
+# Logs
+*.log
+npm-debug.log
