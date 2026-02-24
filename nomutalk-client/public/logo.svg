@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 48" fill="none">
+  <!-- Icon: scales of justice (labor law) -->
+  <circle cx="24" cy="24" r="22" fill="#3182F6" opacity="0.12"/>
+  <path d="M24 8v28M16 14h16M12 22l4-8M32 22l-4-8M10 22h8M26 22h8M14 22a4 4 0 008 0M26 22a4 4 0 008 0" stroke="#3182F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Text -->
+  <text x="54" y="20" font-family="'Pretendard', 'Inter', system-ui, sans-serif" font-size="15" font-weight="800" fill="#191F28" letter-spacing="-0.04em">노무톡</text>
+  <text x="54" y="36" font-family="'Pretendard', 'Inter', system-ui, sans-serif" font-size="10" font-weight="500" fill="#8B95A1" letter-spacing="-0.02em">NomuTalk</text>
+</svg>
