@@ -1,7 +1,42 @@
+'use client';
+
 import Link from 'next/link';
 import styles from './page.module.css';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Home() {
+  const { user, loading } = useAuth();
+
+  // Show nothing while checking auth state
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid rgba(102,126,234,0.2)', borderTopColor: '#667eea', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Non-logged-in: show promo landing page (full viewport)
+  if (!user) {
+    return (
+      <iframe
+        src="/promo.html"
+        title="노무톡 소개"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          border: 'none',
+          zIndex: 9999,
+        }}
+      />
+    );
+  }
+
+  // Logged-in: show main dashboard
   return (
     <div className={styles.container}>
       <div className={styles.hero}>
