@@ -98,6 +98,10 @@ export default function AppShell({ children }: AppShellProps) {
 
                 {/* Center: Navigation */}
                 <nav className={styles.topNav}>
+                    <a href="/promo.html" className={styles.navLink}>
+                        {Icons.promo}
+                        <span>Intro</span>
+                    </a>
                     <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
                         {Icons.caseInput}
                         <span>사건 입력</span>
@@ -114,10 +118,6 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.laws}
                         <span>법령 검색</span>
                     </Link>
-                    <a href="/promo.html" className={styles.navLink}>
-                        {Icons.promo}
-                        <span>서비스 소개</span>
-                    </a>
                 </nav>
 
                 {/* Right: Action Icons */}
@@ -189,6 +189,10 @@ export default function AppShell({ children }: AppShellProps) {
 
             {/* ── Bottom Tabs (Mobile) ── */}
             <nav className={styles.bottomTabs}>
+                <a href="/promo.html" className={styles.tabItem}>
+                    {Icons.promo}
+                    <span>Intro</span>
+                </a>
                 <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
                     {Icons.caseInput}
                     <span>입력</span>
@@ -205,10 +209,6 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.laws}
                     <span>법령</span>
                 </Link>
-                <a href="/promo.html" className={styles.tabItem}>
-                    {Icons.promo}
-                    <span>소개</span>
-                </a>
             </nav>
         </div>
     );
