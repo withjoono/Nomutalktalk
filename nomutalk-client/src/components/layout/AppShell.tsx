@@ -68,6 +68,15 @@ const Icons = {
             <line x1="15" y1="12" x2="3" y2="12" />
         </svg>
     ),
+    promo: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.2 8.4c.5.38.8.97.8 1.6v0a2 2 0 0 1-1 1.73" />
+            <path d="M11 2a1 1 0 0 1 .96.73L17.8 18.5a1 1 0 0 1-.96 1.27H4.16a1 1 0 0 1-.96-1.27L9.04 2.73A1 1 0 0 1 10 2z" />
+            <path d="M13.6 14H7.4" />
+            <path d="M14.4 11H6.6" />
+            <path d="M15.2 8H5.8" />
+        </svg>
+    ),
 };
 
 export default function AppShell({ children }: AppShellProps) {
@@ -105,6 +114,10 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.laws}
                         <span>법령 검색</span>
                     </Link>
+                    <a href="/promo.html" className={styles.navLink}>
+                        {Icons.promo}
+                        <span>서비스 소개</span>
+                    </a>
                 </nav>
 
                 {/* Right: Action Icons */}
@@ -192,6 +205,10 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.laws}
                     <span>법령</span>
                 </Link>
+                <a href="/promo.html" className={styles.tabItem}>
+                    {Icons.promo}
+                    <span>소개</span>
+                </a>
             </nav>
         </div>
     );
