@@ -14,6 +14,10 @@ export function setApiToken(token: string | null) {
     authToken = token;
 }
 
+export function getApiToken(): string | null {
+    return authToken;
+}
+
 /**
  * 인증 헤더를 포함한 fetch 래퍼
  */
@@ -157,9 +161,8 @@ export async function analyzeFileGraph(file: File): Promise<FileAnalysisResult> 
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
     const response = await fetch(`${API_BASE_URL}/api/labor/analyze-file`, {
         method: 'POST',
@@ -252,9 +255,8 @@ export async function createCaseSession(description: string, files: File[]): Pro
     if (description.trim()) formData.append('description', description);
     files.forEach((file) => formData.append('files', file));
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
     const response = await fetch(`${API_BASE_URL}/api/labor/case-session/create`, {
         method: 'POST',
