@@ -112,9 +112,13 @@ export interface LaborAIResponse {
 export interface GraphNode {
     id: string;
     label: string;
-    type: 'case' | 'law' | 'precedent' | 'interpretation' | 'decision' | 'unknown';
+    type: 'case' | 'law' | 'precedent' | 'interpretation' | 'decision' | 'issue' | 'unknown';
     detail: string;
     val: number;
+    /** 소속 쟁점 ID (쟁점별 그룹핑용) */
+    parentIssue?: string;
+    /** 쟁점 심각도 (issue 노드 전용) */
+    severity?: 'high' | 'medium' | 'low';
 }
 
 export interface GraphLink {
@@ -129,6 +133,41 @@ export interface CaseAnalysisResult {
     nodes: GraphNode[];
     links: GraphLink[];
     timestamp: string;
+}
+
+// ==================== Issue Analysis API ====================
+
+export interface IssueInfo {
+    id: string;
+    title: string;
+    summary: string;
+    severity: 'high' | 'medium' | 'low';
+}
+
+export interface IssueAnalysisResult {
+    issues: IssueInfo[];
+    summary: string;
+    nodes: GraphNode[];
+    links: GraphLink[];
+    timestamp: string;
+}
+
+/**
+ * 핵심 쟁점 분석 (사건 → 쟁점 → 관련 법령/판례)
+ */
+export async function analyzeIssues(description: string): Promise<IssueAnalysisResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/analyze-issues`, {
+        method: 'POST',
+        body: JSON.stringify({ description })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '쟁점 분석 실패');
+    }
+
+    return data.data;
 }
 
 /**

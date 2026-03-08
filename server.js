@@ -8314,6 +8314,213 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
 });
 
 /**
+ * 노무 AI - 핵심 쟁점 분석 + 쟁점별 관련 법령/판례 그래프
+ * POST /api/labor/analyze-issues
+ * Body: { description: string }
+ * 
+ * 1단계: Gemini로 핵심 법적 쟁점 추출 (최대 5개)
+ * 2단계: 각 쟁점별 RAG 검색 (관련 법령/판례/행정해석)
+ * 3단계: Issue-centric 그래프 구조 반환
+ */
+app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
+  try {
+    const { description } = req.body;
+
+    if (!description || typeof description !== 'string' || description.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '사건 내용이 필요합니다.'
+      });
+    }
+
+    console.log(`[쟁점 분석] 시작: ${description.substring(0, 50)}...`);
+
+    const agent = getLaborAgent();
+
+    // 1단계: Gemini로 핵심 쟁점 추출
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const issueExtractionPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출해주세요.
+
+규칙:
+- 최소 2개, 최대 5개의 핵심 쟁점을 추출하세요
+- 각 쟁점은 노동법상 실질적인 법적 쟁점이어야 합니다
+- severity는 사건에서의 중요도입니다 (high: 핵심 쟁점, medium: 주요 쟁점, low: 부수적 쟁점)
+- 반드시 아래 JSON 형식으로만 응답하세요
+
+응답 형식:
+{
+  "issues": [
+    {
+      "title": "부당해고 여부",
+      "summary": "정당한 사유 없이 근로자를 해고한 것이 부당해고에 해당하는지 여부",
+      "severity": "high",
+      "searchQuery": "부당해고 정당한 사유 근로기준법 제23조"
+    }
+  ],
+  "overallSummary": "이 사건의 전체적인 법적 쟁점 요약"
+}
+
+사건 내용:
+${description.substring(0, 3000)}`;
+
+    const issueResponse = await genai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: issueExtractionPrompt }] }],
+      config: {
+        responseMimeType: 'application/json',
+      }
+    });
+
+    let issueData;
+    try {
+      const responseText = issueResponse.text || '';
+      issueData = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('[쟁점 분석] JSON 파싱 실패, 폴백 처리:', parseErr);
+      // 폴백: 기본 쟁점 하나 생성
+      issueData = {
+        issues: [{
+          title: '사건 분석',
+          summary: description.substring(0, 100),
+          severity: 'high',
+          searchQuery: description.substring(0, 200)
+        }],
+        overallSummary: '사건을 분석 중입니다.'
+      };
+    }
+
+    const issues = (issueData.issues || []).slice(0, 5); // 최대 5개 제한
+    const overallSummary = issueData.overallSummary || '';
+
+    console.log(`[쟁점 분석] ${issues.length}개 쟁점 추출 완료`);
+
+    // 2단계: 각 쟁점별로 관련 법령/판례 RAG 검색 (병렬)
+    const issueSearchPromises = issues.map((issue, idx) => {
+      const query = issue.searchQuery || `${issue.title} 관련 법령 판례 행정해석`;
+      return agent.askLabor(query, {
+        includeCases: true,
+        includeInterpretations: true
+      }).then(result => ({ issueIdx: idx, result }))
+        .catch(err => {
+          console.error(`[쟁점 분석] 쟁점 ${idx} RAG 검색 실패:`, err);
+          return { issueIdx: idx, result: null };
+        });
+    });
+
+    const searchResults = await Promise.all(issueSearchPromises);
+
+    // 3단계: Issue-centric 그래프 구조 생성
+    const nodes = [];
+    const links = [];
+    const seenTitles = new Set();
+    const issueInfoList = [];
+
+    // 센터 노드 (사건)
+    const centerLabel = description.length > 30
+      ? description.substring(0, 30) + '...'
+      : description;
+
+    nodes.push({
+      id: 'center',
+      label: centerLabel,
+      type: 'case',
+      detail: description,
+      val: 25
+    });
+
+    // 쟁점 노드 + 하위 법령/판례 노드
+    issues.forEach((issue, idx) => {
+      const issueId = `issue-${idx}`;
+
+      // 쟁점 정보
+      issueInfoList.push({
+        id: issueId,
+        title: issue.title,
+        summary: issue.summary,
+        severity: issue.severity || 'medium'
+      });
+
+      // 쟁점 노드
+      nodes.push({
+        id: issueId,
+        label: issue.title,
+        type: 'issue',
+        detail: issue.summary,
+        val: 18,
+        severity: issue.severity || 'medium'
+      });
+
+      // 사건 → 쟁점 링크
+      links.push({
+        source: 'center',
+        target: issueId,
+        label: '핵심 쟁점'
+      });
+
+      // 해당 쟁점의 RAG 검색 결과에서 하위 노드 생성
+      const searchResult = searchResults.find(r => r.issueIdx === idx);
+      const citations = searchResult?.result?.citations || [];
+
+      citations.forEach((cit, citIdx) => {
+        if (seenTitles.has(cit.title)) {
+          // 이미 존재하는 노드라면 링크만 추가 (같은 법령이 여러 쟁점에 관련될 수 있음)
+          const existingNode = nodes.find(n => n.label === cit.title);
+          if (existingNode) {
+            links.push({
+              source: issueId,
+              target: existingNode.id,
+              label: getRelationLabel(existingNode.type)
+            });
+          }
+          return;
+        }
+        seenTitles.add(cit.title);
+
+        const nodeType = classifyCitationType(cit.title);
+        const nodeId = `${issueId}-ref-${citIdx}`;
+
+        nodes.push({
+          id: nodeId,
+          label: cit.title,
+          type: nodeType,
+          detail: cit.uri || '',
+          val: 10,
+          parentIssue: issueId
+        });
+
+        links.push({
+          source: issueId,
+          target: nodeId,
+          label: getRelationLabel(nodeType)
+        });
+      });
+    });
+
+    console.log(`[쟁점 분석] 그래프 생성 완료: ${nodes.length} nodes, ${links.length} links`);
+
+    res.json({
+      success: true,
+      data: {
+        issues: issueInfoList,
+        summary: overallSummary,
+        nodes,
+        links,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[쟁점 분석] 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * Citation 제목으로 문서 유형 분류
  */
 function classifyCitationType(title) {
