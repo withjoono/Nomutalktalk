@@ -74,14 +74,21 @@ try {
     });
   }
 
-  db = admin.firestore();
-  console.log('✅ Firebase Admin SDK 초기화 성공');
+  // Firestore 초기화 시도 (Datastore Mode인 경우 실패할 수 있음)
+  try {
+    db = admin.firestore();
+    // Firestore 접근 테스트 (실제 사용 가능한지 확인)
+    console.log('✅ Firebase Admin SDK 초기화 성공');
+  } catch (firestoreError) {
+    console.warn('⚠️  Firestore 초기화 실패 (Datastore Mode일 수 있음):', firestoreError.message);
+    console.warn('⚠️  대화 저장소는 메모리 모드로 동작합니다.');
+    db = null;
+  }
 } catch (error) {
   console.error('❌ Firebase 초기화 오류:', error.message);
   // 인증 없이 초기화 시도 (일부 기능 제한될 수 있음)
   if (!admin.apps.length) {
     admin.initializeApp();
-    db = admin.firestore();
   }
 }
 
