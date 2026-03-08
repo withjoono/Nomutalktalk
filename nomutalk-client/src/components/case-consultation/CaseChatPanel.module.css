@@ -1,0 +1,301 @@
+.layout {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: var(--toss-spacing-md);
+    height: calc(100vh - 220px);
+    min-height: 500px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* 좌측: 미니 그래프 */
+.graphSide {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg);
+    overflow: hidden;
+    background: var(--toss-bg-primary);
+}
+
+.graphSideHeader {
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--toss-text-secondary);
+    border-bottom: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.graphSideBody {
+    flex: 1;
+    overflow: hidden;
+}
+
+.graphNodeList {
+    padding: 8px;
+    overflow-y: auto;
+    max-height: 200px;
+    border-top: 1px solid var(--toss-border);
+}
+
+.miniNodeBtn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border: none;
+    background: none;
+    border-radius: var(--toss-radius-sm);
+    font-size: 0.78rem;
+    color: var(--toss-text-secondary);
+    cursor: pointer;
+    transition: all 0.1s;
+    font-family: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.miniNodeBtn:hover {
+    background: rgba(49, 130, 246, 0.06);
+    color: var(--toss-blue);
+}
+
+/* 우측: 챗봇 */
+.chatSide {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg);
+    overflow: hidden;
+    background: var(--toss-bg-primary);
+}
+
+.chatHeader {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chatTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+.chatStatus {
+    font-size: 0.72rem;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chatStatusDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+}
+
+/* 메시지 영역 */
+.messageList {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--toss-spacing-md);
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.rowUser {
+    justify-content: flex-end;
+}
+
+.rowBot {
+    justify-content: flex-start;
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--toss-blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.bubble {
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    word-break: keep-all;
+}
+
+.userBubble {
+    background: var(--toss-blue);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.botBubble {
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-primary);
+    border: 1px solid var(--toss-border);
+    border-bottom-left-radius: 4px;
+}
+
+.msgTime {
+    font-size: 0.68rem;
+    color: var(--toss-text-disabled);
+    margin-top: 4px;
+}
+
+/* 타이핑 인디케이터 */
+.typingIndicator {
+    padding: 12px 16px;
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    display: flex;
+    gap: 4px;
+}
+
+.typingDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--toss-text-disabled);
+    animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.typingDot:nth-child(2) {
+    animation-delay: 0.16s;
+}
+
+.typingDot:nth-child(3) {
+    animation-delay: 0.32s;
+}
+
+@keyframes typingBounce {
+
+    0%,
+    80%,
+    100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 입력 영역 */
+.inputArea {
+    padding: 12px;
+    border-top: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+}
+
+.inputWrapper {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.textInput {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--toss-border);
+    border-radius: 999px;
+    font-size: 0.9rem;
+    color: var(--toss-text-primary);
+    background: var(--toss-bg-primary);
+    outline: none;
+    font-family: inherit;
+}
+
+.textInput:focus {
+    border-color: var(--toss-blue);
+}
+
+.sendBtn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--toss-blue);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.sendBtn:hover:not(:disabled) {
+    background: #2563eb;
+    transform: scale(1.05);
+}
+
+.sendBtn:disabled {
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-disabled);
+    cursor: not-allowed;
+}
+
+/* 컨텍스트 힌트 */
+.contextHint {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: var(--toss-text-tertiary);
+    border-bottom: 1px solid var(--toss-border);
+    background: rgba(49, 130, 246, 0.03);
+    line-height: 1.5;
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+    .layout {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .graphSide {
+        max-height: 300px;
+    }
+
+    .chatSide {
+        min-height: 500px;
+    }
+}

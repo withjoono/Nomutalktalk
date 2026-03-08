@@ -1,0 +1,86 @@
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: var(--toss-spacing-lg) var(--toss-spacing-md);
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--toss-text-disabled);
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    transition: all 0.3s ease;
+    cursor: default;
+    white-space: nowrap;
+}
+
+.stepNumber {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-disabled);
+    transition: all 0.3s;
+}
+
+.connector {
+    width: 36px;
+    height: 2px;
+    background: var(--toss-border);
+    transition: background 0.3s;
+}
+
+.active {
+    color: var(--toss-blue);
+    background: rgba(49, 130, 246, 0.06);
+    border-color: var(--toss-blue);
+}
+
+.active .stepNumber {
+    background: var(--toss-blue);
+    color: white;
+}
+
+.connectorActive {
+    background: var(--toss-blue);
+}
+
+.completed {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.06);
+    border-color: #10b981;
+}
+
+.completed .stepNumber {
+    background: #10b981;
+    color: white;
+}
+
+@media (max-width: 640px) {
+    .step {
+        padding: 8px 12px;
+        font-size: 0.78rem;
+    }
+
+    .stepLabel {
+        display: none;
+    }
+
+    .connector {
+        width: 20px;
+    }
+}

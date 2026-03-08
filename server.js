@@ -156,7 +156,9 @@ const corsOptions = {
         'https://google-file-search.vercel.app',
         'https://google-file-search.netlify.app',
         'https://laborlawtech.web.app',
-        'https://laborlawtech.firebaseapp.com'
+        'https://laborlawtech.firebaseapp.com',
+        'https://nomutalk-889bd.web.app',
+        'https://nomutalk-889bd.firebaseapp.com'
       ];
 
     // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
@@ -8173,6 +8175,518 @@ function getLaborAgent() {
 }
 
 /**
+ * 노무 AI - 사건 분석 그래프 생성
+ * POST /api/labor/analyze-case
+ * Body: { description: string }
+ * 
+ * 사건 내용을 받아 askLabor + findSimilarCases를 병렬 호출한 뒤
+ * 그래프 시각화용 nodes/links 구조로 반환합니다.
+ */
+app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
+  try {
+    const { description } = req.body;
+
+    if (!description || typeof description !== 'string' || description.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '사건 내용이 필요합니다.'
+      });
+    }
+
+    console.log(`[사건 분석] 그래프 생성 시작: ${description.substring(0, 50)}...`);
+
+    const agent = getLaborAgent();
+
+    // 1. askLabor + findSimilarCases 병렬 호출
+    const [askResult, casesResult] = await Promise.allSettled([
+      agent.askLabor(description, {
+        includeCases: true,
+        includeInterpretations: true
+      }),
+      agent.findSimilarCases(description)
+    ]);
+
+    const askData = askResult.status === 'fulfilled' ? askResult.value : null;
+    const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
+
+    // 2. 분석 요약 추출
+    const summary = askData
+      ? (askData.text || askData)
+      : '사건 분석 결과를 가져올 수 없습니다.';
+
+    const similarCasesSummary = casesData
+      ? (casesData.text || casesData)
+      : '';
+
+    // 3. Citations → Graph Nodes/Links 변환
+    const nodes = [];
+    const links = [];
+    const seenTitles = new Set();
+
+    // 센터 노드 (사건)
+    const centerLabel = description.length > 30
+      ? description.substring(0, 30) + '...'
+      : description;
+
+    nodes.push({
+      id: 'center',
+      label: centerLabel,
+      type: 'case',
+      detail: description,
+      val: 25
+    });
+
+    // askLabor citations 처리
+    const askCitations = askData?.citations || [];
+    askCitations.forEach((cit, idx) => {
+      if (seenTitles.has(cit.title)) return;
+      seenTitles.add(cit.title);
+
+      const nodeType = classifyCitationType(cit.title);
+      const nodeId = `ask-${idx}`;
+
+      nodes.push({
+        id: nodeId,
+        label: cit.title,
+        type: nodeType,
+        detail: cit.uri || '',
+        val: 12
+      });
+
+      links.push({
+        source: 'center',
+        target: nodeId,
+        label: getRelationLabel(nodeType)
+      });
+    });
+
+    // findSimilarCases citations 처리
+    const casesCitations = casesData?.citations || [];
+    casesCitations.forEach((cit, idx) => {
+      if (seenTitles.has(cit.title)) return;
+      seenTitles.add(cit.title);
+
+      const nodeType = classifyCitationType(cit.title);
+      const nodeId = `case-${idx}`;
+
+      nodes.push({
+        id: nodeId,
+        label: cit.title,
+        type: nodeType,
+        detail: cit.uri || '',
+        val: 12
+      });
+
+      links.push({
+        source: 'center',
+        target: nodeId,
+        label: getRelationLabel(nodeType)
+      });
+    });
+
+    console.log(`[사건 분석] 그래프 생성 완료: ${nodes.length} nodes, ${links.length} links`);
+
+    res.json({
+      success: true,
+      data: {
+        summary,
+        similarCasesSummary,
+        nodes,
+        links,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[사건 분석] 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Citation 제목으로 문서 유형 분류
+ */
+function classifyCitationType(title) {
+  if (!title) return 'unknown';
+  if (title.includes('법') || title.includes('령') || title.includes('규칙') || title.includes('조')) {
+    return 'law';
+  }
+  if (title.includes('판결') || title.includes('선고') || title.includes('대법') || /\d{4}[가-힣]+\d+/.test(title)) {
+    return 'precedent';
+  }
+  if (title.includes('해석') || title.includes('지침') || title.includes('회시') || title.includes('고용노동부')) {
+    return 'interpretation';
+  }
+  if (title.includes('노동위') || title.includes('결정')) {
+    return 'decision';
+  }
+  return 'unknown';
+}
+
+/**
+ * 노드 유형에 따른 관계 레이블
+ */
+function getRelationLabel(nodeType) {
+  switch (nodeType) {
+    case 'law': return '근거 법령';
+    case 'precedent': return '유사 판례';
+    case 'interpretation': return '행정 해석';
+    case 'decision': return '노동위 결정';
+    default: return '관련 문서';
+  }
+}
+
+/**
+ * 노무 AI - 파일 업로드 → 텍스트 추출 → 사건 분석
+ * POST /api/labor/analyze-file
+ * Body: multipart/form-data (file)
+ * 
+ * 근로계약서, 급여명세서 등 파일 업로드 → Gemini로 텍스트 추출 → analyze-case 자동 실행
+ */
+app.post('/api/labor/analyze-file', verifyToken, upload.single('file'), async (req, res) => {
+  let filePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '파일이 업로드되지 않았습니다.'
+      });
+    }
+
+    filePath = req.file.path;
+    const originalName = req.file.originalname;
+    console.log(`[사건 분석] 파일 업로드 분석 시작: ${originalName}`);
+
+    const agent = getLaborAgent();
+
+    // 1. Gemini File API로 텍스트를 추출하거나, 직접 읽기
+    let extractedText = '';
+    const ext = path.extname(originalName).toLowerCase();
+
+    if (['.txt', '.md', '.json'].includes(ext)) {
+      // 텍스트 파일은 직접 읽기
+      extractedText = fs.readFileSync(filePath, 'utf-8');
+    } else {
+      // PDF, 이미지, 문서 등은 Gemini로 내용 분석
+      const { GoogleGenAI } = require('@google/genai');
+      const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+      const fileBuffer = fs.readFileSync(filePath);
+      const base64Data = fileBuffer.toString('base64');
+
+      const mimeMap = {
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.hwp': 'application/x-hwp',
+      };
+      const mimeType = mimeMap[ext] || 'application/octet-stream';
+
+      const response = await genai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType,
+                data: base64Data
+              }
+            },
+            {
+              text: '이 문서의 내용을 모두 텍스트로 추출해주세요. 노동법 관련 사건 분석에 사용됩니다. 핵심 사실관계, 계약 조건, 급여 정보, 근로 조건 등을 정리해주세요.'
+            }
+          ]
+        }]
+      });
+
+      extractedText = response.text || '';
+    }
+
+    if (!extractedText || extractedText.trim().length < 10) {
+      await cleanupFile(filePath);
+      return res.status(400).json({
+        success: false,
+        error: '파일에서 충분한 텍스트를 추출하지 못했습니다.'
+      });
+    }
+
+    console.log(`[사건 분석] 텍스트 추출 완료: ${extractedText.length}자`);
+
+    // 2. 추출된 텍스트로 사건 분석 수행 (analyze-case와 동일 로직)
+    const [askResult, casesResult] = await Promise.allSettled([
+      agent.askLabor(extractedText.substring(0, 3000), {
+        includeCases: true,
+        includeInterpretations: true
+      }),
+      agent.findSimilarCases(extractedText.substring(0, 2000))
+    ]);
+
+    const askData = askResult.status === 'fulfilled' ? askResult.value : null;
+    const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
+
+    const summary = askData ? (askData.text || askData) : '분석 결과를 가져올 수 없습니다.';
+    const similarCasesSummary = casesData ? (casesData.text || casesData) : '';
+
+    const nodes = [];
+    const links = [];
+    const seenTitles = new Set();
+
+    const centerLabel = originalName.length > 25
+      ? originalName.substring(0, 25) + '...'
+      : originalName;
+
+    nodes.push({
+      id: 'center',
+      label: centerLabel,
+      type: 'case',
+      detail: extractedText.substring(0, 500),
+      val: 25
+    });
+
+    const askCitations = askData?.citations || [];
+    askCitations.forEach((cit, idx) => {
+      if (seenTitles.has(cit.title)) return;
+      seenTitles.add(cit.title);
+      const nodeType = classifyCitationType(cit.title);
+      const nodeId = `ask-${idx}`;
+      nodes.push({ id: nodeId, label: cit.title, type: nodeType, detail: cit.uri || '', val: 12 });
+      links.push({ source: 'center', target: nodeId, label: getRelationLabel(nodeType) });
+    });
+
+    const casesCitations = casesData?.citations || [];
+    casesCitations.forEach((cit, idx) => {
+      if (seenTitles.has(cit.title)) return;
+      seenTitles.add(cit.title);
+      const nodeType = classifyCitationType(cit.title);
+      const nodeId = `case-${idx}`;
+      nodes.push({ id: nodeId, label: cit.title, type: nodeType, detail: cit.uri || '', val: 12 });
+      links.push({ source: 'center', target: nodeId, label: getRelationLabel(nodeType) });
+    });
+
+    // 파일 정리
+    await cleanupFile(filePath);
+
+    console.log(`[사건 분석] 파일 분석 완료: ${nodes.length} nodes`);
+
+    res.json({
+      success: true,
+      data: {
+        fileName: originalName,
+        extractedText: extractedText.substring(0, 1000),
+        summary,
+        similarCasesSummary,
+        nodes,
+        links,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[사건 분석] 파일 분석 오류:', error);
+    if (filePath) await cleanupFile(filePath);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 노무 AI - 그래프 노드 확장 (2-depth)
+ * POST /api/labor/expand-node
+ * Body: { nodeLabel: string, nodeType: string }
+ * 
+ * 특정 노드 클릭 시 관련 하위 문서(시행령, 하위 조항, 관련 판례 등)를 검색하여
+ * 추가 nodes/links를 반환
+ */
+app.post('/api/labor/expand-node', verifyToken, async (req, res) => {
+  try {
+    const { nodeLabel, nodeType, nodeId } = req.body;
+
+    if (!nodeLabel) {
+      return res.status(400).json({
+        success: false,
+        error: '노드 레이블이 필요합니다.'
+      });
+    }
+
+    console.log(`[그래프 확장] ${nodeType}: ${nodeLabel}`);
+
+    const agent = getLaborAgent();
+
+    // 노드 유형에 따라 다른 질의 생성
+    let query = '';
+    if (nodeType === 'law') {
+      query = `"${nodeLabel}"에 대해 다음을 알려주세요: 1) 관련 시행령/시행규칙 조항 2) 관련 판례 3) 관련 행정해석. 각 항목의 정확한 법조문 번호와 판례 번호를 포함해주세요.`;
+    } else if (nodeType === 'precedent') {
+      query = `"${nodeLabel}" 판례에 대해 다음을 알려주세요: 1) 적용된 법령 조항 2) 유사한 다른 판례 3) 이 판례의 핵심 판시사항. 각 항목의 정확한 법조문 번호를 포함해주세요.`;
+    } else if (nodeType === 'interpretation') {
+      query = `"${nodeLabel}" 행정해석에 대해 다음을 알려주세요: 1) 근거 법령 2) 관련 판례 3) 실무 적용 방법.`;
+    } else {
+      query = `"${nodeLabel}"와 관련된 법령, 판례, 행정해석을 알려주세요.`;
+    }
+
+    const result = await agent.askLabor(query, {
+      includeCases: true,
+      includeInterpretations: true
+    });
+
+    const newNodes = [];
+    const newLinks = [];
+    const seenTitles = new Set();
+    seenTitles.add(nodeLabel); // 원본 노드 제외
+
+    const citations = result?.citations || [];
+    citations.forEach((cit, idx) => {
+      if (seenTitles.has(cit.title)) return;
+      seenTitles.add(cit.title);
+
+      const citType = classifyCitationType(cit.title);
+      const newNodeId = `expand-${nodeId}-${idx}`;
+
+      newNodes.push({
+        id: newNodeId,
+        label: cit.title,
+        type: citType,
+        detail: cit.uri || '',
+        val: 8
+      });
+
+      newLinks.push({
+        source: nodeId || nodeLabel,
+        target: newNodeId,
+        label: getRelationLabel(citType)
+      });
+    });
+
+    console.log(`[그래프 확장] 완료: +${newNodes.length} nodes`);
+
+    res.json({
+      success: true,
+      data: {
+        expandedNodeId: nodeId,
+        detail: result?.text || result || '',
+        newNodes,
+        newLinks,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[그래프 확장] 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 노무 AI - 법률 서면 자동생성
+ * POST /api/labor/generate-document
+ * Body: { caseDescription: string, documentType: string, additionalInfo?: object }
+ * 
+ * documentType: 'complaint' (고소장/진정서), 'response' (답변서), 'objection' (이의신청서),
+ *               'appeal' (항고장), 'evidence' (증거목록/설명서)
+ */
+app.post('/api/labor/generate-document', verifyToken, async (req, res) => {
+  try {
+    const { caseDescription, documentType, additionalInfo } = req.body;
+
+    if (!caseDescription || !documentType) {
+      return res.status(400).json({
+        success: false,
+        error: '사건 설명과 서면 유형이 필요합니다.'
+      });
+    }
+
+    const docTypeMap = {
+      complaint: {
+        name: '진정서/고소장',
+        prompt: `다음 사건 내용을 바탕으로 노동부/노동위원회에 제출할 진정서 또는 고소장 초안을 작성해주세요.
+형식: 제목, 진정인(빈칸), 피진정인(빈칸), 진정취지, 진정이유(사실관계+법적근거), 입증자료 목록, 결론
+법적 근거가 되는 조항을 정확히 명시하고, 사실관계를 구체적으로 정리해주세요.`
+      },
+      response: {
+        name: '답변서',
+        prompt: `다음 사건 내용에 대한 답변서 초안을 작성해주세요.
+형식: 제목, 당사자 표시(빈칸), 답변 취지, 답변 이유(사실관계에 대한 반박 및 법적 근거), 결론
+법적 근거를 명시하고, 각 쟁점에 대해 체계적으로 답변해주세요.`
+      },
+      objection: {
+        name: '이의신청서',
+        prompt: `다음 사건 내용을 바탕으로 이의신청서 초안을 작성해주세요.
+형식: 제목, 신청인(빈칸), 이의신청 취지, 이의신청 이유, 결론
+관련 법령과 판례를 인용하여 이의신청 사유를 구체적으로 기술해주세요.`
+      },
+      appeal: {
+        name: '항고장/재심신청서',
+        prompt: `다음 사건 내용을 바탕으로 재심신청서 또는 항고장 초안을 작성해주세요.
+형식: 제목, 재심신청인(빈칸), 원처분 내용, 재심신청 취지, 재심신청 이유, 결론
+원판정의 부당성과 법적 근거를 명확히 기술해주세요.`
+      },
+      evidence: {
+        name: '증거설명서/증거목록',
+        prompt: `다음 사건 내용을 바탕으로 증거설명서와 증거목록을 작성해주세요.
+형식: 증거번호, 증거명칭, 작성일자, 작성자, 입증취지를 표 형태로 정리
+사건 해결에 필요한 핵심 증거를 체계적으로 분류해주세요.`
+      }
+    };
+
+    const docConfig = docTypeMap[documentType];
+    if (!docConfig) {
+      return res.status(400).json({
+        success: false,
+        error: '유효하지 않은 서면 유형입니다. (complaint, response, objection, appeal, evidence)'
+      });
+    }
+
+    console.log(`[서면 생성] ${docConfig.name} 생성 시작`);
+
+    const agent = getLaborAgent();
+
+    const fullPrompt = `${docConfig.prompt}
+
+[사건 내용]
+${caseDescription}
+
+${additionalInfo ? `[추가 정보]\n${JSON.stringify(additionalInfo, null, 2)}` : ''}
+
+중요: 실제 법률 서면 형식을 최대한 충실히 따르되, 빈칸으로 남겨야 할 개인정보(이름, 주소, 전화번호 등)는 ___으로 표시해주세요.
+작성일자는 오늘 날짜로 기재해주세요.`;
+
+    const result = await agent.askLabor(fullPrompt, {
+      includeCases: true,
+      includeInterpretations: true
+    });
+
+    const documentContent = result?.text || result || '';
+    const citations = result?.citations || [];
+
+    console.log(`[서면 생성] ${docConfig.name} 생성 완료 (${documentContent.length}자)`);
+
+    res.json({
+      success: true,
+      data: {
+        documentType,
+        documentTypeName: docConfig.name,
+        content: documentContent,
+        citations: citations.map(c => c.title || c),
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[서면 생성] 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * 노무 AI - 질의응답
  * POST /api/labor/ask
  * Body: { query, category?, includeCases?, includeInterpretations?, model? }
@@ -8578,6 +9092,196 @@ app.get('/api/labor/health', (req, res) => {
       timestamp: new Date().toISOString()
     }
   });
+});
+
+// ==================== 통합 사건 상담 API ====================
+
+/**
+ * 통합 사건 세션 생성
+ * POST /api/labor/case-session/create
+ * Body: multipart/form-data { description?, files[] }
+ * 
+ * 텍스트 + 복수 파일을 동시에 받아 분석 후 챗봇 세션을 자동 생성.
+ * 분석 결과를 세션 컨텍스트에 주입하여 맥락 있는 상담이 가능하도록 함.
+ */
+app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10), async (req, res) => {
+  const uploadedPaths = [];
+
+  try {
+    const description = req.body.description || '';
+    const files = req.files || [];
+
+    if (!description.trim() && files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '사건 설명 또는 파일을 하나 이상 제공해주세요.'
+      });
+    }
+
+    console.log(`[통합 상담] 세션 생성 시작 - 텍스트: ${description.length}자, 파일: ${files.length}개`);
+
+    const agent = getLaborAgent();
+    if (!agent.storeName) {
+      await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
+    }
+
+    // 1. 파일에서 텍스트 추출
+    let allExtractedTexts = [];
+
+    for (const file of files) {
+      uploadedPaths.push(file.path);
+      const ext = path.extname(file.originalname).toLowerCase();
+
+      let fileText = '';
+      if (['.txt', '.md', '.json'].includes(ext)) {
+        fileText = fs.readFileSync(file.path, 'utf-8');
+      } else {
+        try {
+          const { GoogleGenAI } = require('@google/genai');
+          const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+          const fileBuffer = fs.readFileSync(file.path);
+          const base64Data = fileBuffer.toString('base64');
+
+          const mimeMap = {
+            '.pdf': 'application/pdf', '.png': 'image/png',
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif', '.webp': 'image/webp',
+            '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.hwp': 'application/x-hwp',
+          };
+          const mimeType = mimeMap[ext] || 'application/octet-stream';
+
+          const response = await genai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{
+              role: 'user',
+              parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: '이 문서의 내용을 모두 텍스트로 추출해주세요. 핵심 사실관계, 계약 조건, 급여 정보, 근로 조건 등을 정리해주세요.' }
+              ]
+            }]
+          });
+
+          fileText = response.text || '';
+        } catch (extractErr) {
+          console.error(`[통합 상담] 파일 텍스트 추출 실패 (${file.originalname}):`, extractErr.message);
+          fileText = `[파일: ${file.originalname} — 텍스트 추출 실패]`;
+        }
+      }
+
+      allExtractedTexts.push({
+        fileName: file.originalname,
+        text: fileText.substring(0, 2000)
+      });
+    }
+
+    // 2. 모든 텍스트 합치기
+    const combinedText = [
+      description,
+      ...allExtractedTexts.map(f => `[첨부: ${f.fileName}]\n${f.text}`)
+    ].filter(Boolean).join('\n\n');
+
+    const analysisInput = combinedText.substring(0, 4000);
+
+    console.log(`[통합 상담] 통합 텍스트: ${combinedText.length}자 → 분석 입력: ${analysisInput.length}자`);
+
+    // 3. AI 분석 (병렬)
+    const [askResult, casesResult] = await Promise.allSettled([
+      agent.askLabor(analysisInput, { includeCases: true, includeInterpretations: true }),
+      agent.findSimilarCases(analysisInput.substring(0, 2000))
+    ]);
+
+    const askData = askResult.status === 'fulfilled' ? askResult.value : null;
+    const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
+
+    const summary = askData ? (askData.text || askData) : '분석 결과를 가져올 수 없습니다.';
+    const similarCasesSummary = casesData ? (casesData.text || casesData) : '';
+
+    // 4. 그래프 nodes/links 생성
+    const nodes = [];
+    const links = [];
+    const seenTitles = new Set();
+
+    nodes.push({
+      id: 'center',
+      label: description.length > 25 ? description.substring(0, 25) + '...' : (description || '사건 분석'),
+      type: 'case',
+      detail: combinedText.substring(0, 500),
+      val: 25
+    });
+
+    const addCitations = (citations, prefix) => {
+      (citations || []).forEach((cit, idx) => {
+        if (seenTitles.has(cit.title)) return;
+        seenTitles.add(cit.title);
+        const nodeType = classifyCitationType(cit.title);
+        const nodeId = `${prefix}-${idx}`;
+        nodes.push({ id: nodeId, label: cit.title, type: nodeType, detail: cit.uri || '', val: 12 });
+        links.push({ source: 'center', target: nodeId, label: getRelationLabel(nodeType) });
+      });
+    };
+
+    addCitations(askData?.citations, 'ask');
+    addCitations(casesData?.citations, 'case');
+
+    // 5. 챗봇 세션 생성 + 컨텍스트 주입
+    const chatSession = conversationManager.createSession(req.user?.userId);
+
+    // 사건 분석 결과를 세션 컨텍스트에 주입
+    const lawNodes = nodes.filter(n => n.type === 'law').map(n => n.label);
+    const caseNodes = nodes.filter(n => n.type === 'precedent').map(n => n.label);
+
+    conversationManager.updateContext(chatSession.sessionId, {
+      issue: description || '첨부파일 기반 사건',
+      details: {
+        caseDescription: combinedText.substring(0, 2000),
+        fileNames: allExtractedTexts.map(f => f.fileName),
+        analysisTimestamp: new Date().toISOString()
+      },
+      laws: lawNodes,
+      cases: caseNodes,
+      caseContext: {
+        summary: typeof summary === 'string' ? summary.substring(0, 1500) : '',
+        similarCasesSummary: typeof similarCasesSummary === 'string' ? similarCasesSummary.substring(0, 1500) : '',
+        nodeLabels: nodes.map(n => `[${n.type}] ${n.label}`).join(', ')
+      }
+    });
+
+    // Firebase 저장
+    if (conversationStorage) {
+      await conversationStorage.saveSession(chatSession);
+    }
+
+    // 6. 파일 정리
+    for (const p of uploadedPaths) {
+      await cleanupFile(p);
+    }
+
+    console.log(`[통합 상담] 세션 생성 완료 - chat: ${chatSession.sessionId}, nodes: ${nodes.length}`);
+
+    res.json({
+      success: true,
+      data: {
+        caseSessionId: chatSession.sessionId,
+        chatSessionId: chatSession.sessionId,
+        summary,
+        similarCasesSummary,
+        nodes,
+        links,
+        extractedTexts: allExtractedTexts.map(f => ({ fileName: f.fileName, preview: f.text.substring(0, 200) })),
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[통합 상담] 세션 생성 오류:', error);
+    for (const p of uploadedPaths) {
+      await cleanupFile(p);
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ==================== 대화형 챗봇 API 엔드포인트 ====================

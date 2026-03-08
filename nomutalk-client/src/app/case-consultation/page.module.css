@@ -1,0 +1,6 @@
+.page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--toss-spacing-lg) var(--toss-spacing-md);
+    min-height: calc(100vh - 120px);
+}

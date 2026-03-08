@@ -12,7 +12,7 @@ import {
     Category,
     Citation
 } from '@/lib/api';
-import GraphView from './GraphView';
+import LegacyGraphView from './LegacyGraphView';
 
 type TabType = 'query' | 'cases' | 'law' | 'template' | 'categories';
 
@@ -309,7 +309,7 @@ export default function LaborAITabs() {
                                 <h3>답변</h3>
                                 <div className={styles.resultBox}>{queryResult}</div>
                                 {queryCitations.length > 0 && (
-                                    <GraphView query={queryInput} citations={queryCitations} />
+                                    <LegacyGraphView query={queryInput} citations={queryCitations} />
                                 )}
                             </div>
                         )}
@@ -343,7 +343,7 @@ export default function LaborAITabs() {
                                 <h3>유사 판례</h3>
                                 <div className={styles.resultBox}>{casesResult}</div>
                                 {caseCitations.length > 0 && (
-                                    <GraphView query={caseDescription} citations={caseCitations} />
+                                    <LegacyGraphView query={caseDescription} citations={caseCitations} />
                                 )}
                             </div>
                         )}
@@ -383,7 +383,7 @@ export default function LaborAITabs() {
                                 <h3>법령 상세</h3>
                                 <div className={styles.resultBox}>{lawResult}</div>
                                 {lawCitations.length > 0 && (
-                                    <GraphView query={`${lawName} ${lawArticle}`} citations={lawCitations} />
+                                    <LegacyGraphView query={`${lawName} ${lawArticle}`} citations={lawCitations} />
                                 )}
                             </div>
                         )}
@@ -439,7 +439,7 @@ export default function LaborAITabs() {
                                 <h3>상담 결과</h3>
                                 <div className={styles.resultBox}>{templateResult}</div>
                                 {templateCitations.length > 0 && (
-                                    <GraphView query={templateType} citations={templateCitations} />
+                                    <LegacyGraphView query={templateType} citations={templateCitations} />
                                 )}
                             </div>
                         )}

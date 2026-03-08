@@ -2,169 +2,228 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Citation } from '@/lib/api';
+import { GraphNode, GraphLink } from '@/lib/api';
 
-// 서버 사이드 렌더링 제외 (window 객체 의존성 때문)
+// 서버 사이드 렌더링 제외
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
     ssr: false,
-    loading: () => <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Graph...</div>
+    loading: () => <div style={{ height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>그래프 로딩 중...</div>
 });
 
 interface GraphViewProps {
-    query: string;
-    citations: Citation[];
+    nodes: GraphNode[];
+    links: GraphLink[];
     width?: number;
     height?: number;
+    onNodeClick?: (node: GraphNode) => void;
+    onNodeDoubleClick?: (node: GraphNode) => void;
+    expandingNodeId?: string | null;
 }
 
-interface Node {
-    id: string;
-    label: string;
-    type: 'center' | 'law' | 'case' | 'interpretation' | 'unknown';
-    val: number; // size
-    color?: string;
-    group?: number;
-}
+const NODE_COLORS: Record<string, string> = {
+    case: '#a855f7',
+    law: '#3b82f6',
+    precedent: '#ef4444',
+    interpretation: '#10b981',
+    decision: '#f59e0b',
+    unknown: '#94a3b8',
+};
 
-interface Link {
-    source: string;
-    target: string;
-    color?: string;
-}
+const NODE_ICONS: Record<string, string> = {
+    case: '📋',
+    law: '⚖️',
+    precedent: '🏛️',
+    interpretation: '📝',
+    decision: '🔨',
+    unknown: '📄',
+};
 
-interface GraphData {
-    nodes: Node[];
-    links: Link[];
-}
-
-export default function GraphView({ query, citations, width = 800, height = 400 }: GraphViewProps) {
-    const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
+export default function GraphView({ nodes, links, width = 800, height = 500, onNodeClick, onNodeDoubleClick, expandingNodeId }: GraphViewProps) {
     const graphRef = useRef<any>(null);
+    const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
+    const lastClickTime = useRef<number>(0);
+    const lastClickNode = useRef<string>('');
 
     useEffect(() => {
-        if (!citations || citations.length === 0) {
+        if (!nodes || nodes.length === 0) {
             setGraphData({ nodes: [], links: [] });
             return;
         }
 
-        // 1. 센터 노드 (질문/주제)
-        const centerId = 'center';
-        const centerNode: Node = {
-            id: centerId,
-            label: query.length > 20 ? query.substring(0, 20) + '...' : query,
-            type: 'center',
-            val: 20,
-            color: '#a855f7', // Purple
-            group: 1
-        };
+        const gNodes = nodes.map(n => ({
+            ...n,
+            color: NODE_COLORS[n.type] || '#94a3b8',
+        }));
 
-        const nodes: Node[] = [centerNode];
-        const links: Link[] = [];
+        const gLinks = links.map(l => ({
+            ...l,
+            color: 'rgba(148, 163, 184, 0.4)',
+        }));
 
-        // 2. 인용 노드
-        const seen = new Set<string>();
+        setGraphData({ nodes: gNodes, links: gLinks });
+    }, [nodes, links]);
 
-        citations.forEach(cit => {
-            if (seen.has(cit.title)) return;
-            seen.add(cit.title);
-
-            // 문서 유형 추론
-            let type: Node['type'] = 'unknown';
-            let color = '#94a3b8'; // gray
-            let group = 0;
-
-            if (cit.title.includes('법') || cit.title.includes('령') || cit.title.includes('규칙')) {
-                type = 'law';
-                color = '#3b82f6'; // blue
-                group = 2;
-            } else if (cit.title.includes('판결') || cit.title.includes('선고') || cit.title.match(/\d{4}[가-힣]+\d+/)) {
-                type = 'case';
-                color = '#ef4444'; // red
-                group = 3;
-            } else if (cit.title.includes('해석') || cit.title.includes('지침') || cit.title.includes('회시')) {
-                type = 'interpretation';
-                color = '#10b981'; // green
-                group = 4;
-            }
-
-            nodes.push({
-                id: cit.title,
-                label: cit.title,
-                type,
-                val: 10,
-                color,
-                group
-            });
-
-            links.push({
-                source: centerId,
-                target: cit.title,
-                color: '#cbd5e1'
-            });
-        });
-
-        setGraphData({ nodes, links });
-
-    }, [query, citations]);
+    // 초기 줌 조절
+    useEffect(() => {
+        if (graphRef.current && graphData.nodes.length > 0) {
+            setTimeout(() => {
+                graphRef.current?.zoomToFit(400, 60);
+            }, 500);
+        }
+    }, [graphData]);
 
     if (graphData.nodes.length === 0) {
-        return null; // 데이터 없으면 렌더링 안 함
+        return null;
     }
 
     return (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f8fafc', margin: '1rem 0' }}>
-            <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '1rem', fontSize: '0.8rem', color: '#64748b', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold' }}>관계도</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#a855f7' }}></span> 검색어
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></span> 법령
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }}></span> 판례
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span> 행정해석
-                </span>
+        <div style={{
+            border: '1px solid var(--toss-border, #e2e8f0)',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            background: '#0f172a',
+            margin: '1rem 0',
+            position: 'relative',
+        }}>
+            {/* 범례 */}
+            <div style={{
+                padding: '10px 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                gap: '14px',
+                fontSize: '0.75rem',
+                color: '#94a3b8',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                background: 'rgba(15, 23, 42, 0.9)',
+            }}>
+                <span style={{ fontWeight: 700, color: '#e2e8f0' }}>📊 법률 관계도</span>
+                {Object.entries(NODE_COLORS).filter(([k]) => k !== 'unknown').map(([type, color]) => (
+                    <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: color, display: 'inline-block' }} />
+                        {NODE_ICONS[type]} {type === 'case' ? '사건' : type === 'law' ? '법령' : type === 'precedent' ? '판례' : type === 'interpretation' ? '행정해석' : '노동위 결정'}
+                    </span>
+                ))}
             </div>
             {/* @ts-ignore */}
             <ForceGraph2D
+                ref={graphRef}
                 width={width}
                 height={height}
                 graphData={graphData}
-                nodeLabel="label"
+                nodeLabel=""
                 nodeRelSize={6}
                 linkDirectionalParticles={2}
-                linkDirectionalParticleSpeed={0.005}
-                backgroundColor="#f8fafc"
+                linkDirectionalParticleSpeed={0.004}
+                linkDirectionalParticleWidth={2}
+                linkColor={() => 'rgba(148, 163, 184, 0.3)'}
+                linkWidth={1.5}
+                backgroundColor="#0f172a"
+                d3AlphaDecay={0.03}
+                d3VelocityDecay={0.3}
+                cooldownTicks={100}
+                onNodeClick={(node: any) => {
+                    const now = Date.now();
+                    if (lastClickNode.current === node.id && now - lastClickTime.current < 400) {
+                        // 더블 클릭
+                        if (onNodeDoubleClick) onNodeDoubleClick(node as GraphNode);
+                        lastClickTime.current = 0;
+                        lastClickNode.current = '';
+                    } else {
+                        // 싱글 클릭
+                        if (onNodeClick) onNodeClick(node as GraphNode);
+                        lastClickTime.current = now;
+                        lastClickNode.current = node.id;
+                    }
+                }}
                 nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                    const label = node.label;
-                    const fontSize = 12 / globalScale;
-                    ctx.font = `${fontSize}px Sans-Serif`;
-                    const textWidth = ctx.measureText(label).width;
-                    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); // some padding
+                    const isCenter = node.type === 'case';
+                    const radius = isCenter ? 18 : 12;
+                    const fontSize = isCenter ? 13 / globalScale : 11 / globalScale;
+                    const label = node.label?.length > 20
+                        ? node.label.substring(0, 20) + '...'
+                        : node.label;
 
-                    // draw circle
+                    // 확장 중 애니메이션
+                    const isExpanding = expandingNodeId === node.id;
+                    if (isExpanding) {
+                        const pulse = Math.sin(Date.now() / 200) * 4 + 8;
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, radius + pulse, 0, 2 * Math.PI);
+                        ctx.strokeStyle = `${node.color}88`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // 글로우 효과
+                    if (isCenter) {
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
+                        ctx.fillStyle = `${node.color}22`;
+                        ctx.fill();
+                    }
+
+                    // 원
                     ctx.beginPath();
-                    ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI, false);
+                    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
                     ctx.fillStyle = node.color || '#ccc';
                     ctx.fill();
 
-                    // text
+                    // 테두리
+                    ctx.strokeStyle = isCenter ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)';
+                    ctx.lineWidth = isCenter ? 2.5 : 1;
+                    ctx.stroke();
+
+                    // 아이콘 (중앙)
+                    const icon = NODE_ICONS[node.type] || '📄';
+                    ctx.font = `${(isCenter ? 14 : 10) / globalScale}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#1e293b';
-                    ctx.fillText(label, node.x, node.y + 6);
+                    ctx.fillText(icon, node.x, node.y - 1 / globalScale);
 
-                    node.__bckgDimensions = bckgDimensions; // to re-use in nodePointerAreaPaint
+                    // 라벨 (아래)
+                    ctx.font = `${fontSize}px 'Noto Sans KR', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+
+                    // 라벨 배경
+                    const textMetrics = ctx.measureText(label);
+                    const textWidth = textMetrics.width;
+                    const textHeight = fontSize * 1.3;
+                    const padding = 3 / globalScale;
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                    ctx.fillRect(
+                        node.x - textWidth / 2 - padding,
+                        node.y + radius + 3 / globalScale,
+                        textWidth + padding * 2,
+                        textHeight + padding
+                    );
+
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.fillText(label, node.x, node.y + radius + 4 / globalScale);
+
+                    node.__bckgDimensions = [textWidth + padding * 2, radius * 2 + textHeight];
                 }}
                 nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
+                    const isCenter = node.type === 'case';
+                    const radius = isCenter ? 18 : 12;
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
                     ctx.fillStyle = color;
-                    const bckgDimensions = node.__bckgDimensions;
-                    bckgDimensions && ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1]);
+                    ctx.fill();
                 }}
             />
+            {/* 클릭 안내 */}
+            <div style={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '12px',
+                fontSize: '0.7rem',
+                color: '#64748b',
+                pointerEvents: 'none',
+            }}>
+                클릭: 상세 보기 · 더블클릭: 관련 문서 확장
+            </div>
         </div>
     );
 }

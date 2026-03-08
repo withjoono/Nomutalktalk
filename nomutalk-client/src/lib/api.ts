@@ -103,6 +103,170 @@ export interface LaborAIResponse {
     citations: Citation[];
 }
 
+// ==================== Case Analysis Graph API ====================
+
+export interface GraphNode {
+    id: string;
+    label: string;
+    type: 'case' | 'law' | 'precedent' | 'interpretation' | 'decision' | 'unknown';
+    detail: string;
+    val: number;
+}
+
+export interface GraphLink {
+    source: string;
+    target: string;
+    label: string;
+}
+
+export interface CaseAnalysisResult {
+    summary: string;
+    similarCasesSummary: string;
+    nodes: GraphNode[];
+    links: GraphLink[];
+    timestamp: string;
+}
+
+/**
+ * 사건 분석 그래프 생성
+ */
+export async function analyzeCaseGraph(description: string): Promise<CaseAnalysisResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/analyze-case`, {
+        method: 'POST',
+        body: JSON.stringify({ description })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '사건 분석 실패');
+    }
+
+    return data.data;
+}
+
+/**
+ * 파일 업로드 → 텍스트 추출 → 사건 분석
+ */
+export interface FileAnalysisResult extends CaseAnalysisResult {
+    fileName: string;
+    extractedText: string;
+}
+
+export async function analyzeFileGraph(file: File): Promise<FileAnalysisResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/api/labor/analyze-file`, {
+        method: 'POST',
+        headers,
+        body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '파일 분석 실패');
+    }
+
+    return data.data;
+}
+
+/**
+ * 그래프 노드 확장 (2-depth)
+ */
+export interface ExpandNodeResult {
+    expandedNodeId: string;
+    detail: string;
+    newNodes: GraphNode[];
+    newLinks: GraphLink[];
+}
+
+export async function expandGraphNode(nodeId: string, nodeLabel: string, nodeType: string): Promise<ExpandNodeResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/expand-node`, {
+        method: 'POST',
+        body: JSON.stringify({ nodeId, nodeLabel, nodeType })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '노드 확장 실패');
+    }
+
+    return data.data;
+}
+
+/**
+ * 법률 서면 자동생성
+ */
+export type DocumentType = 'complaint' | 'response' | 'objection' | 'appeal' | 'evidence';
+
+export interface GeneratedDocument {
+    documentType: DocumentType;
+    documentTypeName: string;
+    content: string;
+    citations: string[];
+    timestamp: string;
+}
+
+export async function generateLegalDocument(
+    caseDescription: string,
+    documentType: DocumentType,
+    additionalInfo?: Record<string, string>
+): Promise<GeneratedDocument> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/generate-document`, {
+        method: 'POST',
+        body: JSON.stringify({ caseDescription, documentType, additionalInfo })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '서면 생성 실패');
+    }
+
+    return data.data;
+}
+
+/**
+ * 통합 사건 세션 생성 (텍스트 + 복수 파일 → 분석 + 챗봇 세션)
+ */
+export interface CaseSessionResult {
+    caseSessionId: string;
+    chatSessionId: string;
+    summary: string;
+    similarCasesSummary: string;
+    nodes: GraphNode[];
+    links: GraphLink[];
+    extractedTexts: { fileName: string; preview: string }[];
+    timestamp: string;
+}
+
+export async function createCaseSession(description: string, files: File[]): Promise<CaseSessionResult> {
+    const formData = new FormData();
+    if (description.trim()) formData.append('description', description);
+    files.forEach((file) => formData.append('files', file));
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/api/labor/case-session/create`, {
+        method: 'POST',
+        headers,
+        body: formData,
+    });
+
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '통합 세션 생성 실패');
+    return data.data;
+}
+
 // ==================== Labor AI API ====================
 
 /**

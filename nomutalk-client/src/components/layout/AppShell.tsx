@@ -102,13 +102,9 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.promo}
                         <span>Intro</span>
                     </a>
-                    <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
+                    <Link href="/case-consultation" className={`${styles.navLink} ${isActive('/case-consultation') ? styles.navActive : ''}`}>
                         {Icons.caseInput}
-                        <span>사건 입력</span>
-                    </Link>
-                    <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
-                        {Icons.caseSearch}
-                        <span>사건 분석</span>
+                        <span>사건 상담</span>
                     </Link>
                     <Link href="/chat" className={`${styles.navLink} ${isActive('/chat') ? styles.navActive : ''}`}>
                         {Icons.chat}
@@ -193,13 +189,9 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.promo}
                     <span>Intro</span>
                 </a>
-                <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
+                <Link href="/case-consultation" className={`${styles.tabItem} ${isActive('/case-consultation') ? styles.activeTab : ''}`}>
                     {Icons.caseInput}
-                    <span>입력</span>
-                </Link>
-                <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
-                    {Icons.caseSearch}
-                    <span>분석</span>
+                    <span>상담</span>
                 </Link>
                 <Link href="/chat" className={`${styles.tabItem} ${isActive('/chat') ? styles.activeTab : ''}`}>
                     {Icons.chat}

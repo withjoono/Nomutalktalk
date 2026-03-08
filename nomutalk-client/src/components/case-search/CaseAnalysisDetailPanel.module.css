@@ -1,0 +1,231 @@
+.panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 380px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--toss-bg-primary);
+    border-left: 1px solid var(--toss-border);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.25s ease-out;
+    overflow: hidden;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.panelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    flex-shrink: 0;
+}
+
+.panelHeader h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.typeBadge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+.typeBadge.law {
+    background: #3b82f6;
+}
+
+.typeBadge.precedent {
+    background: #ef4444;
+}
+
+.typeBadge.interpretation {
+    background: #10b981;
+}
+
+.typeBadge.decision {
+    background: #f59e0b;
+}
+
+.typeBadge.case {
+    background: #a855f7;
+}
+
+.typeBadge.unknown {
+    background: #94a3b8;
+}
+
+.closeBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--toss-bg-tertiary);
+    color: var(--toss-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: all 0.15s;
+}
+
+.closeBtn:hover {
+    background: var(--toss-border);
+    color: var(--toss-text-primary);
+}
+
+.panelBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.nodeTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 16px;
+    line-height: 1.5;
+    word-break: keep-all;
+}
+
+.detailSection {
+    margin-bottom: 20px;
+}
+
+.detailSection h4 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--toss-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.detailContent {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--toss-text-secondary);
+    white-space: pre-wrap;
+    word-break: keep-all;
+}
+
+.relationList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.relationList li {
+    padding: 10px 12px;
+    border-radius: var(--toss-radius-sm);
+    background: var(--toss-bg-secondary);
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: var(--toss-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.relationLabel {
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    animation: fadeOverlay 0.2s ease-out;
+}
+
+@keyframes fadeOverlay {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 640px) {
+    .panel {
+        width: 100vw;
+    }
+}
+
+.expandBtn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    background: var(--toss-bg-secondary);
+    border: 1px dashed var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    color: var(--toss-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.expandBtn:hover:not(:disabled) {
+    background: rgba(49, 130, 246, 0.05);
+    border-color: var(--toss-blue);
+}
+
+.expandBtn:disabled {
+    color: var(--toss-text-tertiary);
+    cursor: not-allowed;
+}
+
+.miniSpinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--toss-border);
+    border-top-color: var(--toss-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

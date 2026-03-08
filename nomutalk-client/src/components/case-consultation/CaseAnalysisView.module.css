@@ -1,0 +1,152 @@
+.container {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.graphSection {
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.graphSection h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.graphHint {
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary);
+    margin-bottom: 10px;
+}
+
+/* 요약 카드 */
+.summaryCard {
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.summaryCard h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.summaryContent {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: var(--toss-text-secondary);
+    white-space: pre-wrap;
+    word-break: keep-all;
+}
+
+/* 노드 목록 */
+.nodeListSection {
+    margin-bottom: var(--toss-spacing-lg);
+}
+
+.nodeListSection h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.nodeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.nodeCard {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--toss-bg-primary);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.82rem;
+}
+
+.nodeCard:hover {
+    border-color: var(--toss-blue);
+    background: rgba(49, 130, 246, 0.03);
+}
+
+.nodeType {
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.nodeLabel {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--toss-text-primary);
+}
+
+.nodeCard.law {
+    border-left: 3px solid #3b82f6;
+}
+
+.nodeCard.precedent {
+    border-left: 3px solid #ef4444;
+}
+
+.nodeCard.interpretation {
+    border-left: 3px solid #10b981;
+}
+
+.nodeCard.decision {
+    border-left: 3px solid #f59e0b;
+}
+
+/* 다음 단계 */
+.nextStepBtn {
+    width: 100%;
+    padding: 16px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--toss-transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    margin-top: var(--toss-spacing-lg);
+}
+
+.nextStepBtn:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+@media (max-width: 640px) {
+    .nodeGrid {
+        grid-template-columns: 1fr;
+    }
+}
