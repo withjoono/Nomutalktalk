@@ -106,6 +106,10 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.caseInput}
                         <span>사건 상담</span>
                     </Link>
+                    <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
+                        {Icons.caseSearch}
+                        <span>쟁점 분석</span>
+                    </Link>
                     <Link href="/chat" className={`${styles.navLink} ${isActive('/chat') ? styles.navActive : ''}`}>
                         {Icons.chat}
                         <span>AI 상담</span>
@@ -193,9 +197,9 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.caseInput}
                     <span>상담</span>
                 </Link>
-                <Link href="/chat" className={`${styles.tabItem} ${isActive('/chat') ? styles.activeTab : ''}`}>
-                    {Icons.chat}
-                    <span>상담</span>
+                <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
+                    {Icons.caseSearch}
+                    <span>쟁점</span>
                 </Link>
                 <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
                     {Icons.laws}
