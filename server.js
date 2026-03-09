@@ -88,8 +88,8 @@ try {
 
   // 사건 관리 전용 Firestore (Native 모드) 초기화
   try {
-    casesDb = admin.firestore();
-    casesDb.settings({ databaseId: 'nomutalk-cases' });
+    const { getFirestore } = require('firebase-admin/firestore');
+    casesDb = getFirestore(admin.app(), 'nomutalk-cases');
     console.log('✅ 사건 관리 Firestore (nomutalk-cases) 초기화 성공');
   } catch (casesDbError) {
     console.warn('⚠️  사건 관리 Firestore 초기화 실패:', casesDbError.message);
