@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import styles from './CaseGraphSearch.module.css';
-import GraphView from '../labor/GraphView';
+import IssueGraphView from '../labor/IssueGraphView';
 import CaseAnalysisDetailPanel from './CaseAnalysisDetailPanel';
 import {
-    GraphNode, GraphLink, CaseAnalysisResult,
-    analyzeCaseGraph, analyzeFileGraph,
+    GraphNode, GraphLink, CaseAnalysisResult, IssueInfo, IssueAnalysisResult,
+    analyzeCaseGraph, analyzeIssues, analyzeFileGraph,
     expandGraphNode, generateLegalDocument,
     DocumentType, GeneratedDocument
 } from '@/lib/api';
@@ -25,6 +25,7 @@ export default function CaseGraphSearch() {
     const [caseDescription, setCaseDescription] = useState('');
     const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'loading' | 'complete' | 'error'>('idle');
     const [result, setResult] = useState<CaseAnalysisResult | null>(null);
+    const [issueResult, setIssueResult] = useState<IssueAnalysisResult | null>(null);
     const [error, setError] = useState('');
     const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
     const [graphWidth, setGraphWidth] = useState(800);
@@ -73,8 +74,23 @@ export default function CaseGraphSearch() {
         setShowDocGen(false);
 
         try {
-            const data = await analyzeCaseGraph(description.trim());
-            setResult(data);
+            // 쟁점 분석 API로 법령/판례 그래프 생성
+            const [issueData, caseData] = await Promise.allSettled([
+                analyzeIssues(description.trim()),
+                analyzeCaseGraph(description.trim()),
+            ]);
+
+            if (issueData.status === 'fulfilled') {
+                setIssueResult(issueData.value);
+            }
+            if (caseData.status === 'fulfilled') {
+                setResult(caseData.value);
+            }
+
+            if (issueData.status === 'rejected' && caseData.status === 'rejected') {
+                throw new Error('분석에 실패했습니다.');
+            }
+
             setAnalysisStatus('complete');
         } catch (err: any) {
             console.error('분석 실패:', err);
@@ -111,27 +127,30 @@ export default function CaseGraphSearch() {
 
     // 노드 확장
     const handleExpandNode = async (node: GraphNode) => {
-        if (!result || expandingNodeId || node.type === 'case') return;
+        if (expandingNodeId || node.type === 'case') return;
+        const currentNodes = issueResult?.nodes || result?.nodes || [];
+        const currentLinks = issueResult?.links || result?.links || [];
         setExpandingNodeId(node.id);
 
         try {
             const expanded = await expandGraphNode(node.id, node.label, node.type);
 
-            // 기존 노드/링크에 새로운 것들을 추가
-            const existingIds = new Set(result.nodes.map(n => n.id));
+            const existingIds = new Set(currentNodes.map(n => n.id));
             const uniqueNewNodes = expanded.newNodes.filter(n => !existingIds.has(n.id));
             const uniqueNewLinks = expanded.newLinks.filter(l => {
                 const targetExists = existingIds.has(typeof l.target === 'string' ? l.target : '') || uniqueNewNodes.some(n => n.id === l.target);
                 return targetExists;
             });
 
-            setResult({
-                ...result,
-                nodes: [...result.nodes, ...uniqueNewNodes],
-                links: [...result.links, ...uniqueNewLinks],
-            });
+            const newNodes = [...currentNodes, ...uniqueNewNodes];
+            const newLinks = [...currentLinks, ...uniqueNewLinks];
 
-            // 상세 패널에 확장 결과 표시
+            if (issueResult) {
+                setIssueResult({ ...issueResult, nodes: newNodes, links: newLinks });
+            } else if (result) {
+                setResult({ ...result, nodes: newNodes, links: newLinks });
+            }
+
             setSelectedNode({
                 ...node,
                 detail: expanded.detail?.substring(0, 500) || node.detail,
@@ -162,11 +181,16 @@ export default function CaseGraphSearch() {
         setSelectedNode(node);
     };
 
+    // 최종 표시할 노드/링크 결정 (issueResult 우선)
+    const displayNodes = issueResult?.nodes || result?.nodes || [];
+    const displayLinks = issueResult?.links || result?.links || [];
+    const displayIssues = issueResult?.issues || [];
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <h1>🔎 사건 분석</h1>
-                <p>사건 내용을 입력하거나 파일을 업로드하면 AI가 분석하여 법률 지식 그래프로 보여드립니다.</p>
+                <h1>⚖️ 관련 법령·판례</h1>
+                <p>사건 내용을 입력하면 AI가 관련 법령, 판례, 행정해석을 분석하여 그래프로 보여드립니다.</p>
             </div>
 
             <div className={styles.searchSection}>
@@ -221,45 +245,45 @@ export default function CaseGraphSearch() {
                     {analysisStatus === 'loading' ? (
                         <>
                             <span className={styles.spinner} />
-                            AI 분석 중... (약 10~20초 소요)
+                            AI가 관련 법령·판례를 분석 중... (약 10~20초)
                         </>
                     ) : (
-                        '📊 사건 분석 시작'
+                        '⚖️ 관련 법령·판례 분석'
                     )}
                 </button>
             </div>
 
-            {analysisStatus === 'complete' && result && (
+            {analysisStatus === 'complete' && displayNodes.length > 0 && (
                 <div className={styles.resultSection}>
                     {/* 그래프 */}
                     <div className={styles.graphSection}>
-                        <h3>📊 법률 관계 그래프</h3>
+                        <h3>📊 사건-쟁점-법령 관계 그래프</h3>
                         <p className={styles.graphHint}>
-                            노드를 클릭하면 상세 정보 확인 · 더블클릭하면 관련 문서 확장
+                            필터로 보기 모드 전환 · 노드 클릭: 상세 · 더블클릭: 확장 · 모서리 드래그: 크기 조절
                         </p>
-                        <div className={styles.graphWrapper}>
-                            <GraphView
-                                nodes={result.nodes}
-                                links={result.links}
-                                width={graphWidth}
-                                height={500}
-                                onNodeClick={handleNodeClick}
-                                onNodeDoubleClick={handleExpandNode}
-                                expandingNodeId={expandingNodeId}
-                            />
-                        </div>
+                        <IssueGraphView
+                            nodes={displayNodes}
+                            links={displayLinks}
+                            onNodeClick={handleNodeClick}
+                            onNodeDoubleClick={handleExpandNode}
+                            expandingNodeId={expandingNodeId}
+                            initialHeight={550}
+                            minHeight={400}
+                        />
                     </div>
 
                     {/* AI 분석 요약 */}
-                    <div className={styles.summarySection}>
-                        <h3>🧠 AI 법률 분석</h3>
-                        <div className={styles.summaryContent}>
-                            {result.summary}
+                    {(issueResult?.summary || result?.summary) && (
+                        <div className={styles.summarySection}>
+                            <h3>🧠 AI 법률 분석</h3>
+                            <div className={styles.summaryContent}>
+                                {issueResult?.summary || result?.summary}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* 유사 판례 요약 */}
-                    {result.similarCasesSummary && (
+                    {result?.similarCasesSummary && (
                         <div className={styles.summarySection}>
                             <h3>🏛️ 유사 판례 분석</h3>
                             <div className={styles.summaryContent}>
@@ -338,9 +362,9 @@ export default function CaseGraphSearch() {
 
                     {/* 노드 목록 */}
                     <div className={styles.nodeListSection}>
-                        <h3>📑 관련 문서 ({result.nodes.length - 1}건)</h3>
+                        <h3>📑 관련 문서 ({displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').length}건)</h3>
                         <div className={styles.nodeGrid}>
-                            {result.nodes.filter(n => n.type !== 'case').map((node) => (
+                            {displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').map((node) => (
                                 <button
                                     key={node.id}
                                     className={`${styles.nodeCard} ${styles[node.type]}`}
@@ -353,6 +377,11 @@ export default function CaseGraphSearch() {
                                                     node.type === 'decision' ? '🔨 노동위' : '📄 문서'}
                                     </span>
                                     <span className={styles.nodeLabel}>{node.label}</span>
+                                    {node.parentIssue && displayIssues.length > 0 && (
+                                        <span className={styles.nodeType} style={{ fontSize: '0.7rem', marginTop: '4px' }}>
+                                            🔥 {displayIssues.find(i => i.id === node.parentIssue)?.title || ''}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -361,11 +390,11 @@ export default function CaseGraphSearch() {
             )}
 
             {/* 상세 패널 */}
-            {selectedNode && result && (
+            {selectedNode && displayNodes.length > 0 && (
                 <CaseAnalysisDetailPanel
                     node={selectedNode}
-                    links={result.links}
-                    allNodes={result.nodes}
+                    links={displayLinks}
+                    allNodes={displayNodes}
                     onClose={() => setSelectedNode(null)}
                     onExpand={handleExpandNode}
                     isExpanding={expandingNodeId === selectedNode.id}

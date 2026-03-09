@@ -98,17 +98,17 @@ export default function AppShell({ children }: AppShellProps) {
 
                 {/* Center: Navigation */}
                 <nav className={styles.topNav}>
-                    <a href="/promo.html" className={styles.navLink}>
-                        {Icons.promo}
-                        <span>Intro</span>
-                    </a>
-                    <Link href="/case-consultation" className={`${styles.navLink} ${isActive('/case-consultation') ? styles.navActive : ''}`}>
+                    <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
                         {Icons.caseInput}
-                        <span>사건 상담</span>
+                        <span>사건 입력</span>
                     </Link>
                     <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
                         {Icons.caseSearch}
-                        <span>쟁점 분석</span>
+                        <span>핵심 쟁점</span>
+                    </Link>
+                    <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
+                        {Icons.laws}
+                        <span>관련 법령</span>
                     </Link>
                     <Link href="/chat" className={`${styles.navLink} ${isActive('/chat') ? styles.navActive : ''}`}>
                         {Icons.chat}
@@ -118,6 +118,10 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.laws}
                         <span>법령 검색</span>
                     </Link>
+                    <a href="/promo.html" className={styles.navLink}>
+                        {Icons.promo}
+                        <span>소개</span>
+                    </a>
                 </nav>
 
                 {/* Right: Action Icons */}
@@ -189,22 +193,26 @@ export default function AppShell({ children }: AppShellProps) {
 
             {/* ── Bottom Tabs (Mobile) ── */}
             <nav className={styles.bottomTabs}>
-                <a href="/promo.html" className={styles.tabItem}>
-                    {Icons.promo}
-                    <span>Intro</span>
-                </a>
-                <Link href="/case-consultation" className={`${styles.tabItem} ${isActive('/case-consultation') ? styles.activeTab : ''}`}>
+                <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
                     {Icons.caseInput}
-                    <span>상담</span>
+                    <span>사건</span>
                 </Link>
                 <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
                     {Icons.caseSearch}
                     <span>쟁점</span>
                 </Link>
-                <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
+                <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
                     {Icons.laws}
                     <span>법령</span>
                 </Link>
+                <Link href="/chat" className={`${styles.tabItem} ${isActive('/chat') ? styles.activeTab : ''}`}>
+                    {Icons.chat}
+                    <span>상담</span>
+                </Link>
+                <a href="/promo.html" className={styles.tabItem}>
+                    {Icons.promo}
+                    <span>소개</span>
+                </a>
             </nav>
         </div>
     );
