@@ -9507,6 +9507,7 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
  */
 app.post('/api/labor/cases', verifyToken, async (req, res) => {
   try {
+    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { description, caseType } = req.body;
     if (!description || !description.trim()) {
       return res.status(400).json({ success: false, error: '사건 내용을 입력해주세요.' });
@@ -9539,6 +9540,7 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
  */
 app.get('/api/labor/cases', verifyToken, async (req, res) => {
   try {
+    if (!db) return res.json({ success: true, data: [] });
     const userId = req.user.uid;
     const snapshot = await db.collection('labor_cases')
       .where('userId', '==', userId)
@@ -9576,6 +9578,7 @@ app.get('/api/labor/cases', verifyToken, async (req, res) => {
  */
 app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
+    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const { stepName, stepData, currentStep } = req.body;
     const userId = req.user.uid;
@@ -9621,6 +9624,7 @@ app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
  */
 app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
+    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const userId = req.user.uid;
 
