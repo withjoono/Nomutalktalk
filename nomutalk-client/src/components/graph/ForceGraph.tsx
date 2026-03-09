@@ -405,22 +405,31 @@ export default function ForceGraph({
                     graphData={filteredData}
                     nodeLabel=""
                     nodeRelSize={6}
-                    linkDirectionalParticles={hoveredNodeId ? 0 : 2}
+                    linkDirectionalParticles={2}
                     linkDirectionalParticleSpeed={0.004}
-                    linkDirectionalParticleWidth={2}
+                    linkDirectionalParticleWidth={3}
+                    linkDirectionalArrowLength={6}
+                    linkDirectionalArrowRelPos={0.85}
                     linkColor={(link: any) => {
-                        if (!connectedSet) return 'rgba(148, 163, 184, 0.3)';
-                        const src = typeof link.source === 'string' ? link.source : link.source?.id;
-                        const tgt = typeof link.target === 'string' ? link.target : link.target?.id;
-                        const isConn = connectedSet.has(src) && connectedSet.has(tgt);
-                        return isConn ? 'rgba(148, 163, 184, 0.8)' : 'rgba(148, 163, 184, 0.05)';
+                        const srcNode = typeof link.source === 'object' ? link.source : null;
+                        const srcColor = srcNode?.color || 'rgba(148, 163, 184, 1)';
+                        if (!connectedSet) return srcColor;
+                        const srcId = typeof link.source === 'string' ? link.source : link.source?.id;
+                        const tgtId = typeof link.target === 'string' ? link.target : link.target?.id;
+                        const isConn = connectedSet.has(srcId) && connectedSet.has(tgtId);
+                        return isConn ? srcColor : 'rgba(148, 163, 184, 0.08)';
                     }}
                     linkWidth={(link: any) => {
-                        if (!connectedSet) return 1.5;
-                        const src = typeof link.source === 'string' ? link.source : link.source?.id;
-                        const tgt = typeof link.target === 'string' ? link.target : link.target?.id;
-                        const isConn = connectedSet.has(src) && connectedSet.has(tgt);
-                        return isConn ? 2.5 : 0.5;
+                        if (!connectedSet) return 2;
+                        const srcId = typeof link.source === 'string' ? link.source : link.source?.id;
+                        const tgtId = typeof link.target === 'string' ? link.target : link.target?.id;
+                        const isConn = connectedSet.has(srcId) && connectedSet.has(tgtId);
+                        return isConn ? 3 : 0.8;
+                    }}
+                    linkLineDash={(link: any) => {
+                        const tgtNode = typeof link.target === 'object' ? link.target : null;
+                        if (tgtNode?.severity) return []; // 쟁점 연결선 = 실선
+                        return [4, 2]; // 법령/판례 연결선 = 점선
                     }}
                     backgroundColor={backgroundColor}
                     d3AlphaDecay={0.025}
