@@ -22,7 +22,6 @@ interface IssueNode {
     severity: 'high' | 'medium' | 'low';
     detail?: string;
     isCenter?: boolean;
-    // d3 will add x, y, vx, vy
     x?: number;
     y?: number;
     fx?: number;
@@ -42,7 +41,6 @@ interface IssueOnlyGraphProps {
 
 // ==================== Config ====================
 
-const SEVERITY_RANK: Record<string, number> = { high: 1, medium: 2, low: 3 };
 const SEVERITY_COLORS: Record<string, string> = {
     high: '#ef4444',
     medium: '#f97316',
@@ -55,6 +53,8 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const CENTER_COLOR = '#a855f7';
+const NODE_RADIUS = 26;
+const CENTER_RADIUS = 30;
 
 // ==================== Component ====================
 
@@ -65,8 +65,10 @@ export default function IssueOnlyGraph({
 }: IssueOnlyGraphProps) {
     const graphRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 800, height: initialHeight });
     const [hoveredId, setHoveredId] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // ResizeObserver
     useEffect(() => {
@@ -81,6 +83,29 @@ export default function IssueOnlyGraph({
         });
         ro.observe(containerRef.current);
         return () => ro.disconnect();
+    }, []);
+
+    // 전체화면 토글
+    const toggleFullscreen = useCallback(() => {
+        if (!wrapperRef.current) return;
+        if (!isFullscreen) {
+            if (wrapperRef.current.requestFullscreen) {
+                wrapperRef.current.requestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }, [isFullscreen]);
+
+    // fullscreen change 이벤트 리스너
+    useEffect(() => {
+        const handleFsChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFsChange);
+        return () => document.removeEventListener('fullscreenchange', handleFsChange);
     }, []);
 
     // issues → 그래프 데이터 변환
@@ -114,10 +139,10 @@ export default function IssueOnlyGraph({
     useEffect(() => {
         if (graphRef.current && graphData.nodes.length > 0) {
             setTimeout(() => {
-                graphRef.current?.zoomToFit(400, 80);
-            }, 800);
+                graphRef.current?.zoomToFit(400, 60);
+            }, 1200);
         }
-    }, [graphData]);
+    }, [graphData, isFullscreen]);
 
     // 연결 노드 하이라이트
     const connectedSet = useMemo(() => {
@@ -133,28 +158,36 @@ export default function IssueOnlyGraph({
         return set;
     }, [hoveredId, graphData.links]);
 
-    // 중요도별 거리 조절
+    // ★ 핵심: 노드 간 거리를 크게 늘림
     useEffect(() => {
         if (!graphRef.current) return;
         const fg = graphRef.current;
 
-        // 중심 노드는 강한 척력, 쟁점은 중간
-        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -600 : -200);
+        // 강한 척력 → 노드끼리 멀리 밀어냄
+        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -1200 : -600);
 
-        // 링크 거리: 중요도별로 다르게
+        // 링크 거리: 중요도별로 넉넉하게
         fg.d3Force('link')?.distance((link: any) => {
             const target = typeof link.target === 'object' ? link.target : null;
-            if (!target) return 120;
+            if (!target) return 200;
             const sev = target.severity || 'medium';
             switch (sev) {
-                case 'high': return 80;
-                case 'medium': return 150;
-                case 'low': return 220;
-                default: return 150;
+                case 'high': return 140;
+                case 'medium': return 220;
+                case 'low': return 300;
+                default: return 220;
             }
         });
 
-        fg.d3Force('link')?.strength(0.5);
+        fg.d3Force('link')?.strength(0.4);
+
+        // collision force 추가: 노드 반지름 + 여유 공간
+        const d3 = require('d3-force');
+        fg.d3Force('collide', d3.forceCollide()
+            .radius((d: any) => (d.isCenter ? CENTER_RADIUS : NODE_RADIUS) + 20)
+            .strength(1)
+            .iterations(3)
+        );
     }, [graphData]);
 
     // 텍스트 줄바꿈 헬퍼
@@ -170,7 +203,6 @@ export default function IssueOnlyGraph({
             lines.push(remaining.substring(0, maxChars));
             remaining = remaining.substring(maxChars);
             if (lines.length >= 3) {
-                // 최대 3줄, 마지막 줄에 ... 추가
                 lines[lines.length - 1] = lines[lines.length - 1].substring(0, maxChars - 1) + '…';
                 break;
             }
@@ -186,16 +218,13 @@ export default function IssueOnlyGraph({
 
         const isCenter = node.isCenter;
         const color = isCenter ? CENTER_COLOR : (SEVERITY_COLORS[node.severity] || SEVERITY_COLORS.medium);
-
-        // 동적 반지름: 센터 크게, 쟁점은 중간
-        const baseRadius = isCenter ? 32 : 28;
-        const radius = baseRadius;
+        const radius = isCenter ? CENTER_RADIUS : NODE_RADIUS;
 
         // ── 글로우 ──
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius + 8, 0, 2 * Math.PI);
+        ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
         ctx.fillStyle = `${color}22`;
         ctx.fill();
 
@@ -209,15 +238,15 @@ export default function IssueOnlyGraph({
         ctx.stroke();
 
         // ── 원 안의 텍스트 ──
-        const maxCharsPerLine = isCenter ? 5 : 7;
-        const fontSize = (isCenter ? 11 : 9.5) / globalScale;
+        const maxCharsPerLine = isCenter ? 4 : 6;
+        const fontSize = (isCenter ? 10 : 8.5) / globalScale;
         ctx.font = `bold ${fontSize}px 'Noto Sans KR', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
 
         const lines = wrapText(node.label, maxCharsPerLine);
-        const lineHeight = fontSize * 1.3;
+        const lineHeight = fontSize * 1.25;
         const totalH = lineHeight * lines.length;
         const startY = node.y - totalH / 2 + lineHeight / 2;
 
@@ -230,7 +259,6 @@ export default function IssueOnlyGraph({
             const badgeLabel = SEVERITY_LABELS[node.severity] || '';
             const badgeSize = 7 / globalScale;
             ctx.font = `bold ${badgeSize}px sans-serif`;
-            ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(node.x + radius * 0.7, node.y - radius * 0.7, 9 / globalScale, 0, 2 * Math.PI);
             ctx.fillStyle = isDimmed ? 'rgba(15,23,42,0.3)' : '#0f172a';
@@ -278,8 +306,8 @@ export default function IssueOnlyGraph({
     }
 
     return (
-        <div className={styles.wrapper}>
-            {/* 범례 */}
+        <div ref={wrapperRef} className={`${styles.wrapper} ${isFullscreen ? styles.fullscreen : ''}`}>
+            {/* 범례 + 전체화면 버튼 */}
             <div className={styles.legend}>
                 <span className={styles.legendTitle}>🔥 핵심 쟁점 관계도</span>
                 <span className={styles.legendItem}>
@@ -293,12 +321,15 @@ export default function IssueOnlyGraph({
                     </span>
                 ))}
                 <span className={styles.legendHint}>중심에 가까울수록 중요도 높음</span>
+                <button className={styles.fullscreenBtn} onClick={toggleFullscreen} title={isFullscreen ? '축소' : '전체화면'}>
+                    {isFullscreen ? '⬜ 축소' : '⛶ 전체화면'}
+                </button>
             </div>
 
             <div
                 ref={containerRef}
                 className={styles.graphContainer}
-                style={{ height: `${initialHeight}px` }}
+                style={{ height: isFullscreen ? '100%' : `${initialHeight}px` }}
             >
                 {/* @ts-ignore */}
                 <ForceGraph2D
@@ -310,14 +341,14 @@ export default function IssueOnlyGraph({
                     nodeRelSize={6}
                     linkDirectionalParticles={0}
                     backgroundColor="#0f172a"
-                    d3AlphaDecay={0.02}
-                    d3VelocityDecay={0.25}
-                    cooldownTicks={150}
+                    d3AlphaDecay={0.015}
+                    d3VelocityDecay={0.2}
+                    cooldownTicks={200}
                     onNodeHover={(node: any) => setHoveredId(node?.id || null)}
                     nodeCanvasObject={paintNode}
                     linkCanvasObject={paintLink}
                     nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-                        const radius = node.isCenter ? 32 : 28;
+                        const radius = node.isCenter ? CENTER_RADIUS : NODE_RADIUS;
                         ctx.beginPath();
                         ctx.arc(node.x, node.y, radius + 5, 0, 2 * Math.PI);
                         ctx.fillStyle = color;
