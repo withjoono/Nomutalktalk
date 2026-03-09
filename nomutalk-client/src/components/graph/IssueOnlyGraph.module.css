@@ -1,0 +1,61 @@
+.wrapper {
+    border-radius: var(--toss-radius-lg, 16px);
+    overflow: hidden;
+    border: 1px solid var(--toss-border);
+}
+
+.legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    background: #0f172a;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    flex-wrap: wrap;
+}
+
+.legendTitle {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legendHint {
+    font-size: 0.68rem;
+    color: #475569;
+    margin-left: auto;
+    font-style: italic;
+}
+
+.graphContainer {
+    position: relative;
+    overflow: hidden;
+    background: #0f172a;
+}
+
+.emptyState {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    background: var(--toss-bg-secondary);
+    border-radius: var(--toss-radius-md);
+    border: 1px dashed var(--toss-border);
+}
