@@ -58,49 +58,55 @@ const admin = require('firebase-admin');
 // Firebase 초기화
 let db = null;
 let casesDb = null;
+
+// 1단계: Firebase App 초기화
 try {
-  // 서비스 계정 키 파일 경로 (환경변수 또는 기본 경로)
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
 
+  let initialized = false;
   if (fs.existsSync(serviceAccountPath)) {
-    console.log('📂 Firebase 서비스 계정 파일 사용:', serviceAccountPath);
-    const serviceAccount = require(serviceAccountPath);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } else {
+    try {
+      console.log('📂 Firebase 서비스 계정 파일 사용:', serviceAccountPath);
+      const serviceAccount = require(serviceAccountPath);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      initialized = true;
+    } catch (certError) {
+      console.warn('⚠️  서비스 계정 키 파일 오류 (손상 가능):', certError.message);
+    }
+  }
+
+  if (!initialized) {
     console.log('☁️  GCP 인프라 기본 인증 사용 (App Engine)');
     admin.initializeApp({
       credential: admin.credential.applicationDefault()
     });
   }
-
-  // Firestore 초기화 시도 (Datastore Mode인 경우 실패할 수 있음)
-  try {
-    db = admin.firestore();
-    // Firestore 접근 테스트 (실제 사용 가능한지 확인)
-    console.log('✅ Firebase Admin SDK 초기화 성공');
-  } catch (firestoreError) {
-    console.warn('⚠️  Firestore 초기화 실패 (Datastore Mode일 수 있음):', firestoreError.message);
-    console.warn('⚠️  대화 저장소는 메모리 모드로 동작합니다.');
-    db = null;
-  }
-
-  // 사건 관리 전용 Firestore (Native 모드) 초기화
-  try {
-    const { getFirestore } = require('firebase-admin/firestore');
-    casesDb = getFirestore(admin.app(), 'nomutalk-cases');
-    console.log('✅ 사건 관리 Firestore (nomutalk-cases) 초기화 성공');
-  } catch (casesDbError) {
-    console.warn('⚠️  사건 관리 Firestore 초기화 실패:', casesDbError.message);
-    casesDb = null;
-  }
 } catch (error) {
   console.error('❌ Firebase 초기화 오류:', error.message);
-  // 인증 없이 초기화 시도 (일부 기능 제한될 수 있음)
   if (!admin.apps.length) {
     admin.initializeApp();
   }
+}
+
+// 2단계: Firestore 초기화 (기본 DB - Datastore 모드)
+try {
+  db = admin.firestore();
+  console.log('✅ Firebase Admin SDK 초기화 성공');
+} catch (firestoreError) {
+  console.warn('⚠️  Firestore 초기화 실패 (Datastore Mode일 수 있음):', firestoreError.message);
+  db = null;
+}
+
+// 3단계: 사건 관리 전용 Firestore (Native 모드) 초기화
+try {
+  const { getFirestore } = require('firebase-admin/firestore');
+  casesDb = getFirestore(admin.app(), 'nomutalk-cases');
+  console.log('✅ 사건 관리 Firestore (nomutalk-cases) 초기화 성공');
+} catch (casesDbError) {
+  console.warn('⚠️  사건 관리 Firestore 초기화 실패:', casesDbError.message);
+  casesDb = null;
 }
 
 // 대화형 챗봇 모듈
