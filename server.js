@@ -57,6 +57,7 @@ const admin = require('firebase-admin');
 
 // Firebase 초기화
 let db = null;
+let casesDb = null;
 try {
   // 서비스 계정 키 파일 경로 (환경변수 또는 기본 경로)
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './firebase-service-account.json';
@@ -83,6 +84,16 @@ try {
     console.warn('⚠️  Firestore 초기화 실패 (Datastore Mode일 수 있음):', firestoreError.message);
     console.warn('⚠️  대화 저장소는 메모리 모드로 동작합니다.');
     db = null;
+  }
+
+  // 사건 관리 전용 Firestore (Native 모드) 초기화
+  try {
+    casesDb = admin.firestore();
+    casesDb.settings({ databaseId: 'nomutalk-cases' });
+    console.log('✅ 사건 관리 Firestore (nomutalk-cases) 초기화 성공');
+  } catch (casesDbError) {
+    console.warn('⚠️  사건 관리 Firestore 초기화 실패:', casesDbError.message);
+    casesDb = null;
   }
 } catch (error) {
   console.error('❌ Firebase 초기화 오류:', error.message);
@@ -9507,7 +9518,7 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
  */
 app.post('/api/labor/cases', verifyToken, async (req, res) => {
   try {
-    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
+    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { description, caseType } = req.body;
     if (!description || !description.trim()) {
       return res.status(400).json({ success: false, error: '사건 내용을 입력해주세요.' });
@@ -9524,7 +9535,7 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    const docRef = await db.collection('labor_cases').add(caseData);
+    const docRef = await casesDb.collection('labor_cases').add(caseData);
     console.log(`[사건관리] 새 사건 생성: ${docRef.id} (user: ${userId})`);
 
     res.json({ success: true, data: { caseId: docRef.id, ...caseData, createdAt: new Date().toISOString() } });
@@ -9540,9 +9551,9 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
  */
 app.get('/api/labor/cases', verifyToken, async (req, res) => {
   try {
-    if (!db) return res.json({ success: true, data: [] });
+    if (!casesDb) return res.json({ success: true, data: [] });
     const userId = req.user.uid;
-    const snapshot = await db.collection('labor_cases')
+    const snapshot = await casesDb.collection('labor_cases')
       .where('userId', '==', userId)
       .orderBy('createdAt', 'desc')
       .limit(50)
@@ -9578,12 +9589,12 @@ app.get('/api/labor/cases', verifyToken, async (req, res) => {
  */
 app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
-    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
+    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const { stepName, stepData, currentStep } = req.body;
     const userId = req.user.uid;
 
-    const docRef = db.collection('labor_cases').doc(id);
+    const docRef = casesDb.collection('labor_cases').doc(id);
     const doc = await docRef.get();
 
     if (!doc.exists) {
@@ -9624,11 +9635,11 @@ app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
  */
 app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
-    if (!db) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
+    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const userId = req.user.uid;
 
-    const doc = await db.collection('labor_cases').doc(id).get();
+    const doc = await casesDb.collection('labor_cases').doc(id).get();
     if (!doc.exists) {
       return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     }
