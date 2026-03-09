@@ -55,8 +55,8 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const CENTER_COLOR = '#a855f7';
-const NODE_RADIUS = 28;
-const CENTER_RADIUS = 32;
+const NODE_RADIUS = 18;
+const CENTER_RADIUS = 22;
 
 // ==================== Component ====================
 
@@ -125,7 +125,7 @@ export default function IssueOnlyGraph({
         const issueNodes: IssueNode[] = issues.map((issue, idx) => {
             // 중요도별 반경 (높을수록 가까이)
             const sev = (issue.severity as string) || 'medium';
-            const baseRadius = sev === 'high' ? 150 : sev === 'medium' ? 230 : 310;
+            const baseRadius = sev === 'high' ? 200 : sev === 'medium' ? 300 : 400;
             const angle = (2 * Math.PI * idx) / Math.max(n, 1) - Math.PI / 2;
 
             return {
@@ -176,17 +176,17 @@ export default function IssueOnlyGraph({
         if (!graphRef.current) return;
         const fg = graphRef.current;
 
-        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -2000 : -800);
+        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -3000 : -1500);
 
         fg.d3Force('link')?.distance((link: any) => {
             const target = typeof link.target === 'object' ? link.target : null;
             if (!target) return 250;
             const sev = target.severity || 'medium';
             switch (sev) {
-                case 'high': return 160;
-                case 'medium': return 250;
-                case 'low': return 340;
-                default: return 250;
+                case 'high': return 200;
+                case 'medium': return 320;
+                case 'low': return 420;
+                default: return 320;
             }
         });
 
@@ -194,7 +194,7 @@ export default function IssueOnlyGraph({
 
         const d3 = require('d3-force');
         fg.d3Force('collide', d3.forceCollide()
-            .radius((d: any) => (d.isCenter ? CENTER_RADIUS : NODE_RADIUS) + 30)
+            .radius((d: any) => (d.isCenter ? CENTER_RADIUS : NODE_RADIUS) + 40)
             .strength(1)
             .iterations(4)
         );
