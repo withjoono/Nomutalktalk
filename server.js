@@ -182,7 +182,9 @@ const corsOptions = {
         'https://laborlawtech.web.app',
         'https://laborlawtech.firebaseapp.com',
         'https://nomutalk-889bd.web.app',
-        'https://nomutalk-889bd.firebaseapp.com'
+        'https://nomutalk-889bd.firebaseapp.com',
+        'https://nomutalk.kr',
+        'https://www.nomutalk.kr'
       ];
 
     // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
