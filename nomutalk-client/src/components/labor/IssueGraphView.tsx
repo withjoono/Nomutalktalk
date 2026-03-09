@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import ObsidianGraph, { OGNode, OGLink, FilterGroup } from '../graph/ObsidianGraph';
+import ForceGraph, { FGNode, FGLink, FilterGroup } from '../graph/ForceGraph';
 import { GraphNode, GraphLink } from '@/lib/api';
 
 // ==================== 노동법 전용 설정 ====================
@@ -97,23 +97,23 @@ export default function IssueGraphView({
     initialHeight = 550,
     minHeight = 400,
 }: IssueGraphViewProps) {
-    // GraphNode → OGNode 변환 (group 필드 추가)
-    const ogNodes: OGNode[] = nodes.map(n => ({
+    // GraphNode → FGNode 변환 (group 필드 추가)
+    const fgNodes: FGNode[] = nodes.map(n => ({
         ...n,
         group: n.parentIssue || (n.type === 'case' ? '__center__' : undefined),
         severity: n.severity,
     }));
 
-    const ogLinks: OGLink[] = links.map(l => ({
+    const fgLinks: FGLink[] = links.map(l => ({
         source: typeof l.source === 'string' ? l.source : (l.source as any)?.id || '',
         target: typeof l.target === 'string' ? l.target : (l.target as any)?.id || '',
         label: l.label,
     }));
 
     return (
-        <ObsidianGraph
-            nodes={ogNodes}
-            links={ogLinks}
+        <ForceGraph
+            nodes={fgNodes}
+            links={fgLinks}
             nodeColors={NODE_COLORS}
             nodeIcons={NODE_ICONS}
             nodeLabels={NODE_LABELS}

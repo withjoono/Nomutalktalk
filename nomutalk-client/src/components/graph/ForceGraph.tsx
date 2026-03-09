@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import styles from './ObsidianGraph.module.css';
+import styles from './ForceGraph.module.css';
 
 // SSR 제외
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -16,7 +16,7 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
 
 // ==================== Types ====================
 
-export interface OGNode {
+export interface FGNode {
     id: string;
     label: string;
     type: string;
@@ -27,7 +27,7 @@ export interface OGNode {
     [key: string]: any;
 }
 
-export interface OGLink {
+export interface FGLink {
     source: string;
     target: string;
     label?: string;
@@ -43,9 +43,9 @@ export interface FilterGroup {
     alwaysVisible?: boolean;
 }
 
-export interface ObsidianGraphProps {
-    nodes: OGNode[];
-    links: OGLink[];
+export interface ForceGraphProps {
+    nodes: FGNode[];
+    links: FGLink[];
     /** 노드 타입별 색상: { case: '#a855f7', law: '#3b82f6', ... } */
     nodeColors: Record<string, string>;
     /** 노드 타입별 아이콘 (이모지): { case: '📋', law: '⚖️', ... } */
@@ -63,9 +63,9 @@ export interface ObsidianGraphProps {
     /** severity별 글로우 색상 */
     severityColors?: Record<string, string>;
     /** 노드 클릭 */
-    onNodeClick?: (node: OGNode) => void;
+    onNodeClick?: (node: FGNode) => void;
     /** 노드 더블클릭 */
-    onNodeDoubleClick?: (node: OGNode) => void;
+    onNodeDoubleClick?: (node: FGNode) => void;
     /** 확장 중인 노드 ID */
     expandingNodeId?: string | null;
     /** 배경 색상 (기본: #0f172a) */
@@ -76,7 +76,7 @@ export interface ObsidianGraphProps {
 
 // ==================== Component ====================
 
-export default function ObsidianGraph({
+export default function ForceGraph({
     nodes,
     links,
     nodeColors,
@@ -92,7 +92,7 @@ export default function ObsidianGraph({
     expandingNodeId,
     backgroundColor = '#0f172a',
     legendTitle = '📊 관계도',
-}: ObsidianGraphProps) {
+}: ForceGraphProps) {
     const graphRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 800, height: initialHeight });
@@ -136,7 +136,7 @@ export default function ObsidianGraph({
     const filteredData = useMemo(() => {
         const activeGroup = filterGroups.find(f => f.id === activeFilter);
 
-        let visibleNodes: OGNode[];
+        let visibleNodes: FGNode[];
 
         if (!activeGroup) {
             // 필터 없음 = 전체 표시
@@ -180,11 +180,11 @@ export default function ObsidianGraph({
     const handleNodeClick = useCallback((node: any) => {
         const now = Date.now();
         if (lastClickNode.current === node.id && now - lastClickTime.current < 400) {
-            if (onNodeDoubleClick) onNodeDoubleClick(node as OGNode);
+            if (onNodeDoubleClick) onNodeDoubleClick(node as FGNode);
             lastClickTime.current = 0;
             lastClickNode.current = '';
         } else {
-            if (onNodeClick) onNodeClick(node as OGNode);
+            if (onNodeClick) onNodeClick(node as FGNode);
             lastClickTime.current = now;
             lastClickNode.current = node.id;
         }
