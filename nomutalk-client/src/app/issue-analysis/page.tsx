@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCaseFlow } from '@/context/CaseFlowContext';
 import IssueAnalysisView from '@/components/case-consultation/IssueAnalysisView';
+import StepNav from '@/components/layout/StepNav';
 import { GraphNode, GraphLink } from '@/lib/api';
 import styles from './page.module.css';
 
@@ -81,12 +82,7 @@ export default function IssueAnalysisPage() {
                         onNodesUpdate={handleNodesUpdate}
                     />
 
-                    <button
-                        className={styles.nextStepBtn}
-                        onClick={() => goToStep(2)}
-                    >
-                        ⚖️ 관련 법령·판례 분석으로 →
-                    </button>
+                    <StepNav currentStep={1} />
                 </div>
             )}
         </div>

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCaseFlow } from '@/context/CaseFlowContext';
 import IssueGraphView from '@/components/labor/IssueGraphView';
+import StepNav from '@/components/layout/StepNav';
 import styles from '../issue-analysis/page.module.css';
 
 export default function CaseSearchPage() {
@@ -101,12 +102,7 @@ export default function CaseSearchPage() {
                         />
                     )}
 
-                    <button
-                        className={styles.nextStepBtn}
-                        onClick={() => goToStep(3)}
-                    >
-                        💬 AI 상담으로 →
-                    </button>
+                    <StepNav currentStep={2} />
                 </div>
             )}
         </div>

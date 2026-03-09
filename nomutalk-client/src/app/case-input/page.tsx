@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useCaseFlow } from '@/context/CaseFlowContext';
 import { useAuth } from '@/context/AuthContext';
 import { listCases, CaseRecord } from '@/lib/api';
+import StepNav from '@/components/layout/StepNav';
 import styles from './page.module.css';
 
 const CASE_TYPES = [
@@ -143,6 +144,8 @@ export default function CaseInputPage() {
 
                 {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
             </section>
+
+            <StepNav currentStep={0} />
         </div>
     );
 }
