@@ -9964,6 +9964,188 @@ app.delete('/api/chat/session/:sessionId', async (req, res) => {
   }
 });
 
+// ======================== 맥락 기반 AI 상담 ========================
+
+// 맥락 기반 세션 저장소 (in-memory)
+const contextualSessions = new Map();
+
+/**
+ * 맥락 기반 상담 세션 생성 + AI 첫 인사
+ * POST /api/labor/chat/contextual
+ * Body: { caseDescription, issues, laws, summary }
+ */
+app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
+  try {
+    const { caseDescription, issues, laws, summary } = req.body;
+
+    if (!caseDescription) {
+      return res.status(400).json({
+        success: false,
+        error: '사건 내용이 필요합니다.'
+      });
+    }
+
+    const sessionId = `ctx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const userId = req.user?.uid || 'anonymous';
+
+    console.log(`[맥락 상담] 세션 생성: ${sessionId}`);
+
+    // ── 시스템 프롬프트 구성 ──
+    const issuesList = (issues || []).map((iss, i) =>
+      `${i + 1}. [${iss.severity === 'high' ? '높음' : iss.severity === 'medium' ? '보통' : '낮음'}] ${iss.title}: ${iss.summary || ''}`
+    ).join('\n');
+
+    const lawsList = (laws || []).map((law, i) => {
+      const typeLabel = law.type === 'law' ? '법령' : law.type === 'precedent' ? '판례' : '행정해석';
+      return `${i + 1}. [${typeLabel}] ${law.title || law.label}: ${law.detail || ''}`;
+    }).join('\n');
+
+    const systemPrompt = `당신은 한국 노동법 전문 AI 상담사 "노무톡"입니다.
+
+아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.
+이 맥락을 완전히 이해한 상태에서 상담을 진행하세요.
+
+═══════════════ 사건 내용 ═══════════════
+${caseDescription}
+
+═══════════════ 핵심 쟁점 (${(issues || []).length}건) ═══════════════
+${issuesList || '(분석된 쟁점 없음)'}
+
+═══════════════ 관련 법령/판례 ═══════════════
+${lawsList || '(분석된 법령 없음)'}
+
+═══════════════ AI 분석 요약 ═══════════════
+${summary || '(요약 없음)'}
+
+═══════════════ 상담 규칙 ═══════════════
+1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.
+2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.
+3. 사용자의 권리와 의무를 명확히 설명합니다.
+4. 실질적인 대응 방안과 절차를 안내합니다.
+5. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.
+6. 한국어로 친절하고 이해하기 쉽게 답변합니다.
+7. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`;
+
+    // ── Gemini로 첫 인사 생성 ──
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const welcomePrompt = `위 사건 맥락을 바탕으로 사용자에게 인사하고, 
+분석된 핵심 쟁점과 관련 법령을 간략히 요약한 뒤, 
+어떤 부분에 대해 더 자세히 상담받고 싶은지 물어보세요.
+응답은 200~400자 이내로 해주세요.`;
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'model', parts: [{ text: '네, 사건 내용과 분석 결과를 모두 파악했습니다. 상담을 시작하겠습니다.' }] },
+        { role: 'user', parts: [{ text: welcomePrompt }] }
+      ],
+    });
+
+    const welcomeMessage = response.text || '안녕하세요. 사건 분석 결과를 바탕으로 상담을 도와드리겠습니다. 어떤 부분이 궁금하신가요?';
+
+    // ── 세션 저장 ──
+    contextualSessions.set(sessionId, {
+      sessionId,
+      userId,
+      systemPrompt,
+      history: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'model', parts: [{ text: '네, 사건 내용과 분석 결과를 모두 파악했습니다. 상담을 시작하겠습니다.' }] },
+        { role: 'user', parts: [{ text: welcomePrompt }] },
+        { role: 'model', parts: [{ text: welcomeMessage }] }
+      ],
+      createdAt: new Date().toISOString()
+    });
+
+    console.log(`[맥락 상담] 세션 생성 완료: ${sessionId}`);
+
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        welcomeMessage,
+      }
+    });
+
+  } catch (error) {
+    console.error('[맥락 상담] 세션 생성 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 맥락 기반 상담 메시지 전송
+ * POST /api/labor/chat/message
+ * Body: { sessionId, message }
+ */
+app.post('/api/labor/chat/message', verifyToken, async (req, res) => {
+  try {
+    const { sessionId, message } = req.body;
+
+    if (!sessionId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId와 message가 필요합니다.'
+      });
+    }
+
+    const session = contextualSessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: '세션을 찾을 수 없습니다.'
+      });
+    }
+
+    console.log(`[맥락 상담] 메시지 처리: ${sessionId}`);
+
+    // 사용자 메시지를 히스토리에 추가
+    session.history.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    // Gemini 호출 (전체 히스토리 포함)
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: session.history,
+    });
+
+    const aiMessage = response.text || '죄송합니다. 응답을 생성하지 못했습니다. 다시 질문해주세요.';
+
+    // AI 응답을 히스토리에 추가
+    session.history.push({
+      role: 'model',
+      parts: [{ text: aiMessage }]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        message: aiMessage,
+        stage: 'consultation',
+      }
+    });
+
+  } catch (error) {
+    console.error('[맥락 상담] 메시지 처리 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 /**
  * 활성 세션 목록
  * GET /api/chat/sessions

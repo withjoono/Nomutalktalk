@@ -93,6 +93,50 @@ export async function deleteSession(sessionId: string): Promise<void> {
     });
 }
 
+// ==================== Contextual AI Chat ====================
+
+export interface ContextualSessionRequest {
+    caseDescription: string;
+    issues: IssueInfo[];
+    laws: { title: string; type: string; detail: string; label?: string }[];
+    summary: string;
+}
+
+export async function createContextualSession(
+    context: ContextualSessionRequest
+): Promise<{ sessionId: string; welcomeMessage: string }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/chat/contextual`, {
+        method: 'POST',
+        body: JSON.stringify(context)
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '맥락 상담 세션 생성 실패');
+    }
+
+    return data.data;
+}
+
+export async function sendContextualMessage(
+    sessionId: string,
+    message: string
+): Promise<{ message: string; stage: string }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/chat/message`, {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, message })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '메시지 전송 실패');
+    }
+
+    return data.data;
+}
+
 
 export interface Citation {
     title: string;
