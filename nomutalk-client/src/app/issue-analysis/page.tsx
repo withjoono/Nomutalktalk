@@ -30,6 +30,15 @@ export default function IssueAnalysisPage() {
         }
     };
 
+    const handleAddIssue = (issue: any) => {
+        if (state.issueResult) {
+            setIssueResult({
+                ...state.issueResult,
+                issues: [...state.issueResult.issues, issue],
+            });
+        }
+    };
+
     if (!state.caseId) {
         return null; // 리다이렉트 중
     }
@@ -80,6 +89,7 @@ export default function IssueAnalysisPage() {
                         links={state.issueResult.links}
                         onProceedToChat={() => { }}
                         onNodesUpdate={handleNodesUpdate}
+                        onAddIssue={handleAddIssue}
                     />
 
                     <StepNav currentStep={1} />

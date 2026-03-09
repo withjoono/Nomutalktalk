@@ -22,6 +22,7 @@ interface IssueNode {
     severity: 'high' | 'medium' | 'low';
     detail?: string;
     isCenter?: boolean;
+    issueIndex?: number;
     x?: number;
     y?: number;
     fx?: number;
@@ -37,6 +38,7 @@ interface IssueOnlyGraphProps {
     issues: IssueInfo[];
     caseLabel?: string;
     initialHeight?: number;
+    onNodeClick?: (issueIndex: number) => void;
 }
 
 // ==================== Config ====================
@@ -53,8 +55,8 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const CENTER_COLOR = '#a855f7';
-const NODE_RADIUS = 26;
-const CENTER_RADIUS = 30;
+const NODE_RADIUS = 28;
+const CENTER_RADIUS = 32;
 
 // ==================== Component ====================
 
@@ -62,6 +64,7 @@ export default function IssueOnlyGraph({
     issues,
     caseLabel = '사건',
     initialHeight = 500,
+    onNodeClick,
 }: IssueOnlyGraphProps) {
     const graphRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +102,6 @@ export default function IssueOnlyGraph({
         }
     }, [isFullscreen]);
 
-    // fullscreen change 이벤트 리스너
     useEffect(() => {
         const handleFsChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
@@ -108,7 +110,7 @@ export default function IssueOnlyGraph({
         return () => document.removeEventListener('fullscreenchange', handleFsChange);
     }, []);
 
-    // issues → 그래프 데이터 변환
+    // issues → 그래프 데이터 (★ 초기 위치를 원형으로 배치)
     const graphData = useMemo(() => {
         const centerNode: IssueNode = {
             id: '__case__',
@@ -119,17 +121,28 @@ export default function IssueOnlyGraph({
             fy: 0,
         };
 
-        const issueNodes: IssueNode[] = issues.map((issue, idx) => ({
-            id: `issue-${idx}`,
-            label: issue.title || `쟁점 ${idx + 1}`,
-            severity: (issue.severity as any) || 'medium',
-            detail: issue.summary || '',
-        }));
+        const n = issues.length;
+        const issueNodes: IssueNode[] = issues.map((issue, idx) => {
+            // 중요도별 반경 (높을수록 가까이)
+            const sev = (issue.severity as string) || 'medium';
+            const baseRadius = sev === 'high' ? 150 : sev === 'medium' ? 230 : 310;
+            const angle = (2 * Math.PI * idx) / Math.max(n, 1) - Math.PI / 2;
+
+            return {
+                id: `issue-${idx}`,
+                label: issue.title || `쟁점 ${idx + 1}`,
+                severity: (issue.severity as any) || 'medium',
+                detail: issue.summary || '',
+                issueIndex: idx,
+                x: Math.cos(angle) * baseRadius,
+                y: Math.sin(angle) * baseRadius,
+            };
+        });
 
         const nodes = [centerNode, ...issueNodes];
-        const links: IssueLink[] = issueNodes.map(n => ({
+        const links: IssueLink[] = issueNodes.map(nd => ({
             source: '__case__',
-            target: n.id,
+            target: nd.id,
         }));
 
         return { nodes, links };
@@ -139,8 +152,8 @@ export default function IssueOnlyGraph({
     useEffect(() => {
         if (graphRef.current && graphData.nodes.length > 0) {
             setTimeout(() => {
-                graphRef.current?.zoomToFit(400, 60);
-            }, 1200);
+                graphRef.current?.zoomToFit(400, 80);
+            }, 800);
         }
     }, [graphData, isFullscreen]);
 
@@ -158,39 +171,42 @@ export default function IssueOnlyGraph({
         return set;
     }, [hoveredId, graphData.links]);
 
-    // ★ 핵심: 노드 간 거리를 크게 늘림
+    // ★ 강한 물리 설정
     useEffect(() => {
         if (!graphRef.current) return;
         const fg = graphRef.current;
 
-        // 강한 척력 → 노드끼리 멀리 밀어냄
-        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -1200 : -600);
+        fg.d3Force('charge')?.strength((d: any) => d.isCenter ? -2000 : -800);
 
-        // 링크 거리: 중요도별로 넉넉하게
         fg.d3Force('link')?.distance((link: any) => {
             const target = typeof link.target === 'object' ? link.target : null;
-            if (!target) return 200;
+            if (!target) return 250;
             const sev = target.severity || 'medium';
             switch (sev) {
-                case 'high': return 140;
-                case 'medium': return 220;
-                case 'low': return 300;
-                default: return 220;
+                case 'high': return 160;
+                case 'medium': return 250;
+                case 'low': return 340;
+                default: return 250;
             }
         });
 
-        fg.d3Force('link')?.strength(0.4);
+        fg.d3Force('link')?.strength(0.3);
 
-        // collision force 추가: 노드 반지름 + 여유 공간
         const d3 = require('d3-force');
         fg.d3Force('collide', d3.forceCollide()
-            .radius((d: any) => (d.isCenter ? CENTER_RADIUS : NODE_RADIUS) + 20)
+            .radius((d: any) => (d.isCenter ? CENTER_RADIUS : NODE_RADIUS) + 30)
             .strength(1)
-            .iterations(3)
+            .iterations(4)
         );
     }, [graphData]);
 
-    // 텍스트 줄바꿈 헬퍼
+    // 노드 클릭
+    const handleNodeClick = useCallback((node: any) => {
+        if (node.isCenter || node.issueIndex === undefined) return;
+        onNodeClick?.(node.issueIndex);
+    }, [onNodeClick]);
+
+    // 텍스트 줄바꿈
     const wrapText = (text: string, maxChars: number): string[] => {
         if (text.length <= maxChars) return [text];
         const lines: string[] = [];
@@ -220,15 +236,16 @@ export default function IssueOnlyGraph({
         const color = isCenter ? CENTER_COLOR : (SEVERITY_COLORS[node.severity] || SEVERITY_COLORS.medium);
         const radius = isCenter ? CENTER_RADIUS : NODE_RADIUS;
 
-        // ── 글로우 ──
         ctx.save();
         ctx.globalAlpha = alpha;
+
+        // 글로우
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
         ctx.fillStyle = `${color}22`;
         ctx.fill();
 
-        // ── 원 ──
+        // 원
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
         ctx.fillStyle = color;
@@ -237,7 +254,7 @@ export default function IssueOnlyGraph({
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // ── 원 안의 텍스트 ──
+        // 텍스트
         const maxCharsPerLine = isCenter ? 4 : 6;
         const fontSize = (isCenter ? 10 : 8.5) / globalScale;
         ctx.font = `bold ${fontSize}px 'Noto Sans KR', sans-serif`;
@@ -254,7 +271,7 @@ export default function IssueOnlyGraph({
             ctx.fillText(line, node.x, startY + i * lineHeight);
         });
 
-        // ── 중요도 뱃지 (쟁점만) ──
+        // 중요도 뱃지
         if (!isCenter && node.severity) {
             const badgeLabel = SEVERITY_LABELS[node.severity] || '';
             const badgeSize = 7 / globalScale;
@@ -307,7 +324,6 @@ export default function IssueOnlyGraph({
 
     return (
         <div ref={wrapperRef} className={`${styles.wrapper} ${isFullscreen ? styles.fullscreen : ''}`}>
-            {/* 범례 + 전체화면 버튼 */}
             <div className={styles.legend}>
                 <span className={styles.legendTitle}>🔥 핵심 쟁점 관계도</span>
                 <span className={styles.legendItem}>
@@ -320,7 +336,7 @@ export default function IssueOnlyGraph({
                         {SEVERITY_LABELS[sev]}
                     </span>
                 ))}
-                <span className={styles.legendHint}>중심에 가까울수록 중요도 높음</span>
+                <span className={styles.legendHint}>클릭하면 쟁점 상세 보기</span>
                 <button className={styles.fullscreenBtn} onClick={toggleFullscreen} title={isFullscreen ? '축소' : '전체화면'}>
                     {isFullscreen ? '⬜ 축소' : '⛶ 전체화면'}
                 </button>
@@ -341,10 +357,12 @@ export default function IssueOnlyGraph({
                     nodeRelSize={6}
                     linkDirectionalParticles={0}
                     backgroundColor="#0f172a"
-                    d3AlphaDecay={0.015}
-                    d3VelocityDecay={0.2}
-                    cooldownTicks={200}
+                    d3AlphaDecay={0.02}
+                    d3VelocityDecay={0.25}
+                    cooldownTicks={150}
+                    warmupTicks={50}
                     onNodeHover={(node: any) => setHoveredId(node?.id || null)}
+                    onNodeClick={handleNodeClick}
                     nodeCanvasObject={paintNode}
                     linkCanvasObject={paintLink}
                     nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {

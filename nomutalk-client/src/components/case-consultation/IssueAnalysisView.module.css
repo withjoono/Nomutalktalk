@@ -230,3 +230,224 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* 선택된 쟁점 상세 패널 */
+.detailPanel {
+    background: var(--toss-bg-card, #ffffff);
+    border: 2px solid var(--toss-primary, #3182f6);
+    border-radius: 14px;
+    padding: 18px 22px;
+    animation: slideDown 0.25s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.detailHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.detailTitle {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--toss-text, #191f28);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--toss-text-tertiary, #8b95a1);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.closeBtn:hover {
+    background: var(--toss-bg, #f2f4f6);
+}
+
+.detailSummary {
+    font-size: 0.88rem;
+    color: var(--toss-text-secondary, #4e5968);
+    line-height: 1.7;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* 선택된 카드 */
+.issueCardSelected {
+    border-color: var(--toss-primary, #3182f6) !important;
+    box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.2);
+    background: rgba(49, 130, 246, 0.04);
+}
+
+/* 쟁점 추가 섹션 */
+.addIssueSection {
+    padding: 0 4px;
+}
+
+.addHint {
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary, #8b95a1);
+    margin: 0 0 12px 0;
+}
+
+.addBtnGroup {
+    display: flex;
+    gap: 10px;
+}
+
+.addBtn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px dashed var(--toss-border, #d1d6db);
+    background: var(--toss-bg, #f2f4f6);
+    color: var(--toss-text-secondary, #6b7684);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.addBtn:hover {
+    border-color: var(--toss-primary, #3182f6);
+    color: var(--toss-primary, #3182f6);
+    background: rgba(49, 130, 246, 0.04);
+}
+
+.addForm {
+    background: var(--toss-bg-card, #ffffff);
+    border: 1px solid var(--toss-border, #e5e8eb);
+    border-radius: 12px;
+    padding: 16px;
+    animation: slideDown 0.2s ease;
+}
+
+.addInput {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--toss-border, #d1d6db);
+    font-size: 0.88rem;
+    font-family: inherit;
+    background: var(--toss-bg, #f2f4f6);
+    color: var(--toss-text, #191f28);
+    box-sizing: border-box;
+}
+
+.addInput:focus {
+    outline: none;
+    border-color: var(--toss-primary, #3182f6);
+}
+
+.addTextarea {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--toss-border, #d1d6db);
+    font-size: 0.85rem;
+    font-family: inherit;
+    background: var(--toss-bg, #f2f4f6);
+    color: var(--toss-text, #191f28);
+    resize: vertical;
+    margin-top: 8px;
+    box-sizing: border-box;
+}
+
+.addTextarea:focus {
+    outline: none;
+    border-color: var(--toss-primary, #3182f6);
+}
+
+.addFormRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.addLabel {
+    font-size: 0.8rem;
+    color: var(--toss-text-secondary);
+}
+
+.addSelect {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--toss-border, #d1d6db);
+    font-size: 0.82rem;
+    font-family: inherit;
+    background: var(--toss-bg, #f2f4f6);
+    color: var(--toss-text);
+}
+
+.addSubmitBtn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--toss-primary, #3182f6);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.addSubmitBtn:hover {
+    background: #1a73e8;
+}
+
+.addSubmitBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.addCancelBtn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--toss-border, #d1d6db);
+    background: none;
+    color: var(--toss-text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+}
+
+.addCancelBtn:hover {
+    background: var(--toss-bg, #f2f4f6);
+}
+
+.fileDropzone {
+    border: 2px dashed var(--toss-border, #d1d6db);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+}
+
+.fileLabel {
+    cursor: pointer;
+    color: var(--toss-text-secondary, #6b7684);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.fileLabel:hover {
+    color: var(--toss-primary, #3182f6);
+}
