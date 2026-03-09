@@ -56,82 +56,93 @@ export default function CaseInputPage() {
 
     return (
         <div className={styles.container}>
-            <h1>📁 사건 입력</h1>
+            <h1>📂 내 사건</h1>
             <p className={styles.description}>
-                사건 내용을 입력하면 핵심 쟁점 → 관련 법령 → AI 상담까지 순차적으로 진행됩니다.
+                새 사건을 입력하거나, 이전 분석 내역을 이어서 확인하세요.
             </p>
 
-            {/* 과거 사건 목록 */}
-            {user && pastCases.length > 0 && (
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>📋 이전 분석 내역</label>
-                    <div className={styles.caseList}>
-                        {pastCases.map(c => (
-                            <button
-                                key={c.id}
-                                className={styles.caseCard}
-                                onClick={() => loadCase(c.id)}
-                            >
-                                <div className={styles.caseCardTop}>
-                                    <span className={styles.caseType}>{c.caseType || '일반'}</span>
-                                    <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
-                                </div>
-                                <p className={styles.caseDesc}>
-                                    {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
-                                </p>
-                                <div className={styles.caseSteps}>
-                                    {STEP_LABELS.map((label, i) => (
-                                        <span
-                                            key={i}
-                                            className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}
-                                        >
-                                            {label}
-                                        </span>
-                                    ))}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            {/* ═══ 섹션 1: 이전 사건 목록 ═══ */}
+            {user && (
+                <section className={styles.section}>
+                    <h2 className={styles.sectionTitle}>📋 이전 분석 내역</h2>
+
+                    {loadingCases && <p className={styles.status}>불러오는 중...</p>}
+
+                    {!loadingCases && pastCases.length === 0 && (
+                        <p className={styles.emptyMsg}>아직 분석한 사건이 없습니다.</p>
+                    )}
+
+                    {pastCases.length > 0 && (
+                        <div className={styles.caseList}>
+                            {pastCases.map(c => (
+                                <button
+                                    key={c.id}
+                                    className={styles.caseCard}
+                                    onClick={() => loadCase(c.id)}
+                                >
+                                    <div className={styles.caseCardTop}>
+                                        <span className={styles.caseType}>{c.caseType || '일반'}</span>
+                                        <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
+                                    </div>
+                                    <p className={styles.caseDesc}>
+                                        {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
+                                    </p>
+                                    <div className={styles.caseSteps}>
+                                        {STEP_LABELS.map((label, i) => (
+                                            <span
+                                                key={i}
+                                                className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}
+                                            >
+                                                {label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </section>
             )}
 
-            {loadingCases && <p className={styles.status}>이전 사건 불러오는 중...</p>}
+            {/* ═══ 섹션 2: 새 사건 입력 ═══ */}
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>✏️ 새 사건 입력</h2>
 
-            {/* 새 사건 입력 */}
-            <div className={styles.formGroup}>
-                <label className={styles.formLabel}>사건 유형</label>
-                <select
-                    className={styles.select}
-                    value={caseType}
-                    onChange={(e) => setCaseType(e.target.value)}
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>사건 유형</label>
+                    <select
+                        className={styles.select}
+                        value={caseType}
+                        onChange={(e) => setCaseType(e.target.value)}
+                    >
+                        {CASE_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>사건 내용 <span className={styles.required}>*</span></label>
+                    <textarea
+                        className={styles.textarea}
+                        value={caseDescription}
+                        onChange={(e) => setCaseDescription(e.target.value)}
+                        placeholder={"사건 내용을 상세히 작성해주세요.\n\n예시:\n- 근무 기간, 사업장 규모\n- 어떤 일이 발생했는지\n- 현재 상황 및 원하는 결과"}
+                        rows={8}
+                    />
+                    <span className={styles.charCount}>{caseDescription.length}자</span>
+                </div>
+
+                <button
+                    className={styles.submitButton}
+                    onClick={handleStart}
+                    disabled={!caseDescription.trim() || state.isAnalyzing}
                 >
-                    {CASE_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                </select>
-            </div>
+                    {state.isAnalyzing ? '사건 등록 중...' : '🔥 분석 시작 → 핵심 쟁점으로'}
+                </button>
 
-            <div className={styles.formGroup}>
-                <label className={styles.formLabel}>사건 내용 <span className={styles.required}>*</span></label>
-                <textarea
-                    className={styles.textarea}
-                    value={caseDescription}
-                    onChange={(e) => setCaseDescription(e.target.value)}
-                    placeholder={"사건 내용을 상세히 작성해주세요.\n\n예시:\n- 근무 기간, 사업장 규모\n- 어떤 일이 발생했는지\n- 현재 상황 및 원하는 결과"}
-                    rows={8}
-                />
-                <span className={styles.charCount}>{caseDescription.length}자</span>
-            </div>
-
-            <button
-                className={styles.submitButton}
-                onClick={handleStart}
-                disabled={!caseDescription.trim() || state.isAnalyzing}
-            >
-                {state.isAnalyzing ? '사건 등록 중...' : '🔥 분석 시작 → 핵심 쟁점으로'}
-            </button>
-
-            {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
+                {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
+            </section>
         </div>
     );
 }

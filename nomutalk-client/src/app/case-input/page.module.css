@@ -20,6 +20,30 @@
     line-height: 1.6;
 }
 
+/* 섹션 구분 */
+.section {
+    margin-bottom: var(--toss-spacing-xl);
+    padding: var(--toss-spacing-lg);
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg, 16px);
+}
+
+.sectionTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0 0 var(--toss-spacing-md) 0;
+    letter-spacing: -0.02em;
+}
+
+.emptyMsg {
+    color: var(--toss-text-disabled);
+    font-size: 0.88rem;
+    text-align: center;
+    padding: 20px 0;
+}
+
 /* Form */
 .formGroup {
     margin-bottom: var(--toss-spacing-lg);

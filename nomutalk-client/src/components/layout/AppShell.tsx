@@ -100,7 +100,7 @@ export default function AppShell({ children }: AppShellProps) {
                 <nav className={styles.topNav}>
                     <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
                         {Icons.caseInput}
-                        <span>사건 입력</span>
+                        <span>내 사건</span>
                     </Link>
                     <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
                         {Icons.caseSearch}
@@ -195,7 +195,7 @@ export default function AppShell({ children }: AppShellProps) {
             <nav className={styles.bottomTabs}>
                 <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
                     {Icons.caseInput}
-                    <span>사건</span>
+                    <span>내 사건</span>
                 </Link>
                 <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
                     {Icons.caseSearch}
