@@ -8199,12 +8199,12 @@ function getLaborAgent() {
 }
 
 /**
- * 노무 AI - 사건 분석 그래프 생성
+ * 노무 AI - 관련 법령/판례 분석 그래프 생성
  * POST /api/labor/analyze-case
  * Body: { description: string }
  * 
- * 사건 내용을 받아 askLabor + findSimilarCases를 병렬 호출한 뒤
- * 그래프 시각화용 nodes/links 구조로 반환합니다.
+ * 1차: RAG (askLabor + findSimilarCases) → citations으로 그래프 노드 생성
+ * 2차 (RAG fallback): Gemini 직접 호출 → 관련 법령/판례/행정해석 추출
  */
 app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
   try {
@@ -8217,35 +8217,12 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
       });
     }
 
-    console.log(`[사건 분석] 그래프 생성 시작: ${description.substring(0, 50)}...`);
+    console.log(`[법령 분석] 시작: ${description.substring(0, 50)}...`);
 
-    const agent = getLaborAgent();
-
-    // 1. askLabor + findSimilarCases 병렬 호출
-    const [askResult, casesResult] = await Promise.allSettled([
-      agent.askLabor(description, {
-        includeCases: true,
-        includeInterpretations: true
-      }),
-      agent.findSimilarCases(description)
-    ]);
-
-    const askData = askResult.status === 'fulfilled' ? askResult.value : null;
-    const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
-
-    // 2. 분석 요약 추출
-    const summary = askData
-      ? (askData.text || askData)
-      : '사건 분석 결과를 가져올 수 없습니다.';
-
-    const similarCasesSummary = casesData
-      ? (casesData.text || casesData)
-      : '';
-
-    // 3. Citations → Graph Nodes/Links 변환
     const nodes = [];
     const links = [];
     const seenTitles = new Set();
+    let summary = '';
 
     // 센터 노드 (사건)
     const centerLabel = description.length > 30
@@ -8260,61 +8237,148 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
       val: 25
     });
 
-    // askLabor citations 처리
-    const askCitations = askData?.citations || [];
-    askCitations.forEach((cit, idx) => {
-      if (seenTitles.has(cit.title)) return;
-      seenTitles.add(cit.title);
+    // ── 1차: RAG 검색 시도 ──
+    let ragHasResults = false;
+    try {
+      const agent = getLaborAgent();
+      const [askResult, casesResult] = await Promise.allSettled([
+        agent.askLabor(description, { includeCases: true, includeInterpretations: true }),
+        agent.findSimilarCases(description)
+      ]);
 
-      const nodeType = classifyCitationType(cit.title);
-      const nodeId = `ask-${idx}`;
+      const askData = askResult.status === 'fulfilled' ? askResult.value : null;
+      const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
 
-      nodes.push({
-        id: nodeId,
-        label: cit.title,
-        type: nodeType,
-        detail: cit.uri || '',
-        val: 12
+      summary = askData ? (askData.text || String(askData)) : '';
+
+      const allCitations = [
+        ...(askData?.citations || []),
+        ...(casesData?.citations || [])
+      ];
+
+      allCitations.forEach((cit, idx) => {
+        if (seenTitles.has(cit.title)) return;
+        seenTitles.add(cit.title);
+
+        const nodeType = classifyCitationType(cit.title);
+        const nodeId = `rag-${idx}`;
+
+        nodes.push({
+          id: nodeId,
+          label: cit.title,
+          type: nodeType,
+          detail: cit.uri || '',
+          val: 12
+        });
+
+        links.push({
+          source: 'center',
+          target: nodeId,
+          label: getRelationLabel(nodeType)
+        });
       });
 
-      links.push({
-        source: 'center',
-        target: nodeId,
-        label: getRelationLabel(nodeType)
-      });
-    });
+      ragHasResults = allCitations.length > 0;
+      console.log(`[법령 분석] RAG 결과: ${allCitations.length}건`);
+    } catch (ragError) {
+      console.warn('[법령 분석] RAG 검색 실패, Gemini 폴백 진행:', ragError.message);
+    }
 
-    // findSimilarCases citations 처리
-    const casesCitations = casesData?.citations || [];
-    casesCitations.forEach((cit, idx) => {
-      if (seenTitles.has(cit.title)) return;
-      seenTitles.add(cit.title);
+    // ── 2차: RAG 결과가 없으면 Gemini로 직접 법령/판례 추출 ──
+    if (!ragHasResults) {
+      console.log('[법령 분석] RAG 결과 없음 → Gemini 직접 분석');
 
-      const nodeType = classifyCitationType(cit.title);
-      const nodeId = `case-${idx}`;
+      try {
+        const { GoogleGenAI } = require('@google/genai');
+        const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-      nodes.push({
-        id: nodeId,
-        label: cit.title,
-        type: nodeType,
-        detail: cit.uri || '',
-        val: 12
-      });
+        const lawPrompt = `당신은 한국 노동법 전문가입니다. 아래 노동 사건과 관련된 **법령**, **판례**, **행정해석**을 구체적으로 분석해주세요.
 
-      links.push({
-        source: 'center',
-        target: nodeId,
-        label: getRelationLabel(nodeType)
-      });
-    });
+규칙:
+- 반드시 실제 존재하는 한국 법령명, 조항, 판례번호를 제시하세요
+- 각 항목의 type은 "law"(법령), "precedent"(판례), "interpretation"(행정해석/고용노동부 해석) 중 하나입니다
+- relevance는 사건과의 관련도입니다 (high/medium/low)
+- detail에는 해당 법령/판례가 이 사건에 어떻게 적용되는지 구체적으로 설명하세요
+- 최소 5개, 최대 12개 항목을 제시하세요
+- 법령은 조항까지 구체적으로 명시 (예: "근로기준법 제23조 제1항")
+- 판례는 판례번호 포함 (예: "대법원 2020다12345")
 
-    console.log(`[사건 분석] 그래프 생성 완료: ${nodes.length} nodes, ${links.length} links`);
+응답 형식 (JSON):
+{
+  "items": [
+    {
+      "title": "근로기준법 제23조 제1항 (해고 등의 제한)",
+      "type": "law",
+      "relevance": "high",
+      "detail": "사용자는 정당한 이유 없이 근로자를 해고하지 못한다. 본 사건에서..."
+    },
+    {
+      "title": "대법원 2018다12345 판결",
+      "type": "precedent",
+      "relevance": "high",
+      "detail": "부당해고 요건에 대한 대법원 판시 사항..."
+    }
+  ],
+  "summary": "이 사건에 적용되는 법령과 판례를 종합 분석한 요약 (3~5문장)"
+}
+
+사건 내용:
+${description.substring(0, 3000)}`;
+
+        const response = await genai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: lawPrompt }] }],
+          config: {
+            responseMimeType: 'application/json',
+          }
+        });
+
+        const responseText = response.text || '';
+        const lawData = JSON.parse(responseText);
+        const items = (lawData.items || []).slice(0, 12);
+
+        if (lawData.summary) {
+          summary = lawData.summary;
+        }
+
+        items.forEach((item, idx) => {
+          if (seenTitles.has(item.title)) return;
+          seenTitles.add(item.title);
+
+          const nodeType = item.type || classifyCitationType(item.title);
+          const nodeId = `gemini-${idx}`;
+
+          nodes.push({
+            id: nodeId,
+            label: item.title,
+            type: nodeType,
+            detail: item.detail || '',
+            val: item.relevance === 'high' ? 16 : item.relevance === 'medium' ? 12 : 9,
+            severity: item.relevance || 'medium'
+          });
+
+          links.push({
+            source: 'center',
+            target: nodeId,
+            label: getRelationLabel(nodeType)
+          });
+        });
+
+        console.log(`[법령 분석] Gemini 결과: ${items.length}건`);
+      } catch (geminiError) {
+        console.error('[법령 분석] Gemini 분석 실패:', geminiError.message);
+        if (!summary) {
+          summary = '관련 법령 분석 중 오류가 발생했습니다. 다시 시도해주세요.';
+        }
+      }
+    }
+
+    console.log(`[법령 분석] 그래프 완료: ${nodes.length} nodes, ${links.length} links`);
 
     res.json({
       success: true,
       data: {
         summary,
-        similarCasesSummary,
         nodes,
         links,
         timestamp: new Date().toISOString()
@@ -8322,7 +8386,7 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[사건 분석] 오류:', error);
+    console.error('[법령 분석] 오류:', error);
     res.status(500).json({
       success: false,
       error: error.message
