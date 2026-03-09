@@ -8366,7 +8366,7 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
 ${description.substring(0, 3000)}`;
 
     const issueResponse = await genai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: issueExtractionPrompt }] }],
       config: {
         responseMimeType: 'application/json',
@@ -8606,7 +8606,7 @@ app.post('/api/labor/analyze-file', verifyToken, upload.single('file'), async (r
       const mimeType = mimeMap[ext] || 'application/octet-stream';
 
       const response = await genai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{
           role: 'user',
           parts: [
@@ -9368,7 +9368,7 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
           const mimeType = mimeMap[ext] || 'application/octet-stream';
 
           const response = await genai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: [{
               role: 'user',
               parts: [
