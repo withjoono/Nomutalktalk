@@ -229,6 +229,28 @@
     background: rgba(49, 130, 246, 0.04);
 }
 
+/* 다음 단계 버튼 */
+.nextStepBtn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: var(--toss-spacing-xl);
+    font-family: inherit;
+}
+
+.nextStepBtn:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
 /* 반응형 */
 @media (max-width: 640px) {
     .page {

@@ -9498,6 +9498,156 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
   }
 });
 
+// ==================== 사건 이력 관리 API ====================
+
+/**
+ * 새 사건 생성
+ * POST /api/labor/cases
+ * Body: { description, caseType? }
+ */
+app.post('/api/labor/cases', verifyToken, async (req, res) => {
+  try {
+    const { description, caseType } = req.body;
+    if (!description || !description.trim()) {
+      return res.status(400).json({ success: false, error: '사건 내용을 입력해주세요.' });
+    }
+
+    const userId = req.user.uid;
+    const caseData = {
+      userId,
+      description: description.trim(),
+      caseType: caseType || '',
+      currentStep: 0, // 0=입력, 1=쟁점, 2=법령, 3=상담
+      steps: {},
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await db.collection('labor_cases').add(caseData);
+    console.log(`[사건관리] 새 사건 생성: ${docRef.id} (user: ${userId})`);
+
+    res.json({ success: true, data: { caseId: docRef.id, ...caseData, createdAt: new Date().toISOString() } });
+  } catch (error) {
+    console.error('[사건관리] 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 내 사건 목록 조회
+ * GET /api/labor/cases
+ */
+app.get('/api/labor/cases', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const snapshot = await db.collection('labor_cases')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+
+    const cases = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      cases.push({
+        id: doc.id,
+        description: data.description,
+        caseType: data.caseType,
+        currentStep: data.currentStep || 0,
+        createdAt: data.createdAt?.toDate?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+        hasIssueAnalysis: !!data.steps?.issueAnalysis,
+        hasLawAnalysis: !!data.steps?.lawAnalysis,
+        hasChatSession: !!data.steps?.chatSessionId,
+      });
+    });
+
+    res.json({ success: true, data: cases });
+  } catch (error) {
+    console.error('[사건관리] 목록 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사건 단계 결과 업데이트
+ * PATCH /api/labor/cases/:id
+ * Body: { stepName: 'issueAnalysis'|'lawAnalysis'|'chatSessionId', stepData: {...} }
+ */
+app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stepName, stepData, currentStep } = req.body;
+    const userId = req.user.uid;
+
+    const docRef = db.collection('labor_cases').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    }
+    if (doc.data().userId !== userId) {
+      return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+    }
+
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (stepName && stepData) {
+      updateData[`steps.${stepName}`] = {
+        ...stepData,
+        completedAt: new Date().toISOString()
+      };
+    }
+
+    if (currentStep !== undefined) {
+      updateData.currentStep = currentStep;
+    }
+
+    await docRef.update(updateData);
+    console.log(`[사건관리] 사건 ${id} 업데이트 - step: ${stepName}, currentStep: ${currentStep}`);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[사건관리] 업데이트 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사건 상세 조회 (저장된 분석 결과 포함)
+ * GET /api/labor/cases/:id
+ */
+app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.uid;
+
+    const doc = await db.collection('labor_cases').doc(id).get();
+    if (!doc.exists) {
+      return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    }
+    if (doc.data().userId !== userId) {
+      return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+    }
+
+    const data = doc.data();
+    res.json({
+      success: true,
+      data: {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+      }
+    });
+  } catch (error) {
+    console.error('[사건관리] 상세 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==================== 대화형 챗봇 API 엔드포인트 ====================
 
 /**

@@ -35,6 +35,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/context/AuthContext";
+import { CaseFlowProvider } from "@/context/CaseFlowContext";
 
 export default function RootLayout({
   children,
@@ -45,9 +46,11 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <AuthProvider>
-          <AppShell>
-            {children}
-          </AppShell>
+          <CaseFlowProvider>
+            <AppShell>
+              {children}
+            </AppShell>
+          </CaseFlowProvider>
         </AuthProvider>
       </body>
     </html>

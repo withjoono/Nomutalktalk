@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useCaseFlow } from '@/context/CaseFlowContext';
+import { useAuth } from '@/context/AuthContext';
+import { listCases, CaseRecord } from '@/lib/api';
 import styles from './page.module.css';
 
 const CASE_TYPES = [
@@ -16,39 +18,86 @@ const CASE_TYPES = [
     { value: '기타', label: '📌 기타' },
 ];
 
+const STEP_LABELS = ['입력', '쟁점', '법령', '상담'];
+
 export default function CaseInputPage() {
-    const router = useRouter();
+    const { state, startNewCase, loadCase, resetFlow } = useCaseFlow();
+    const { user } = useAuth();
     const [caseType, setCaseType] = useState('');
     const [caseDescription, setCaseDescription] = useState('');
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [pastCases, setPastCases] = useState<CaseRecord[]>([]);
+    const [loadingCases, setLoadingCases] = useState(false);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setSelectedFiles(Array.from(e.target.files));
-        }
-    };
+    // 과거 사건 로드
+    useEffect(() => {
+        if (!user) return;
+        setLoadingCases(true);
+        listCases()
+            .then(cases => setPastCases(cases))
+            .catch(err => console.error('사건 목록 로드 실패:', err))
+            .finally(() => setLoadingCases(false));
+    }, [user]);
 
-    const handleAnalyze = () => {
+    const handleStart = () => {
         if (!caseDescription.trim()) {
             alert('사건 내용을 입력해주세요.');
             return;
         }
-        // 사건 분석 페이지로 이동하면서 description을 query param으로 전달
-        const params = new URLSearchParams();
-        params.set('desc', caseDescription.trim());
-        if (caseType) params.set('type', caseType);
-        router.push(`/case-search?${params.toString()}`);
+        resetFlow();
+        startNewCase(caseDescription.trim(), caseType || undefined);
+    };
+
+    const formatDate = (dateStr: string) => {
+        try {
+            const d = new Date(dateStr);
+            return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+        } catch { return ''; }
     };
 
     return (
         <div className={styles.container}>
             <h1>📁 사건 입력</h1>
             <p className={styles.description}>
-                사건 내용을 입력하면 AI가 관련 법령, 판례, 행정해석을 분석하여<br />
-                법률 지식 그래프로 보여드립니다.
+                사건 내용을 입력하면 핵심 쟁점 → 관련 법령 → AI 상담까지 순차적으로 진행됩니다.
             </p>
 
-            {/* 사건 유형 선택 */}
+            {/* 과거 사건 목록 */}
+            {user && pastCases.length > 0 && (
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>📋 이전 분석 내역</label>
+                    <div className={styles.caseList}>
+                        {pastCases.map(c => (
+                            <button
+                                key={c.id}
+                                className={styles.caseCard}
+                                onClick={() => loadCase(c.id)}
+                            >
+                                <div className={styles.caseCardTop}>
+                                    <span className={styles.caseType}>{c.caseType || '일반'}</span>
+                                    <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
+                                </div>
+                                <p className={styles.caseDesc}>
+                                    {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
+                                </p>
+                                <div className={styles.caseSteps}>
+                                    {STEP_LABELS.map((label, i) => (
+                                        <span
+                                            key={i}
+                                            className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}
+                                        >
+                                            {label}
+                                        </span>
+                                    ))}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {loadingCases && <p className={styles.status}>이전 사건 불러오는 중...</p>}
+
+            {/* 새 사건 입력 */}
             <div className={styles.formGroup}>
                 <label className={styles.formLabel}>사건 유형</label>
                 <select
@@ -62,7 +111,6 @@ export default function CaseInputPage() {
                 </select>
             </div>
 
-            {/* 사건 내용 입력 */}
             <div className={styles.formGroup}>
                 <label className={styles.formLabel}>사건 내용 <span className={styles.required}>*</span></label>
                 <textarea
@@ -75,42 +123,15 @@ export default function CaseInputPage() {
                 <span className={styles.charCount}>{caseDescription.length}자</span>
             </div>
 
-            {/* 파일 첨부 (선택사항) */}
-            <div className={styles.formGroup}>
-                <label className={styles.formLabel}>관련 자료 첨부 <span className={styles.optional}>(선택)</span></label>
-                <div className={styles.uploadArea}>
-                    <input
-                        type="file"
-                        id="fileInput"
-                        multiple
-                        onChange={handleFileChange}
-                        className={styles.fileInput}
-                    />
-                    <label htmlFor="fileInput" className={styles.uploadButton}>
-                        📎 파일 선택
-                    </label>
-                    <span className={styles.uploadHint}>
-                        근로계약서, 급여명세서, 녹취록 등
-                    </span>
-                </div>
-
-                {selectedFiles.length > 0 && (
-                    <ul className={styles.fileList}>
-                        {selectedFiles.map((file, index) => (
-                            <li key={index}>📄 {file.name} ({Math.round(file.size / 1024)}KB)</li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-
-            {/* 분석 시작 버튼 */}
             <button
                 className={styles.submitButton}
-                onClick={handleAnalyze}
-                disabled={!caseDescription.trim()}
+                onClick={handleStart}
+                disabled={!caseDescription.trim() || state.isAnalyzing}
             >
-                📊 AI 사건 분석 시작
+                {state.isAnalyzing ? '사건 등록 중...' : '🔥 분석 시작 → 핵심 쟁점으로'}
             </button>
+
+            {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
         </div>
     );
 }

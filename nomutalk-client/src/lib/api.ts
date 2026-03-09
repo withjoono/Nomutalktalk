@@ -594,3 +594,77 @@ export async function getPaymentDetail(id: number): Promise<PaymentOrder> {
     if (!data.success) throw new Error(data.error || '결제 상세 조회 실패');
     return data.data;
 }
+
+// ==================== Case Management API ====================
+
+export interface CaseRecord {
+    id: string;
+    description: string;
+    caseType: string;
+    currentStep: number;
+    createdAt: string;
+    updatedAt: string;
+    hasIssueAnalysis: boolean;
+    hasLawAnalysis: boolean;
+    hasChatSession: boolean;
+}
+
+export interface CaseDetail {
+    id: string;
+    description: string;
+    caseType: string;
+    currentStep: number;
+    steps: {
+        issueAnalysis?: {
+            issues: IssueInfo[];
+            summary: string;
+            nodes: GraphNode[];
+            links: GraphLink[];
+            completedAt: string;
+        };
+        lawAnalysis?: {
+            nodes: GraphNode[];
+            links: GraphLink[];
+            summary: string;
+            completedAt: string;
+        };
+        chatSessionId?: string;
+    };
+    createdAt: string;
+    updatedAt: string;
+}
+
+export async function createCase(description: string, caseType?: string): Promise<{ caseId: string }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases`, {
+        method: 'POST',
+        body: JSON.stringify({ description, caseType }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '사건 생성 실패');
+    return data.data;
+}
+
+export async function listCases(): Promise<CaseRecord[]> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases`);
+    const data = await response.json();
+    return data.data || [];
+}
+
+export async function getCase(caseId: string): Promise<CaseDetail> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '사건 조회 실패');
+    return data.data;
+}
+
+export async function updateCaseStep(
+    caseId: string,
+    stepName: string,
+    stepData: Record<string, any>,
+    currentStep?: number
+): Promise<void> {
+    await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ stepName, stepData, currentStep }),
+    });
+}
