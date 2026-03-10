@@ -1,0 +1,346 @@
+.detailOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-end;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.detailPanel {
+    width: 100%;
+    max-width: 520px;
+    height: 100%;
+    background: var(--toss-bg-primary);
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.15);
+    overflow-y: auto;
+    animation: slideIn 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.detailHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--toss-border);
+    position: sticky;
+    top: 0;
+    background: var(--toss-bg-primary);
+    z-index: 2;
+}
+
+.detailTitle {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    color: var(--toss-text-tertiary);
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+
+.closeBtn:hover {
+    background: var(--toss-bg-secondary);
+}
+
+.detailBody {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 사건 설명 */
+.descBlock {
+    padding: 16px;
+    background: var(--toss-bg-secondary);
+    border-radius: 14px;
+    border: 1px solid var(--toss-border);
+}
+
+.descLabel {
+    font-size: 0.75rem;
+    color: var(--toss-text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px;
+}
+
+.descText {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--toss-text-primary);
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* 메타 뱃지 */
+.metaRow {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.metaBadge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-secondary);
+    font-weight: 500;
+    border: 1px solid var(--toss-border);
+}
+
+/* 액션 버튼 */
+.actionRow {
+    display: flex;
+    gap: 8px;
+}
+
+.actionBtn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.15s;
+}
+
+.actionBtn:active {
+    transform: scale(0.97);
+}
+
+.primaryBtn {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+}
+
+.secondaryBtn {
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-primary);
+    border: 1px solid var(--toss-border);
+}
+
+/* 히스토리 섹션 */
+.historySection {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sectionLabel {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0 0 4px;
+}
+
+/* 타임라인 */
+.timelineList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 20px;
+}
+
+.timelineList::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--toss-border);
+    border-radius: 1px;
+}
+
+.timelineItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    position: relative;
+}
+
+.timelineDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+    position: absolute;
+    left: -18px;
+    background: #3b82f6;
+    border: 2px solid var(--toss-bg-primary);
+}
+
+.timelineDot[data-type="case_created"] {
+    background: #10b981;
+}
+
+.timelineDot[data-type="issue_analyzed"] {
+    background: #f59e0b;
+}
+
+.timelineDot[data-type="law_analyzed"] {
+    background: #8b5cf6;
+}
+
+.timelineDot[data-type="reanalyzed"] {
+    background: #3b82f6;
+}
+
+.timelineDot[data-type="description_updated"] {
+    background: #ec4899;
+}
+
+.timelineDot[data-type="insight_added"],
+.timelineDot[data-type="insight_auto_extracted"] {
+    background: #06b6d4;
+}
+
+.timelineDot[data-type="chat_started"] {
+    background: #6366f1;
+}
+
+.timelineContent {
+    flex: 1;
+    min-width: 0;
+}
+
+.timelineDetail {
+    font-size: 0.82rem;
+    color: var(--toss-text-primary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.timelineTime {
+    font-size: 0.7rem;
+    color: var(--toss-text-tertiary);
+    margin: 2px 0 0;
+}
+
+/* 버전 히스토리 카드 */
+.versionCard {
+    padding: 12px 14px;
+    background: var(--toss-bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--toss-border);
+    margin-bottom: 6px;
+}
+
+.versionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.versionBadge {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.versionTime {
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+}
+
+.versionTrigger {
+    font-size: 0.72rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    font-weight: 500;
+}
+
+.versionSummary {
+    font-size: 0.82rem;
+    color: var(--toss-text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.versionIssues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.issuePill {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--toss-bg-primary);
+    border: 1px solid var(--toss-border);
+    color: var(--toss-text-secondary);
+}
+
+/* 인사이트 */
+.insightCard {
+    padding: 10px 14px;
+    background: var(--toss-bg-secondary);
+    border-radius: 10px;
+    border-left: 3px solid #06b6d4;
+    margin-bottom: 6px;
+}
+
+.insightType {
+    font-size: 0.7rem;
+    color: #06b6d4;
+    font-weight: 600;
+    margin: 0 0 3px;
+}
+
+.insightContent {
+    font-size: 0.82rem;
+    color: var(--toss-text-primary);
+    margin: 0;
+    line-height: 1.5;
+}
