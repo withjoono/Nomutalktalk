@@ -2586,7 +2586,7 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
     });
 
     console.log('[사건관리] 새 사건 생성:', laborCase.id);
-    res.json({ success: true, caseId: laborCase.id });
+    res.json({ success: true, data: { caseId: laborCase.id } });
   } catch (error) {
     console.error('[사건관리] 생성 오류:', error);
     res.status(500).json({ success: false, error: error.message });
