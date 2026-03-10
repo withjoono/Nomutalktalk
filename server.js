@@ -2788,6 +2788,7 @@ app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
         chatSessions: { select: { id: true } },
         analysisVersions: { orderBy: { version: 'desc' } },
         insights: { orderBy: { createdAt: 'desc' } },
+        updates: { orderBy: { createdAt: 'asc' } },
         timeline: { orderBy: { createdAt: 'desc' } },
       },
     });
@@ -3025,6 +3026,65 @@ app.get('/api/labor/cases/:id/insights', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+/**
+ * 사건 업데이트 추가 (보충/경과)
+ * POST /api/labor/cases/:id/updates
+ * Body: { type: 'supplement' | 'progress', content: string }
+ */
+app.post('/api/labor/cases/:id/updates', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, content } = req.body;
+
+    if (!type || !['supplement', 'progress'].includes(type)) {
+      return res.status(400).json({ success: false, error: "type must be 'supplement' or 'progress'" });
+    }
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, error: '내용을 입력해주세요' });
+    }
+
+    const typeLabel = type === 'supplement' ? '보충 사항' : '진행 경과';
+
+    // 트랜잭션: 업데이트 저장 + 타임라인 기록
+    const [update] = await prisma.$transaction([
+      prisma.caseUpdate.create({
+        data: { caseId: id, type, content: content.trim() },
+      }),
+      prisma.caseTimeline.create({
+        data: {
+          caseId: id,
+          type: type === 'supplement' ? 'supplement_added' : 'progress_added',
+          detail: `${typeLabel} 추가: ${content.trim().substring(0, 60)}${content.trim().length > 60 ? '...' : ''}`,
+        },
+      }),
+    ]);
+
+    console.log(`[사건관리] 업데이트 추가: ${id}, type=${type}`);
+    res.json({ success: true, data: update });
+  } catch (error) {
+    console.error('[사건관리] 업데이트 추가 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사건 업데이트 목록 조회
+ * GET /api/labor/cases/:id/updates
+ */
+app.get('/api/labor/cases/:id/updates', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = await prisma.caseUpdate.findMany({
+      where: { caseId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json({ success: true, data: updates });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 
 // ==================== 대화형 챗봇 API 엔드포인트 ====================

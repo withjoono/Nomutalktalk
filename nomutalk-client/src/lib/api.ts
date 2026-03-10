@@ -728,8 +728,17 @@ export interface CaseDetail {
     buildMeta: BuildMeta;
     timeline: TimelineEvent[];
     insights: CaseInsight[];
+    updates: CaseUpdate[];
     createdAt: string;
     updatedAt: string;
+}
+
+export interface CaseUpdate {
+    id: string;
+    caseId: string;
+    type: 'supplement' | 'progress';
+    content: string;
+    createdAt: string;
 }
 
 export async function createCase(description: string, caseType?: string): Promise<{ caseId: string }> {
@@ -833,5 +842,21 @@ export async function addCaseInsight(
     });
     const data = await response.json();
     if (!data.success) throw new Error(data.error || '인사이트 추가 실패');
+    return data.data;
+}
+
+// ==================== Case Updates (보충/경과) ====================
+
+export async function addCaseUpdate(
+    caseId: string,
+    type: 'supplement' | 'progress',
+    content: string,
+): Promise<CaseUpdate> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/updates`, {
+        method: 'POST',
+        body: JSON.stringify({ type, content }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '업데이트 추가 실패');
     return data.data;
 }

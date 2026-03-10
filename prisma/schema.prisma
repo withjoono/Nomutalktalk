@@ -32,9 +32,25 @@ model LaborCase {
   analysisVersions  AnalysisVersion[]
   insights          CaseInsight[]
   timeline          CaseTimeline[]
+  updates           CaseUpdate[]
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ==================== 사건 업데이트 (보충/경과) ====================
+
+model CaseUpdate {
+  id        String   @id @default(cuid())
+  caseId    String
+  type      String   // 'supplement' (빠뜨린 내용) | 'progress' (새 진행상황)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([caseId, type])
 }
 
 // ==================== 쟁점 ====================
