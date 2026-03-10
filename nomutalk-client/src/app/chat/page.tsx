@@ -44,6 +44,7 @@ export default function ChatPage() {
                     issues={state.issueResult.issues}
                     laws={lawNodes}
                     summary={state.issueResult.summary + (state.lawResult?.summary ? '\n\n' + state.lawResult.summary : '')}
+                    caseId={state.caseId || undefined}
                 />
             </div>
             <div style={{ padding: '0 16px 16px', maxWidth: 960, margin: '0 auto', width: '100%' }}>

@@ -5,6 +5,7 @@ import { useCaseFlow } from '@/context/CaseFlowContext';
 import { useAuth } from '@/context/AuthContext';
 import { listCases, CaseRecord } from '@/lib/api';
 import StepNav from '@/components/layout/StepNav';
+import BuildProgress from '@/components/build/BuildProgress';
 import styles from './page.module.css';
 
 const CASE_TYPES = [
@@ -22,14 +23,16 @@ const CASE_TYPES = [
 const STEP_LABELS = ['입력', '쟁점', '법령', '상담'];
 
 export default function CaseInputPage() {
-    const { state, startNewCase, loadCase, resetFlow } = useCaseFlow();
+    const { state, startNewCase, loadCase, resetFlow, updateDescription } = useCaseFlow();
     const { user } = useAuth();
     const [caseType, setCaseType] = useState('');
     const [caseDescription, setCaseDescription] = useState('');
     const [pastCases, setPastCases] = useState<CaseRecord[]>([]);
     const [loadingCases, setLoadingCases] = useState(false);
+    const [showUpdateModal, setShowUpdateModal] = useState<string | null>(null);
+    const [updateText, setUpdateText] = useState('');
+    const [updateReason, setUpdateReason] = useState('');
 
-    // 과거 사건 로드
     useEffect(() => {
         if (!user) return;
         setLoadingCases(true);
@@ -46,6 +49,16 @@ export default function CaseInputPage() {
         }
         resetFlow();
         startNewCase(caseDescription.trim(), caseType || undefined);
+    };
+
+    const handleUpdateDescription = async () => {
+        if (!updateText.trim()) return;
+        await updateDescription(updateText.trim(), updateReason || undefined);
+        setShowUpdateModal(null);
+        setUpdateText('');
+        setUpdateReason('');
+        // 목록 새로고침
+        listCases().then(cases => setPastCases(cases)).catch(console.error);
     };
 
     const formatDate = (dateStr: string) => {
@@ -76,32 +89,140 @@ export default function CaseInputPage() {
                     {pastCases.length > 0 && (
                         <div className={styles.caseList}>
                             {pastCases.map(c => (
-                                <button
-                                    key={c.id}
-                                    className={styles.caseCard}
-                                    onClick={() => loadCase(c.id)}
-                                >
-                                    <div className={styles.caseCardTop}>
-                                        <span className={styles.caseType}>{c.caseType || '일반'}</span>
-                                        <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
+                                <div key={c.id} className={styles.caseCard}>
+                                    <div
+                                        style={{ cursor: 'pointer', flex: 1 }}
+                                        onClick={() => loadCase(c.id)}
+                                    >
+                                        <div className={styles.caseCardTop}>
+                                            <span className={styles.caseType}>{c.caseType || '일반'}</span>
+                                            <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
+                                        </div>
+                                        <p className={styles.caseDesc}>
+                                            {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
+                                        </p>
+                                        <div className={styles.caseSteps}>
+                                            {STEP_LABELS.map((label, i) => (
+                                                <span
+                                                    key={i}
+                                                    className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}
+                                                >
+                                                    {label}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <p className={styles.caseDesc}>
-                                        {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
-                                    </p>
-                                    <div className={styles.caseSteps}>
-                                        {STEP_LABELS.map((label, i) => (
-                                            <span
-                                                key={i}
-                                                className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}
-                                            >
-                                                {label}
+                                    {/* 빌드 성숙도 미니 표시 */}
+                                    {c.buildMeta && c.buildMeta.analysisCount > 0 && (
+                                        <div style={{
+                                            display: 'flex', gap: '8px', alignItems: 'center',
+                                            marginTop: '8px', paddingTop: '8px',
+                                            borderTop: '1px solid var(--toss-border)',
+                                        }}>
+                                            <BuildProgress
+                                                buildMeta={c.buildMeta}
+                                                timeline={[]}
+                                                compact
+                                            />
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--toss-text-tertiary)' }}>
+                                                분석 {c.buildMeta.analysisCount}회
+                                                {c.buildMeta.insightCount > 0 && ` · 인사이트 ${c.buildMeta.insightCount}건`}
                                             </span>
-                                        ))}
-                                    </div>
-                                </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    loadCase(c.id);
+                                                    setShowUpdateModal(c.id);
+                                                    setUpdateText(c.description);
+                                                }}
+                                                style={{
+                                                    marginLeft: 'auto', fontSize: '0.72rem', padding: '3px 8px',
+                                                    borderRadius: '6px', border: '1px solid var(--toss-border)',
+                                                    background: 'transparent', cursor: 'pointer',
+                                                    color: 'var(--toss-text-secondary)',
+                                                }}
+                                            >
+                                                📝 상황 업데이트
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     )}
+                </section>
+            )}
+
+            {/* ═══ 상황 업데이트 모달 ═══ */}
+            {showUpdateModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000, padding: '20px',
+                }}>
+                    <div style={{
+                        background: 'var(--toss-bg-primary)', borderRadius: '16px',
+                        padding: '24px', width: '100%', maxWidth: '500px',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                    }}>
+                        <h3 style={{ margin: '0 0 16px', fontSize: '1.1rem' }}>📝 상황 업데이트</h3>
+                        <textarea
+                            value={updateText}
+                            onChange={(e) => setUpdateText(e.target.value)}
+                            style={{
+                                width: '100%', minHeight: '120px', padding: '12px',
+                                borderRadius: '10px', border: '1px solid var(--toss-border)',
+                                background: 'var(--toss-bg-secondary)', resize: 'vertical',
+                                fontSize: '0.9rem', lineHeight: 1.6,
+                                color: 'var(--toss-text-primary)',
+                            }}
+                        />
+                        <input
+                            type="text"
+                            placeholder="변경 이유 (선택사항)"
+                            value={updateReason}
+                            onChange={(e) => setUpdateReason(e.target.value)}
+                            style={{
+                                width: '100%', padding: '10px 12px', marginTop: '10px',
+                                borderRadius: '10px', border: '1px solid var(--toss-border)',
+                                background: 'var(--toss-bg-secondary)', fontSize: '0.85rem',
+                                color: 'var(--toss-text-primary)',
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => { setShowUpdateModal(null); setUpdateText(''); setUpdateReason(''); }}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '8px',
+                                    border: '1px solid var(--toss-border)', background: 'transparent',
+                                    cursor: 'pointer', color: 'var(--toss-text-secondary)',
+                                }}
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleUpdateDescription}
+                                disabled={!updateText.trim() || state.isAnalyzing}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '8px', border: 'none',
+                                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: '#fff',
+                                    cursor: 'pointer', fontWeight: 600,
+                                }}
+                            >
+                                {state.isAnalyzing ? '업데이트 중...' : '✅ 업데이트'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ 빌드 진행도 (사건 로드된 경우) ═══ */}
+            {state.caseId && state.buildMeta.analysisCount > 0 && (
+                <section className={styles.section}>
+                    <BuildProgress
+                        buildMeta={state.buildMeta}
+                        timeline={state.timeline}
+                    />
                 </section>
             )}
 

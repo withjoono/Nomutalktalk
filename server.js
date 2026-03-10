@@ -109,6 +109,11 @@ try {
   casesDb = null;
 }
 
+// 4단계: PostgreSQL (Prisma) 초기화 - 사건 관리용
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+console.log('✅ PostgreSQL (Prisma) 초기화 성공');
+
 // 대화형 챗봇 모듈
 const { getInstance: getConversationManager } = require('./models/ConversationManager');
 const DialogueFlowEngine = require('./models/DialogueFlowEngine');
@@ -2550,36 +2555,38 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
   }
 });
 
-// ==================== 사건 이력 관리 API ====================
+// ==================== 사건 이력 관리 API (PostgreSQL/Prisma) ====================
 
 /**
  * 새 사건 생성
  * POST /api/labor/cases
- * Body: { description, caseType? }
  */
 app.post('/api/labor/cases', verifyToken, async (req, res) => {
   try {
-    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { description, caseType } = req.body;
     if (!description || !description.trim()) {
       return res.status(400).json({ success: false, error: '사건 내용을 입력해주세요.' });
     }
 
     const userId = req.user.uid;
-    const caseData = {
-      userId,
-      description: description.trim(),
-      caseType: caseType || '',
-      currentStep: 0, // 0=입력, 1=쟁점, 2=법령, 3=상담
-      steps: {},
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
+    const laborCase = await prisma.laborCase.create({
+      data: {
+        userId,
+        description: description.trim(),
+        caseType: caseType || '',
+        currentStep: 0,
+        timeline: {
+          create: {
+            type: 'case_created',
+            detail: `사건 등록: ${description.trim().substring(0, 50)}...`,
+          }
+        }
+      },
+      include: { timeline: true },
+    });
 
-    const docRef = await casesDb.collection('labor_cases').add(caseData);
-    console.log(`[사건관리] 새 사건 생성: ${docRef.id} (user: ${userId})`);
-
-    res.json({ success: true, data: { caseId: docRef.id, ...caseData, createdAt: new Date().toISOString() } });
+    console.log('[사건관리] 새 사건 생성:', laborCase.id);
+    res.json({ success: true, caseId: laborCase.id });
   } catch (error) {
     console.error('[사건관리] 생성 오류:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -2587,36 +2594,42 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
 });
 
 /**
- * 내 사건 목록 조회
+ * 사건 목록 조회
  * GET /api/labor/cases
  */
 app.get('/api/labor/cases', verifyToken, async (req, res) => {
   try {
-    if (!casesDb) return res.json({ success: true, data: [] });
     const userId = req.user.uid;
-    const snapshot = await casesDb.collection('labor_cases')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(50)
-      .get();
-
-    const cases = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      cases.push({
-        id: doc.id,
-        description: data.description,
-        caseType: data.caseType,
-        currentStep: data.currentStep || 0,
-        createdAt: data.createdAt?.toDate?.() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
-        hasIssueAnalysis: !!data.steps?.issueAnalysis,
-        hasLawAnalysis: !!data.steps?.lawAnalysis,
-        hasChatSession: !!data.steps?.chatSessionId,
-      });
+    const cases = await prisma.laborCase.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { issues: true, laws: true, chatSessions: true, timeline: true } },
+        analysisVersions: { where: { stepName: 'issueAnalysis' }, take: 1, orderBy: { version: 'desc' } },
+      },
     });
 
-    res.json({ success: true, data: cases });
+    const result = cases.map(c => ({
+      id: c.id,
+      description: c.description,
+      caseType: c.caseType,
+      currentStep: c.currentStep,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      hasIssueAnalysis: c._count.issues > 0 || c.analysisVersions.length > 0,
+      hasLawAnalysis: c._count.laws > 0,
+      hasChatSession: c._count.chatSessions > 0,
+      buildMeta: {
+        analysisCount: c.analysisCount,
+        chatCount: c.chatCount,
+        evidenceCount: c.evidenceCount,
+        insightCount: c.insightCount,
+        lastAnalyzedAt: c.lastAnalyzedAt ? c.lastAnalyzedAt.toISOString() : null,
+      },
+      timelineCount: c._count.timeline,
+    }));
+
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('[사건관리] 목록 조회 오류:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -2624,43 +2637,61 @@ app.get('/api/labor/cases', verifyToken, async (req, res) => {
 });
 
 /**
- * 사건 단계 결과 업데이트
+ * 사건 단계 업데이트 (분석 결과 저장 + 버전 히스토리)
  * PATCH /api/labor/cases/:id
- * Body: { stepName: 'issueAnalysis'|'lawAnalysis'|'chatSessionId', stepData: {...} }
  */
 app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
-    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const { stepName, stepData, currentStep } = req.body;
     const userId = req.user.uid;
 
-    const docRef = casesDb.collection('labor_cases').doc(id);
-    const doc = await docRef.get();
+    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
-    if (!doc.exists) {
-      return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
-    }
-    if (doc.data().userId !== userId) {
-      return res.status(403).json({ success: false, error: '권한이 없습니다.' });
-    }
-
-    const updateData = {
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
+    const updateData = {};
+    if (currentStep !== undefined) updateData.currentStep = currentStep;
 
     if (stepName && stepData) {
-      updateData[`steps.${stepName}`] = {
-        ...stepData,
-        completedAt: new Date().toISOString()
-      };
+      // 버전 히스토리 누적
+      const lastVersion = await prisma.analysisVersion.findFirst({
+        where: { caseId: id, stepName },
+        orderBy: { version: 'desc' },
+      });
+      const versionNum = (lastVersion?.version || 0) + 1;
+
+      await prisma.analysisVersion.create({
+        data: {
+          caseId: id,
+          stepName,
+          version: versionNum,
+          trigger: 'manual',
+          data: stepData,
+        },
+      });
+
+      // buildMeta 업데이트
+      if (stepName === 'issueAnalysis' || stepName === 'lawAnalysis') {
+        updateData.analysisCount = { increment: 1 };
+        updateData.lastAnalyzedAt = new Date();
+      } else if (stepName === 'chatSessionId') {
+        updateData.chatCount = { increment: 1 };
+      }
+
+      // 타임라인 이벤트
+      const detail = stepName === 'issueAnalysis'
+        ? `쟁점 분석 v${versionNum} 완료 (${(stepData.issues || []).length}건 발견)`
+        : stepName === 'lawAnalysis'
+          ? `법령 분석 v${versionNum} 완료 (${(stepData.nodes || []).length}개 노드)`
+          : 'AI 상담 세션 시작';
+
+      await prisma.caseTimeline.create({
+        data: { caseId: id, type: stepName === 'issueAnalysis' ? 'issue_analyzed' : stepName === 'lawAnalysis' ? 'law_analyzed' : 'chat_started', detail, version: versionNum },
+      });
     }
 
-    if (currentStep !== undefined) {
-      updateData.currentStep = currentStep;
-    }
-
-    await docRef.update(updateData);
+    await prisma.laborCase.update({ where: { id }, data: updateData });
     console.log(`[사건관리] 사건 ${id} 업데이트 - step: ${stepName}, currentStep: ${currentStep}`);
 
     res.json({ success: true });
@@ -2671,31 +2702,60 @@ app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
 });
 
 /**
- * 사건 상세 조회 (저장된 분석 결과 포함)
+ * 사건 상세 조회
  * GET /api/labor/cases/:id
  */
 app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
   try {
-    if (!casesDb) return res.status(503).json({ success: false, error: 'Firestore를 사용할 수 없습니다.' });
     const { id } = req.params;
     const userId = req.user.uid;
 
-    const doc = await casesDb.collection('labor_cases').doc(id).get();
-    if (!doc.exists) {
-      return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
-    }
-    if (doc.data().userId !== userId) {
-      return res.status(403).json({ success: false, error: '권한이 없습니다.' });
-    }
+    const laborCase = await prisma.laborCase.findUnique({
+      where: { id },
+      include: {
+        issues: true,
+        laws: true,
+        chatSessions: { select: { id: true } },
+        analysisVersions: { orderBy: { version: 'desc' } },
+        insights: { orderBy: { createdAt: 'desc' } },
+        timeline: { orderBy: { createdAt: 'desc' } },
+      },
+    });
 
-    const data = doc.data();
+    if (!laborCase) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (laborCase.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+
+    // 최신 분석 버전 추출
+    const latestIssue = laborCase.analysisVersions.find(v => v.stepName === 'issueAnalysis');
+    const latestLaw = laborCase.analysisVersions.find(v => v.stepName === 'lawAnalysis');
+    const issueHistory = laborCase.analysisVersions.filter(v => v.stepName === 'issueAnalysis').map(v => ({ ...v.data, version: v.version, completedAt: v.createdAt.toISOString(), trigger: v.trigger, diff: v.diff }));
+    const lawHistory = laborCase.analysisVersions.filter(v => v.stepName === 'lawAnalysis').map(v => ({ ...v.data, version: v.version, completedAt: v.createdAt.toISOString(), trigger: v.trigger, diff: v.diff }));
+
     res.json({
       success: true,
       data: {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate?.() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+        id: laborCase.id,
+        description: laborCase.description,
+        caseType: laborCase.caseType,
+        currentStep: laborCase.currentStep,
+        steps: {
+          issueAnalysis: latestIssue ? { ...latestIssue.data, version: latestIssue.version, completedAt: latestIssue.createdAt.toISOString() } : undefined,
+          issueAnalysisHistory: issueHistory.length > 0 ? issueHistory : undefined,
+          lawAnalysis: latestLaw ? { ...latestLaw.data, version: latestLaw.version, completedAt: latestLaw.createdAt.toISOString() } : undefined,
+          lawAnalysisHistory: lawHistory.length > 0 ? lawHistory : undefined,
+          chatSessionId: laborCase.chatSessions[0]?.id || undefined,
+        },
+        buildMeta: {
+          analysisCount: laborCase.analysisCount,
+          chatCount: laborCase.chatCount,
+          evidenceCount: laborCase.evidenceCount,
+          insightCount: laborCase.insightCount,
+          lastAnalyzedAt: laborCase.lastAnalyzedAt?.toISOString() || null,
+        },
+        timeline: laborCase.timeline.map(t => ({ type: t.type, timestamp: t.createdAt.toISOString(), detail: t.detail, version: t.version, trigger: t.trigger })),
+        insights: laborCase.insights.map(i => ({ id: i.id, content: i.content, type: i.type, source: i.source, createdAt: i.createdAt.toISOString() })),
+        createdAt: laborCase.createdAt.toISOString(),
+        updatedAt: laborCase.updatedAt.toISOString(),
       }
     });
   } catch (error) {
@@ -2703,6 +2763,199 @@ app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// ==================== 빌드 시스템 API (PostgreSQL/Prisma) ====================
+
+/**
+ * 사건 설명 업데이트
+ * POST /api/labor/cases/:id/update-description
+ */
+app.post('/api/labor/cases/:id/update-description', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newDescription, reason } = req.body;
+    const userId = req.user.uid;
+
+    if (!newDescription || !newDescription.trim()) {
+      return res.status(400).json({ success: false, error: '새 사건 내용을 입력해주세요.' });
+    }
+
+    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+
+    const oldDesc = existing.description;
+
+    await prisma.$transaction([
+      prisma.laborCase.update({ where: { id }, data: { description: newDescription.trim() } }),
+      prisma.caseTimeline.create({
+        data: {
+          caseId: id, type: 'description_updated', detail: reason || '상황 업데이트',
+          metadata: { oldDescriptionPreview: oldDesc.substring(0, 100), newDescriptionPreview: newDescription.trim().substring(0, 100) },
+        },
+      }),
+    ]);
+
+    console.log(`[빌드] 사건 ${id} 설명 업데이트`);
+    res.json({ success: true, data: { previousDescription: oldDesc, newDescription: newDescription.trim() } });
+  } catch (error) {
+    console.error('[빌드] 설명 업데이트 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 재분석 실행
+ * POST /api/labor/cases/:id/reanalyze
+ */
+app.post('/api/labor/cases/:id/reanalyze', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stepName, trigger } = req.body;
+    const userId = req.user.uid;
+
+    if (!stepName || !['issueAnalysis', 'lawAnalysis'].includes(stepName)) {
+      return res.status(400).json({ success: false, error: '유효한 분석 단계를 지정해주세요.' });
+    }
+
+    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+
+    const description = existing.description;
+    const previousVersion = await prisma.analysisVersion.findFirst({
+      where: { caseId: id, stepName },
+      orderBy: { version: 'desc' },
+    });
+    const previousResult = previousVersion?.data || null;
+
+    console.log(`[빌드] 재분석 시작 - 사건: ${id}, 단계: ${stepName}, 트리거: ${trigger}`);
+
+    const agent = getLaborAgent();
+    if (!agent.storeName) {
+      await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
+    }
+
+    let newResult;
+    if (stepName === 'issueAnalysis') {
+      const { GoogleGenAI } = require('@google/genai');
+      const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `당신은 한국 노동법 전문 AI입니다. 아래 사건에서 핵심 법률 쟁점을 추출해주세요.\n\n사건 내용: ${description}\n\n다음 JSON 형식으로 정확히 응답하세요:\n{\n  "issues": [\n    { "id": "issue-1", "title": "쟁점제목", "summary": "핵심설명", "severity": "high|medium|low" }\n  ],\n  "summary": "전체 상황 요약"\n}`;
+      const response = await genai.models.generateContent({ model: 'gemini-2.5-pro', contents: [{ role: 'user', parts: [{ text: prompt }] }] });
+      let parsed;
+      try { const text = response.text || ''; const jsonMatch = text.match(/\{[\s\S]*\}/); parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { issues: [], summary: text }; }
+      catch { parsed = { issues: [], summary: response.text || '' }; }
+      const nodes = [{ id: 'center', label: description.substring(0, 25), type: 'case', detail: description.substring(0, 500), val: 25 }];
+      const links = [];
+      (parsed.issues || []).forEach((iss, idx) => {
+        const nodeId = `issue-${idx}`;
+        nodes.push({ id: nodeId, label: iss.title, type: 'issue', detail: iss.summary, val: iss.severity === 'high' ? 20 : iss.severity === 'medium' ? 15 : 10, severity: iss.severity });
+        links.push({ source: 'center', target: nodeId, label: '쟁점' });
+      });
+      newResult = { issues: parsed.issues || [], summary: parsed.summary || '', nodes, links };
+    } else {
+      const [askResult, casesResult] = await Promise.allSettled([
+        agent.askLabor(description, { includeCases: true, includeInterpretations: true }),
+        agent.findSimilarCases(description.substring(0, 2000))
+      ]);
+      const askData = askResult.status === 'fulfilled' ? askResult.value : null;
+      const casesData = casesResult.status === 'fulfilled' ? casesResult.value : null;
+      const summary = askData ? (askData.text || askData) : '';
+      const nodes = [{ id: 'center', label: description.substring(0, 25), type: 'case', detail: description.substring(0, 500), val: 25 }];
+      const links = [];
+      const seenTitles = new Set();
+      const addCitations = (citations, prefix) => {
+        (citations || []).forEach((cit, idx) => {
+          if (seenTitles.has(cit.title)) return;
+          seenTitles.add(cit.title);
+          const nodeType = classifyCitationType(cit.title);
+          const nodeId = `${prefix}-${idx}`;
+          nodes.push({ id: nodeId, label: cit.title, type: nodeType, detail: cit.uri || '', val: 12 });
+          links.push({ source: 'center', target: nodeId, label: getRelationLabel(nodeType) });
+        });
+      };
+      addCitations(askData?.citations, 'ask');
+      addCitations(casesData?.citations, 'case');
+      newResult = { nodes, links, summary: typeof summary === 'string' ? summary : '' };
+    }
+
+    // Diff 생성
+    let diff = null;
+    if (previousResult && stepName === 'issueAnalysis') {
+      const oldIssues = (previousResult.issues || []).map(i => i.title);
+      const newIssues = (newResult.issues || []).map(i => i.title);
+      diff = { addedIssues: newIssues.filter(t => !oldIssues.includes(t)), removedIssues: oldIssues.filter(t => !newIssues.includes(t)), unchangedCount: newIssues.filter(t => oldIssues.includes(t)).length };
+    } else if (previousResult && stepName === 'lawAnalysis') {
+      const oldNodes = (previousResult.nodes || []).filter(n => n.type !== 'case').map(n => n.label);
+      const newNodes = (newResult.nodes || []).filter(n => n.type !== 'case').map(n => n.label);
+      diff = { addedNodes: newNodes.filter(t => !oldNodes.includes(t)), removedNodes: oldNodes.filter(t => !newNodes.includes(t)), unchangedCount: newNodes.filter(t => oldNodes.includes(t)).length };
+    }
+
+    const versionNum = (previousVersion?.version || 0) + 1;
+    const triggerLabel = trigger === 'evidence_added' ? '증거 추가' : trigger === 'description_updated' ? '상황 변경' : '수동';
+
+    await prisma.$transaction([
+      prisma.analysisVersion.create({ data: { caseId: id, stepName, version: versionNum, trigger: trigger || 'manual', data: newResult, diff } }),
+      prisma.laborCase.update({ where: { id }, data: { analysisCount: { increment: 1 }, lastAnalyzedAt: new Date() } }),
+      prisma.caseTimeline.create({ data: { caseId: id, type: 'reanalyzed', detail: `${stepName === 'issueAnalysis' ? '쟁점' : '법령'} 재분석 v${versionNum} (${triggerLabel})`, version: versionNum, trigger: trigger || 'manual' } }),
+    ]);
+
+    console.log(`[빌드] 재분석 완료 - 사건: ${id}, v${versionNum}`);
+    res.json({ success: true, data: { result: newResult, diff, version: versionNum, trigger: trigger || 'manual' } });
+  } catch (error) {
+    console.error('[빌드] 재분석 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 인사이트 추가
+ * POST /api/labor/cases/:id/insights
+ */
+app.post('/api/labor/cases/:id/insights', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, type, source } = req.body;
+    const userId = req.user.uid;
+    if (!content || !content.trim()) return res.status(400).json({ success: false, error: '인사이트 내용을 입력해주세요.' });
+
+    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+
+    const [insight] = await prisma.$transaction([
+      prisma.caseInsight.create({ data: { caseId: id, content: content.trim(), type: type || 'user_memo', source: source || 'manual' } }),
+      prisma.laborCase.update({ where: { id }, data: { insightCount: { increment: 1 } } }),
+      prisma.caseTimeline.create({ data: { caseId: id, type: 'insight_added', detail: `${type === 'ai_extracted' ? 'AI 추출' : '사용자 메모'}: ${content.trim().substring(0, 50)}...` } }),
+    ]);
+
+    res.json({ success: true, data: { id: insight.id, content: insight.content, type: insight.type, source: insight.source, createdAt: insight.createdAt.toISOString() } });
+  } catch (error) {
+    console.error('[빌드] 인사이트 추가 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 인사이트 조회
+ * GET /api/labor/cases/:id/insights
+ */
+app.get('/api/labor/cases/:id/insights', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.uid;
+    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
+    if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
+
+    const insights = await prisma.caseInsight.findMany({ where: { caseId: id }, orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, data: insights.map(i => ({ id: i.id, content: i.content, type: i.type, source: i.source, createdAt: i.createdAt.toISOString() })) });
+  } catch (error) {
+    console.error('[빌드] 인사이트 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 // ==================== 대화형 챗봇 API 엔드포인트 ====================
 
@@ -2947,7 +3200,7 @@ const contextualSessions = new Map();
  */
 app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
   try {
-    const { caseDescription, issues, laws, summary } = req.body;
+    const { caseDescription, issues, laws, summary, caseId } = req.body;
 
     if (!caseDescription) {
       return res.status(400).json({
@@ -2971,6 +3224,20 @@ app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
       return `${i + 1}. [${typeLabel}] ${law.title || law.label}: ${law.detail || ''}`;
     }).join('\n');
 
+    // 축적된 인사이트 조회 (케이스 ID가 있는 경우)
+    let insightsSection = '';
+    if (caseId) {
+      try {
+        const caseInsights = await prisma.caseInsight.findMany({ where: { caseId }, orderBy: { createdAt: 'desc' } });
+        if (caseInsights.length > 0) {
+          insightsSection = `\n\n═══════════ 이전 상담에서 축적된 인사이트 (${caseInsights.length}건) ═══════════\n` +
+            caseInsights.map((ins, i) => `${i + 1}. [${ins.type === 'ai_extracted' ? 'AI 추출' : '사용자 메모'}] ${ins.content}`).join('\n');
+        }
+      } catch (err) {
+        console.warn('[맥락 상담] 인사이트 조회 실패:', err.message);
+      }
+    }
+
     const systemPrompt = `당신은 한국 노동법 전문 AI 상담사 "노무톡"입니다.
 
 아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.
@@ -2986,7 +3253,7 @@ ${issuesList || '(분석된 쟁점 없음)'}
 ${lawsList || '(분석된 법령 없음)'}
 
 ═══════════════ AI 분석 요약 ═══════════════
-${summary || '(요약 없음)'}
+${summary || '(요약 없음)'}${insightsSection}
 
 ═══════════════ 상담 규칙 ═══════════════
 1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.
@@ -3021,7 +3288,9 @@ ${summary || '(요약 없음)'}
     contextualSessions.set(sessionId, {
       sessionId,
       userId,
+      caseId: caseId || null,
       systemPrompt,
+      turnCount: 0,
       history: [
         { role: 'user', parts: [{ text: systemPrompt }] },
         { role: 'model', parts: [{ text: '네, 사건 내용과 분석 결과를 모두 파악했습니다. 상담을 시작하겠습니다.' }] },
@@ -3099,12 +3368,62 @@ app.post('/api/labor/chat/message', verifyToken, async (req, res) => {
       parts: [{ text: aiMessage }]
     });
 
+    // 턴 카운트 증가
+    session.turnCount = (session.turnCount || 0) + 1;
+
+    // 인사이트 자동 추출 (4턴마다, 비동기)
+    if (session.turnCount >= 4 && session.turnCount % 2 === 0 && session.caseId) {
+      (async () => {
+        try {
+          const recentMessages = session.history
+            .filter(h => h.role === 'user' || h.role === 'model')
+            .slice(-6)
+            .map(h => `[${h.role === 'user' ? '사용자' : 'AI'}]: ${h.parts[0].text.substring(0, 300)}`)
+            .join('\n');
+
+          const extractPrompt = `아래 노동법 상담 대화에서 향후 분석에 참고할 핵심 사항을 2~3개 추출해주세요.
+각 인사이트는 한 문장으로 작성하세요.
+JSON 배열로만 응답하세요: ["...", "...", "..."]
+
+대화 내용:
+${recentMessages}`;
+
+          const extractResponse = await genai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: [{ role: 'user', parts: [{ text: extractPrompt }] }],
+          });
+
+          const extractText = extractResponse.text || '';
+          const jsonMatch = extractText.match(/\[.*\]/s);
+          if (jsonMatch) {
+            const insights = JSON.parse(jsonMatch[0]);
+            const newInsightRecords = insights.map(c => ({
+              caseId: session.caseId,
+              content: typeof c === 'string' ? c : String(c),
+              type: 'ai_extracted',
+              source: `chat_turn_${session.turnCount}`,
+            }));
+
+            await prisma.$transaction([
+              prisma.caseInsight.createMany({ data: newInsightRecords }),
+              prisma.laborCase.update({ where: { id: session.caseId }, data: { insightCount: { increment: newInsightRecords.length } } }),
+              prisma.caseTimeline.create({ data: { caseId: session.caseId, type: 'insight_auto_extracted', detail: `AI 상담 ${session.turnCount}턴에서 인사이트 ${newInsightRecords.length}건 자동 추출` } }),
+            ]);
+            console.log(`[빌드] 인사이트 자동 추출 - 사건: ${session.caseId}, ${newInsightRecords.length}건`);
+          }
+        } catch (err) {
+          console.warn('[빌드] 인사이트 자동 추출 실패:', err.message);
+        }
+      })();
+    }
+
     res.json({
       success: true,
       data: {
         sessionId,
         message: aiMessage,
         stage: 'consultation',
+        turnCount: session.turnCount,
       }
     });
 
@@ -3460,3 +3779,4 @@ startServer().catch(err => {
   console.error('❌ 서버 시작 실패:', err);
   process.exit(1);
 });
+

@@ -641,6 +641,32 @@ export async function getPaymentDetail(id: number): Promise<PaymentOrder> {
 
 // ==================== Case Management API ====================
 
+export interface BuildMeta {
+    analysisCount: number;
+    chatCount: number;
+    evidenceCount: number;
+    insightCount: number;
+    lastAnalyzedAt: string | null;
+}
+
+export interface TimelineEvent {
+    type: string;
+    timestamp: string;
+    detail: string;
+    version?: number;
+    trigger?: string;
+    oldDescriptionPreview?: string;
+    newDescriptionPreview?: string;
+}
+
+export interface CaseInsight {
+    id: string;
+    content: string;
+    type: 'ai_extracted' | 'user_memo';
+    source: string;
+    createdAt: string;
+}
+
 export interface CaseRecord {
     id: string;
     description: string;
@@ -651,6 +677,8 @@ export interface CaseRecord {
     hasIssueAnalysis: boolean;
     hasLawAnalysis: boolean;
     hasChatSession: boolean;
+    buildMeta: BuildMeta;
+    timelineCount: number;
 }
 
 export interface CaseDetail {
@@ -665,15 +693,41 @@ export interface CaseDetail {
             nodes: GraphNode[];
             links: GraphLink[];
             completedAt: string;
+            version?: number;
+            diff?: any;
         };
+        issueAnalysisHistory?: Array<{
+            issues: IssueInfo[];
+            summary: string;
+            nodes: GraphNode[];
+            links: GraphLink[];
+            completedAt: string;
+            version: number;
+            trigger?: string;
+            diff?: any;
+        }>;
         lawAnalysis?: {
             nodes: GraphNode[];
             links: GraphLink[];
             summary: string;
             completedAt: string;
+            version?: number;
+            diff?: any;
         };
+        lawAnalysisHistory?: Array<{
+            nodes: GraphNode[];
+            links: GraphLink[];
+            summary: string;
+            completedAt: string;
+            version: number;
+            trigger?: string;
+            diff?: any;
+        }>;
         chatSessionId?: string;
     };
+    buildMeta: BuildMeta;
+    timeline: TimelineEvent[];
+    insights: CaseInsight[];
     createdAt: string;
     updatedAt: string;
 }
@@ -711,4 +765,73 @@ export async function updateCaseStep(
         method: 'PATCH',
         body: JSON.stringify({ stepName, stepData, currentStep }),
     });
+}
+
+// ==================== Build System API ====================
+
+export interface ReanalysisResult {
+    result: {
+        issues?: IssueInfo[];
+        summary: string;
+        nodes: GraphNode[];
+        links: GraphLink[];
+    };
+    diff: {
+        addedIssues?: string[];
+        removedIssues?: string[];
+        addedNodes?: string[];
+        removedNodes?: string[];
+        unchangedCount: number;
+    } | null;
+    version: number;
+    trigger: string;
+}
+
+export async function reanalyzeCase(
+    caseId: string,
+    stepName: 'issueAnalysis' | 'lawAnalysis',
+    trigger: 'manual' | 'evidence_added' | 'description_updated' = 'manual'
+): Promise<ReanalysisResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/reanalyze`, {
+        method: 'POST',
+        body: JSON.stringify({ stepName, trigger }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '재분석 실패');
+    return data.data;
+}
+
+export async function updateCaseDescription(
+    caseId: string,
+    newDescription: string,
+    reason?: string
+): Promise<{ previousDescription: string; newDescription: string }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/update-description`, {
+        method: 'POST',
+        body: JSON.stringify({ newDescription, reason }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '설명 업데이트 실패');
+    return data.data;
+}
+
+export async function getCaseInsights(caseId: string): Promise<CaseInsight[]> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/insights`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '인사이트 조회 실패');
+    return data.data;
+}
+
+export async function addCaseInsight(
+    caseId: string,
+    content: string,
+    type: 'ai_extracted' | 'user_memo' = 'user_memo'
+): Promise<CaseInsight> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/insights`, {
+        method: 'POST',
+        body: JSON.stringify({ content, type }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '인사이트 추가 실패');
+    return data.data;
 }

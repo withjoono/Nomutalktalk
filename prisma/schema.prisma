@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 사건 관리 ====================
+
+model LaborCase {
+  id          String   @id @default(cuid())
+  userId      String
+  description String   @db.Text
+  caseType    String   @default("")
+  currentStep Int      @default(0)
+
+  // Build 시스템 메타
+  analysisCount Int    @default(0)
+  chatCount     Int    @default(0)
+  evidenceCount Int    @default(0)
+  insightCount  Int    @default(0)
+  lastAnalyzedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  issues            CaseIssue[]
+  laws              CaseLaw[]
+  chatSessions      ChatSession[]
+  analysisVersions  AnalysisVersion[]
+  insights          CaseInsight[]
+  timeline          CaseTimeline[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ==================== 쟁점 ====================
+
+model CaseIssue {
+  id          String   @id @default(cuid())
+  caseId      String
+  title       String
+  summary     String   @db.Text
+  severity    String   @default("medium")
+  isUserAdded Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ==================== 법령 ====================
+
+model CaseLaw {
+  id        String   @id @default(cuid())
+  caseId    String
+  title     String
+  type      String
+  detail    String   @db.Text
+  issueId   String?
+  createdAt DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ==================== 분석 버전 히스토리 ====================
+
+model AnalysisVersion {
+  id        String   @id @default(cuid())
+  caseId    String
+  stepName  String   // 'issueAnalysis' | 'lawAnalysis'
+  version   Int
+  trigger   String   @default("manual")  // 'manual' | 'evidence_added' | 'description_updated'
+  data      Json     // 분석 결과 전체 (issues, nodes, links, summary 등)
+  diff      Json?    // 이전 버전과의 차이
+  createdAt DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([caseId, stepName])
+}
+
+// ==================== 인사이트 ====================
+
+model CaseInsight {
+  id        String   @id @default(cuid())
+  caseId    String
+  content   String   @db.Text
+  type      String   @default("user_memo")  // 'ai_extracted' | 'user_memo'
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ==================== 타임라인 ====================
+
+model CaseTimeline {
+  id        String   @id @default(cuid())
+  caseId    String
+  type      String   // 'case_created' | 'issue_analyzed' | 'law_analyzed' | 'reanalyzed' | 'description_updated' | 'insight_added' | 'chat_started'
+  detail    String
+  version   Int?
+  trigger   String?
+  metadata  Json?    // 추가 데이터 (oldDescriptionPreview 등)
+  createdAt DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([caseId, createdAt])
+}
+
+// ==================== 채팅 ====================
+
+model ChatSession {
+  id           String   @id @default(cuid())
+  caseId       String?
+  userId       String
+  systemPrompt String   @db.Text
+  createdAt    DateTime @default(now())
+
+  messages ChatMessage[]
+  case     LaborCase?    @relation(fields: [caseId], references: [id])
+
+  @@index([userId])
+  @@index([caseId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}

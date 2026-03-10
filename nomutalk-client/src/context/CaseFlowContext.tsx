@@ -3,8 +3,9 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    GraphNode, GraphLink, IssueInfo, CaseDetail,
-    createCase, getCase, updateCaseStep, analyzeIssues, analyzeCaseGraph
+    GraphNode, GraphLink, IssueInfo, CaseDetail, BuildMeta, TimelineEvent, CaseInsight,
+    createCase, getCase, updateCaseStep, analyzeIssues, analyzeCaseGraph,
+    reanalyzeCase, updateCaseDescription as apiUpdateDescription, ReanalysisResult,
 } from '@/lib/api';
 
 // ==================== Types ====================
@@ -33,30 +34,35 @@ export interface CaseFlowState {
     // Step 3: 채팅 세션
     chatSessionId: string | null;
 
+    // 빌드 시스템
+    buildMeta: BuildMeta;
+    timeline: TimelineEvent[];
+    insights: CaseInsight[];
+    lastDiff: ReanalysisResult['diff'] | null;
+
     // UI 상태
     isAnalyzing: boolean;
+    isReanalyzing: boolean;
     error: string | null;
 }
 
 interface CaseFlowContextType {
     state: CaseFlowState;
-    /** 새 사건 시작 → 서버에 생성 → 쟁점 분석 페이지로 이동 */
     startNewCase: (description: string, caseType?: string) => Promise<void>;
-    /** 과거 사건 불러오기 → 마지막 단계로 이동 */
     loadCase: (caseId: string) => Promise<void>;
-    /** 쟁점 분석 실행 + 결과 저장 */
     runIssueAnalysis: () => Promise<void>;
-    /** 법령 분석 실행 + 결과 저장 */
     runLawAnalysis: () => Promise<void>;
-    /** 다음 단계로 진행 */
     goToStep: (step: number) => void;
-    /** 쟁점 분석 결과 직접 설정 (과거 사건 로드 시 사용) */
     setIssueResult: (result: CaseFlowState['issueResult']) => void;
-    /** 법령 분석 결과 직접 설정 */
     setLawResult: (result: CaseFlowState['lawResult']) => void;
-    /** 초기화 */
     resetFlow: () => void;
+    /** 재분석 실행 (빌드) */
+    reanalyze: (stepName: 'issueAnalysis' | 'lawAnalysis', trigger?: 'manual' | 'evidence_added' | 'description_updated') => Promise<void>;
+    /** 상황 업데이트 (빌드) */
+    updateDescription: (newDescription: string, reason?: string) => Promise<void>;
 }
+
+const defaultBuildMeta: BuildMeta = { analysisCount: 0, chatCount: 0, evidenceCount: 0, insightCount: 0, lastAnalyzedAt: null };
 
 const initialState: CaseFlowState = {
     caseId: null,
@@ -66,7 +72,12 @@ const initialState: CaseFlowState = {
     issueResult: null,
     lawResult: null,
     chatSessionId: null,
+    buildMeta: defaultBuildMeta,
+    timeline: [],
+    insights: [],
+    lastDiff: null,
     isAnalyzing: false,
+    isReanalyzing: false,
     error: null,
 };
 
@@ -94,6 +105,10 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 issueResult: null,
                 lawResult: null,
                 chatSessionId: null,
+                buildMeta: { ...defaultBuildMeta },
+                timeline: [{ type: 'case_created', timestamp: new Date().toISOString(), detail: `사건 등록` }],
+                insights: [],
+                lastDiff: null,
                 isAnalyzing: false,
             }));
             router.push('/issue-analysis');
@@ -115,12 +130,16 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 issueResult: detail.steps.issueAnalysis || null,
                 lawResult: detail.steps.lawAnalysis || null,
                 chatSessionId: typeof detail.steps.chatSessionId === 'string' ? detail.steps.chatSessionId : null,
+                buildMeta: detail.buildMeta || defaultBuildMeta,
+                timeline: detail.timeline || [],
+                insights: detail.insights || [],
+                lastDiff: null,
                 isAnalyzing: false,
+                isReanalyzing: false,
                 error: null,
             };
             setState(newState);
 
-            // 마지막 완료된 단계의 다음으로 이동
             const step = detail.currentStep;
             if (step >= 3) router.push('/chat');
             else if (step >= 2) router.push('/case-search');
@@ -155,7 +174,6 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 isAnalyzing: false,
             }));
 
-            // 서버 저장 (non-blocking)
             updateCaseStep(state.caseId, 'issueAnalysis', issueResult, 1).catch(console.error);
         } catch (err: any) {
             setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
@@ -181,12 +199,70 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 isAnalyzing: false,
             }));
 
-            // 서버 저장 (non-blocking)
             updateCaseStep(state.caseId, 'lawAnalysis', lawResult, 2).catch(console.error);
         } catch (err: any) {
             setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
         }
     }, [state.caseId, state.description]);
+
+    // 재분석 (빌드)
+    const reanalyze = useCallback(async (stepName: 'issueAnalysis' | 'lawAnalysis', trigger: 'manual' | 'evidence_added' | 'description_updated' = 'manual') => {
+        if (!state.caseId) return;
+        setState(prev => ({ ...prev, isReanalyzing: true, error: null, lastDiff: null }));
+        try {
+            const result = await reanalyzeCase(state.caseId, stepName, trigger);
+
+            if (stepName === 'issueAnalysis') {
+                setState(prev => ({
+                    ...prev,
+                    issueResult: {
+                        issues: result.result.issues || [],
+                        summary: result.result.summary || '',
+                        nodes: result.result.nodes || [],
+                        links: result.result.links || [],
+                    },
+                    lastDiff: result.diff,
+                    buildMeta: { ...prev.buildMeta, analysisCount: prev.buildMeta.analysisCount + 1, lastAnalyzedAt: new Date().toISOString() },
+                    isReanalyzing: false,
+                }));
+            } else {
+                setState(prev => ({
+                    ...prev,
+                    lawResult: {
+                        nodes: result.result.nodes || [],
+                        links: result.result.links || [],
+                        summary: result.result.summary || '',
+                    },
+                    lastDiff: result.diff,
+                    buildMeta: { ...prev.buildMeta, analysisCount: prev.buildMeta.analysisCount + 1, lastAnalyzedAt: new Date().toISOString() },
+                    isReanalyzing: false,
+                }));
+            }
+        } catch (err: any) {
+            setState(prev => ({ ...prev, isReanalyzing: false, error: err.message }));
+        }
+    }, [state.caseId]);
+
+    // 상황 업데이트 (빌드)
+    const updateDescription = useCallback(async (newDescription: string, reason?: string) => {
+        if (!state.caseId) return;
+        setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
+        try {
+            await apiUpdateDescription(state.caseId, newDescription, reason);
+            setState(prev => ({
+                ...prev,
+                description: newDescription,
+                timeline: [...prev.timeline, {
+                    type: 'description_updated',
+                    timestamp: new Date().toISOString(),
+                    detail: reason || '상황 업데이트',
+                }],
+                isAnalyzing: false,
+            }));
+        } catch (err: any) {
+            setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
+        }
+    }, [state.caseId]);
 
     const goToStep = useCallback((step: number) => {
         setState(prev => ({ ...prev, currentStep: step }));
@@ -217,6 +293,8 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             setIssueResult,
             setLawResult,
             resetFlow,
+            reanalyze,
+            updateDescription,
         }}>
             {children}
         </CaseFlowContext.Provider>

@@ -18,6 +18,7 @@ interface CaseConsultationChatProps {
     issues: IssueInfo[];
     laws: { title: string; type: string; detail: string; label?: string }[];
     summary: string;
+    caseId?: string;
 }
 
 // ==================== Component ====================
@@ -27,6 +28,7 @@ export default function CaseConsultationChat({
     issues,
     laws,
     summary,
+    caseId,
 }: CaseConsultationChatProps) {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([]);
@@ -56,7 +58,8 @@ export default function CaseConsultationChat({
                     issues,
                     laws,
                     summary,
-                });
+                    caseId,
+                } as any);
 
                 setSessionId(result.sessionId);
 
