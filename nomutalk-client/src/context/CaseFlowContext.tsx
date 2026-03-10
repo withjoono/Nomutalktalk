@@ -140,11 +140,8 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             };
             setState(newState);
 
-            const step = detail.currentStep;
-            if (step >= 3) router.push('/chat');
-            else if (step >= 2) router.push('/case-search');
-            else if (step >= 1) router.push('/issue-analysis');
-            else router.push('/case-input');
+            // 항상 핵심쟁점부터 순서대로 진행 (쟁점 → 법령 → 상담)
+            router.push('/issue-analysis');
         } catch (err: any) {
             setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
         }
