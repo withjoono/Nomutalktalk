@@ -729,6 +729,7 @@ export interface CaseDetail {
     timeline: TimelineEvent[];
     insights: CaseInsight[];
     updates: CaseUpdate[];
+    evidence: CaseEvidence[];
     createdAt: string;
     updatedAt: string;
 }
@@ -738,6 +739,21 @@ export interface CaseUpdate {
     caseId: string;
     type: 'supplement' | 'progress';
     content: string;
+    createdAt: string;
+}
+
+export interface CaseEvidence {
+    id: string;
+    fileName: string;
+    fileType: 'image' | 'pdf' | 'text';
+    sourceLabel: string;
+    extractedText: string;
+    structuredData: {
+        keyItems?: Array<{ label: string; value: string; important?: boolean }>;
+        documentType?: string;
+        summary?: string;
+    } | null;
+    fileSize: number;
     createdAt: string;
 }
 
@@ -858,5 +874,32 @@ export async function addCaseUpdate(
     });
     const data = await response.json();
     if (!data.success) throw new Error(data.error || '업데이트 추가 실패');
+    return data.data;
+}
+
+// ==================== Evidence (증거/자료) ====================
+
+export async function uploadEvidence(
+    caseId: string,
+    file: File,
+    sourceLabel?: string,
+): Promise<{ id: string; fileName: string; sourceLabel: string; extractedText: string; structuredData: any }> {
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) throw new Error('로그인이 필요합니다');
+    const token = await user.getIdToken();
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (sourceLabel) formData.append('sourceLabel', sourceLabel);
+
+    const response = await fetch(`${API_BASE_URL}/api/labor/cases/${caseId}/evidence`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '증거 업로드 실패');
     return data.data;
 }

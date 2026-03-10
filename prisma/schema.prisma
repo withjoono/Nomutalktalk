@@ -33,9 +33,31 @@ model LaborCase {
   insights          CaseInsight[]
   timeline          CaseTimeline[]
   updates           CaseUpdate[]
+  evidence          CaseEvidence[]
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ==================== 증거/자료 ====================
+
+model CaseEvidence {
+  id              String   @id @default(cuid())
+  caseId          String
+  fileName        String
+  fileType        String   // 'image' | 'pdf' | 'text'
+  mimeType        String
+  fileSize        Int
+  fileUrl         String?  // Firebase Storage URL (30일 임시 보관)
+  extractedText   String   @db.Text   // Gemini Vision 추출 텍스트
+  structuredData  Json?    // 구조화된 추출 결과 (항목별)
+  sourceLabel     String   @default("")  // 사용자 레이블 (예: "근로계약서", "급여명세서")
+  expiresAt       DateTime?  // 원본 파일 만료일
+  createdAt       DateTime @default(now())
+
+  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
 }
 
 // ==================== 사건 업데이트 (보충/경과) ====================

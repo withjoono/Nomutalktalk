@@ -2789,6 +2789,7 @@ app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
         analysisVersions: { orderBy: { version: 'desc' } },
         insights: { orderBy: { createdAt: 'desc' } },
         updates: { orderBy: { createdAt: 'asc' } },
+        evidence: { orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, fileType: true, sourceLabel: true, extractedText: true, structuredData: true, fileSize: true, createdAt: true } },
         timeline: { orderBy: { createdAt: 'desc' } },
       },
     });
