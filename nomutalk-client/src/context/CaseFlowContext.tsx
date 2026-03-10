@@ -180,30 +180,25 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
         }
     }, [state.caseId, state.description, state.caseType]);
 
-    // 법령 분석 실행
+    // 법령 분석 실행 — Step 1의 issueResult 데이터에서 쟁점별 법령 추출
     const runLawAnalysis = useCallback(async () => {
-        if (!state.caseId || !state.description) return;
-        setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
-        try {
-            const result = await analyzeCaseGraph(state.description);
-            const lawResult = {
-                nodes: result.nodes || [],
-                links: result.links || [],
-                summary: result.summary || '',
-            };
+        if (!state.caseId || !state.issueResult) return;
 
-            setState(prev => ({
-                ...prev,
-                lawResult,
-                currentStep: 2,
-                isAnalyzing: false,
-            }));
+        // issueResult에 이미 쟁점별 법령 노드가 parentIssue로 매핑되어 있음
+        const lawResult = {
+            nodes: state.issueResult.nodes || [],
+            links: state.issueResult.links || [],
+            summary: state.issueResult.summary || '',
+        };
 
-            updateCaseStep(state.caseId, 'lawAnalysis', lawResult, 2).catch(console.error);
-        } catch (err: any) {
-            setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
-        }
-    }, [state.caseId, state.description]);
+        setState(prev => ({
+            ...prev,
+            lawResult,
+            currentStep: 2,
+        }));
+
+        updateCaseStep(state.caseId, 'lawAnalysis', lawResult, 2).catch(console.error);
+    }, [state.caseId, state.issueResult]);
 
     // 재분석 (빌드)
     const reanalyze = useCallback(async (stepName: 'issueAnalysis' | 'lawAnalysis', trigger: 'manual' | 'evidence_added' | 'description_updated' = 'manual') => {
