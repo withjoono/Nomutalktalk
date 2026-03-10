@@ -1468,6 +1468,76 @@ ${description.substring(0, 3000)}`;
 
     const searchResults = await Promise.all(issueSearchPromises);
 
+    // 2.5단계: RAG 결과가 부족한 쟁점에 대해 Gemini 폴백
+    const issuesWithNoCitations = issues.map((issue, idx) => {
+      const sr = searchResults.find(r => r.issueIdx === idx);
+      const citCount = sr?.result?.citations?.length || 0;
+      return { idx, issue, citCount };
+    }).filter(x => x.citCount === 0);
+
+    if (issuesWithNoCitations.length > 0) {
+      console.log(`[쟁점 분석] RAG 결과 없는 쟁점 ${issuesWithNoCitations.length}개 → Gemini 폴백`);
+      try {
+        const fallbackPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건의 핵심 쟁점별로 관련 법령, 판례, 행정해석을 구체적으로 제시해주세요.
+
+사건 내용:
+${description.substring(0, 2000)}
+
+쟁점 목록:
+${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.summary}`).join('\n')}
+
+규칙:
+- 각 쟁점별로 관련 법령/판례를 최소 2개, 최대 4개 제시
+- 반드시 실제 존재하는 한국 법령명과 조항, 또는 판례번호를 제시
+- type은 "law"(법령), "precedent"(판례), "interpretation"(행정해석) 중 하나
+- 반드시 아래 JSON 형식으로만 응답
+
+{
+  "issueResults": [
+    {
+      "issueIndex": 0,
+      "citations": [
+        { "title": "근로기준법 제23조 제1항", "type": "law", "detail": "정당한 이유 없는 해고 금지" }
+      ]
+    }
+  ]
+}`;
+
+        const fallbackResponse = await genai.models.generateContent({
+          model: 'gemini-2.5-pro',
+          contents: [{ role: 'user', parts: [{ text: fallbackPrompt }] }],
+          config: { responseMimeType: 'application/json' },
+        });
+
+        const fallbackText = fallbackResponse.text || '';
+        const fallbackData = JSON.parse(fallbackText);
+        const issueResults = fallbackData.issueResults || [];
+
+        issueResults.forEach(ir => {
+          const mapping = issuesWithNoCitations[ir.issueIndex];
+          if (!mapping) return;
+          const originalIdx = mapping.idx;
+          const existing = searchResults.find(r => r.issueIdx === originalIdx);
+          if (existing) {
+            const newCitations = (ir.citations || []).map(c => ({
+              title: c.title,
+              uri: c.detail || '',
+              _type: c.type || 'law',
+            }));
+            if (!existing.result) {
+              existing.result = { citations: newCitations };
+            } else {
+              existing.result.citations = [...(existing.result.citations || []), ...newCitations];
+            }
+          }
+        });
+        console.log(`[쟁점 분석] Gemini 폴백 완료: ${issueResults.length}개 쟁점에 법령 추가`);
+      } catch (geminiErr) {
+        console.warn('[쟁점 분석] Gemini 폴백 실패:', geminiErr.message);
+      }
+    }
+
+
     // 3단계: Issue-centric 그래프 구조 생성
     const nodes = [];
     const links = [];
@@ -1535,7 +1605,7 @@ ${description.substring(0, 3000)}`;
         }
         seenTitles.add(cit.title);
 
-        const nodeType = classifyCitationType(cit.title);
+        const nodeType = cit._type || classifyCitationType(cit.title);
         const nodeId = `${issueId}-ref-${citIdx}`;
 
         nodes.push({
