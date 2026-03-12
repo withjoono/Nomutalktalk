@@ -2,6 +2,14 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    margin-top: 24px;
+}
+
+.sectionTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0 0 4px;
 }
 
 .issueAccordion {
@@ -26,6 +34,7 @@
     width: 100%;
     text-align: left;
     transition: background 0.15s;
+    font-family: inherit;
 }
 
 .issueHeader:hover {
@@ -84,6 +93,18 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .issueSummary {
@@ -103,13 +124,25 @@
     background: var(--toss-bg-secondary);
     border-radius: 12px;
     border: 1px solid transparent;
-    transition: border-color 0.15s, background 0.15s;
-    cursor: default;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+    user-select: none;
 }
 
 .lawCard:hover {
     background: var(--toss-bg-tertiary, rgba(0, 0, 0, 0.03));
     border-color: var(--toss-border);
+}
+
+.lawCardExpanded {
+    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.03);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.lawCardExpanded:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.05);
 }
 
 .lawIcon {
@@ -121,6 +154,13 @@
 .lawInfo {
     flex: 1;
     min-width: 0;
+}
+
+.lawHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
 }
 
 .lawTitle {
@@ -136,7 +176,6 @@
     border-radius: 4px;
     font-weight: 500;
     display: inline-block;
-    margin-bottom: 4px;
 }
 
 .lawType[data-type="law"] {
@@ -154,6 +193,18 @@
     color: #10b981;
 }
 
+.expandArrow {
+    font-size: 0.7rem;
+    color: var(--toss-text-tertiary);
+    transition: color 0.15s;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.expandArrow[data-expanded="true"] {
+    color: #3b82f6;
+}
+
 .lawDetail {
     font-size: 0.8rem;
     color: var(--toss-text-secondary);
@@ -163,7 +214,37 @@
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
+}
+
+.lawDetailFull {
+    font-size: 0.8rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: keep-all;
+    animation: fadeIn 0.25s ease-out;
+}
+
+.viewGraphBtn {
+    margin-top: 8px;
+    padding: 6px 14px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.06);
+    color: #3b82f6;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.viewGraphBtn:hover {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
 }
 
 .noLaws {

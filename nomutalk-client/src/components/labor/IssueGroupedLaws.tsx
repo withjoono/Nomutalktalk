@@ -12,6 +12,7 @@ interface LawByIssue {
 interface IssueGroupedLawsProps {
     issues: IssueInfo[];
     nodes: GraphNode[];
+    onLawClick?: (node: GraphNode) => void;
 }
 
 function getTypeIcon(type: string) {
@@ -32,8 +33,9 @@ function getTypeLabel(type: string) {
     }
 }
 
-export default function IssueGroupedLaws({ issues, nodes }: IssueGroupedLawsProps) {
+export default function IssueGroupedLaws({ issues, nodes, onLawClick }: IssueGroupedLawsProps) {
     const [openIssues, setOpenIssues] = useState<Set<string>>(() => new Set(issues.map(i => i.id)));
+    const [expandedLawId, setExpandedLawId] = useState<string | null>(null);
 
     // 쟁점별 관련 법령 그룹 생성
     const lawsByIssue: LawByIssue[] = issues.map(issue => {
@@ -58,8 +60,56 @@ export default function IssueGroupedLaws({ issues, nodes }: IssueGroupedLawsProp
         });
     };
 
+    const toggleLaw = (lawId: string) => {
+        setExpandedLawId(prev => prev === lawId ? null : lawId);
+    };
+
+    const renderLawCard = (law: GraphNode) => {
+        const isExpanded = expandedLawId === law.id;
+        return (
+            <div
+                key={law.id}
+                className={`${styles.lawCard} ${isExpanded ? styles.lawCardExpanded : ''}`}
+                onClick={() => toggleLaw(law.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleLaw(law.id); }}
+            >
+                <span className={styles.lawIcon}>{getTypeIcon(law.type)}</span>
+                <div className={styles.lawInfo}>
+                    <div className={styles.lawHeaderRow}>
+                        <span className={styles.lawType} data-type={law.type}>{getTypeLabel(law.type)}</span>
+                        <span className={styles.expandArrow} data-expanded={String(isExpanded)}>
+                            {isExpanded ? '▲ 접기' : '▼ 자세히'}
+                        </span>
+                    </div>
+                    <h4 className={styles.lawTitle}>{law.label}</h4>
+                    {law.detail && (
+                        <p className={isExpanded ? styles.lawDetailFull : styles.lawDetail}>
+                            {law.detail}
+                        </p>
+                    )}
+                    {isExpanded && onLawClick && (
+                        <button
+                            className={styles.viewGraphBtn}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onLawClick(law);
+                            }}
+                        >
+                            🔍 그래프에서 보기
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={styles.issueGroupedLaws}>
+            <h3 className={styles.sectionTitle}>
+                📑 쟁점별 관련 법령·판례
+            </h3>
             {lawsByIssue.map(({ issue, laws }) => {
                 const isOpen = openIssues.has(issue.id);
                 return (
@@ -76,18 +126,7 @@ export default function IssueGroupedLaws({ issues, nodes }: IssueGroupedLawsProp
                                 {laws.length === 0 ? (
                                     <div className={styles.noLaws}>관련 법령이 검색되지 않았습니다</div>
                                 ) : (
-                                    laws.map(law => (
-                                        <div key={law.id} className={styles.lawCard}>
-                                            <span className={styles.lawIcon}>{getTypeIcon(law.type)}</span>
-                                            <div className={styles.lawInfo}>
-                                                <span className={styles.lawType} data-type={law.type}>{getTypeLabel(law.type)}</span>
-                                                <h4 className={styles.lawTitle}>{law.label}</h4>
-                                                {law.detail && (
-                                                    <p className={styles.lawDetail}>{law.detail}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))
+                                    laws.map(law => renderLawCard(law))
                                 )}
                             </div>
                         )}
@@ -107,16 +146,7 @@ export default function IssueGroupedLaws({ issues, nodes }: IssueGroupedLawsProp
                     {openIssues.has('__common__') && (
                         <div className={styles.lawList}>
                             <p className={styles.issueSummary}>여러 쟁점에 공통으로 적용되는 법령/판례</p>
-                            {unlinkedLaws.map(law => (
-                                <div key={law.id} className={styles.lawCard}>
-                                    <span className={styles.lawIcon}>{getTypeIcon(law.type)}</span>
-                                    <div className={styles.lawInfo}>
-                                        <span className={styles.lawType} data-type={law.type}>{getTypeLabel(law.type)}</span>
-                                        <h4 className={styles.lawTitle}>{law.label}</h4>
-                                        {law.detail && <p className={styles.lawDetail}>{law.detail}</p>}
-                                    </div>
-                                </div>
-                            ))}
+                            {unlinkedLaws.map(law => renderLawCard(law))}
                         </div>
                     )}
                 </div>

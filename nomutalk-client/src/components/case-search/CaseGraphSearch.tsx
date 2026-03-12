@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import styles from './CaseGraphSearch.module.css';
 import IssueGraphView from '../labor/IssueGraphView';
+import IssueGroupedLaws from '../labor/IssueGroupedLaws';
 import CaseAnalysisDetailPanel from './CaseAnalysisDetailPanel';
 import {
     GraphNode, GraphLink, CaseAnalysisResult, IssueInfo, IssueAnalysisResult,
@@ -360,32 +361,35 @@ export default function CaseGraphSearch() {
                         )}
                     </div>
 
-                    {/* 노드 목록 */}
-                    <div className={styles.nodeListSection}>
-                        <h3>📑 관련 문서 ({displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').length}건)</h3>
-                        <div className={styles.nodeGrid}>
-                            {displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').map((node) => (
-                                <button
-                                    key={node.id}
-                                    className={`${styles.nodeCard} ${styles[node.type]}`}
-                                    onClick={() => setSelectedNode(node)}
-                                >
-                                    <span className={styles.nodeType}>
-                                        {node.type === 'law' ? '⚖️ 법령' :
-                                            node.type === 'precedent' ? '🏛️ 판례' :
-                                                node.type === 'interpretation' ? '📝 행정해석' :
-                                                    node.type === 'decision' ? '🔨 노동위' : '📄 문서'}
-                                    </span>
-                                    <span className={styles.nodeLabel}>{node.label}</span>
-                                    {node.parentIssue && displayIssues.length > 0 && (
-                                        <span className={styles.nodeType} style={{ fontSize: '0.7rem', marginTop: '4px' }}>
-                                            🔥 {displayIssues.find(i => i.id === node.parentIssue)?.title || ''}
+                    {/* 쟁점별 관련 법령 리스트 */}
+                    {displayIssues.length > 0 ? (
+                        <IssueGroupedLaws
+                            issues={displayIssues}
+                            nodes={displayNodes}
+                            onLawClick={(node) => setSelectedNode(node)}
+                        />
+                    ) : (
+                        <div className={styles.nodeListSection}>
+                            <h3>📑 관련 문서 ({displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').length}건)</h3>
+                            <div className={styles.nodeGrid}>
+                                {displayNodes.filter(n => n.type !== 'case' && n.type !== 'issue').map((node) => (
+                                    <button
+                                        key={node.id}
+                                        className={`${styles.nodeCard} ${styles[node.type]}`}
+                                        onClick={() => setSelectedNode(node)}
+                                    >
+                                        <span className={styles.nodeType}>
+                                            {node.type === 'law' ? '⚖️ 법령' :
+                                                node.type === 'precedent' ? '🏛️ 판례' :
+                                                    node.type === 'interpretation' ? '📝 행정해석' :
+                                                        node.type === 'decision' ? '🔨 노동위' : '📄 문서'}
                                         </span>
-                                    )}
-                                </button>
-                            ))}
+                                        <span className={styles.nodeLabel}>{node.label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
 

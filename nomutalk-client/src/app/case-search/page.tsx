@@ -4,8 +4,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCaseFlow } from '@/context/CaseFlowContext';
 import IssueGraphView from '@/components/labor/IssueGraphView';
+import IssueGroupedLaws from '@/components/labor/IssueGroupedLaws';
+import CaseAnalysisDetailPanel from '@/components/case-search/CaseAnalysisDetailPanel';
 import StepNav from '@/components/layout/StepNav';
 import styles from '../issue-analysis/page.module.css';
+import { GraphNode } from '@/lib/api';
 
 const SEVERITY_COLORS: Record<string, string> = {
     high: '#ef4444',
@@ -17,6 +20,7 @@ export default function CaseSearchPage() {
     const router = useRouter();
     const { state, runLawAnalysis, goToStep, reanalyze } = useCaseFlow();
     const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null); // null = 전체
+    const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
 
     useEffect(() => {
         if (!state.caseId) { router.push('/case-input'); return; }
@@ -25,6 +29,10 @@ export default function CaseSearchPage() {
     }, [state.caseId, state.issueResult]);
 
     const handleReanalyze = async () => { await reanalyze('lawAnalysis', 'manual'); };
+
+    const handleNodeClick = (node: GraphNode) => {
+        setSelectedNode(node);
+    };
 
     if (!state.caseId || !state.issueResult) return null;
 
@@ -207,6 +215,7 @@ export default function CaseSearchPage() {
                             key={selectedIssueId || 'all'} // force re-render on filter change
                             nodes={filteredNodes}
                             links={filteredLinks}
+                            onNodeClick={handleNodeClick}
                             initialHeight={550}
                             minHeight={400}
                         />
@@ -218,8 +227,27 @@ export default function CaseSearchPage() {
                         </div>
                     )}
 
+                    {/* ═══ 쟁점별 관련 법령 리스트 (그래프 아래) ═══ */}
+                    {issues.length > 0 && filteredNodes.length > 0 && (
+                        <IssueGroupedLaws
+                            issues={selectedIssueId ? issues.filter(i => i.id === selectedIssueId) : issues}
+                            nodes={filteredNodes}
+                            onLawClick={handleNodeClick}
+                        />
+                    )}
+
                     <StepNav currentStep={2} />
                 </div>
+            )}
+
+            {/* ═══ 상세 패널 (그래프 노드 클릭 또는 법령 카드 클릭 시) ═══ */}
+            {selectedNode && allNodes.length > 0 && (
+                <CaseAnalysisDetailPanel
+                    node={selectedNode}
+                    links={allLinks}
+                    allNodes={allNodes}
+                    onClose={() => setSelectedNode(null)}
+                />
             )}
         </div>
     );
