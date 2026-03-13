@@ -118,10 +118,10 @@ export default function AppShell({ children }: AppShellProps) {
                         {Icons.laws}
                         <span>법령 검색</span>
                     </Link>
-                    <a href="/promo.html" className={styles.navLink}>
+                    <Link href="/intro" className={styles.navLink}>
                         {Icons.promo}
                         <span>소개</span>
-                    </a>
+                    </Link>
                 </nav>
 
                 {/* Right: Action Icons */}
@@ -209,10 +209,10 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.chat}
                     <span>상담</span>
                 </Link>
-                <a href="/promo.html" className={styles.tabItem}>
+                <Link href="/intro" className={styles.tabItem}>
                     {Icons.promo}
                     <span>소개</span>
-                </a>
+                </Link>
             </nav>
         </div>
     );
