@@ -1398,12 +1398,18 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
     const { GoogleGenAI } = require('@google/genai');
     const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const issueExtractionPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출해주세요.
+    const issueExtractionPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 근로자의 승소 가능성을 예측해주세요.
 
 규칙:
 - 최소 2개, 최대 5개의 핵심 쟁점을 추출하세요
 - 각 쟁점은 노동법상 실질적인 법적 쟁점이어야 합니다
 - severity는 사건에서의 중요도입니다 (high: 핵심 쟁점, medium: 주요 쟁점, low: 부수적 쟁점)
+- winRate는 근로자의 승소 가능성을 0~100 사이의 정수로 제시하세요
+- winRateReason은 해당 승률을 판단한 구체적 근거를 1~2문장으로 설명하세요
+- favorableFactors는 근로자에게 유리한 요소 목록 (최소 1개)
+- unfavorableFactors는 근로자에게 불리한 요소 목록 (없으면 빈 배열)
+- overallWinRate는 모든 쟁점을 종합한 전체 승소 가능성 (0~100 정수)
+- overallAssessment는 전체적인 승패 전망을 2~3문장으로 서술하세요
 - 반드시 아래 JSON 형식으로만 응답하세요
 
 응답 형식:
@@ -1413,10 +1419,16 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
       "title": "부당해고 여부",
       "summary": "정당한 사유 없이 근로자를 해고한 것이 부당해고에 해당하는지 여부",
       "severity": "high",
-      "searchQuery": "부당해고 정당한 사유 근로기준법 제23조"
+      "searchQuery": "부당해고 정당한 사유 근로기준법 제23조",
+      "winRate": 72,
+      "winRateReason": "근로기준법 제23조 위반이 명확하나, 사용자측 징계사유 입증 가능성이 있어 72%로 판단",
+      "favorableFactors": ["해고 사전통보 의무 미이행", "서면통지 없음"],
+      "unfavorableFactors": ["근무태도 지적 사실 존재"]
     }
   ],
-  "overallSummary": "이 사건의 전체적인 법적 쟁점 요약"
+  "overallSummary": "이 사건의 전체적인 법적 쟁점 요약",
+  "overallWinRate": 65,
+  "overallAssessment": "전반적으로 근로자에게 유리하나 일부 쟁점에서 반론 가능성이 존재합니다."
 }
 
 사건 내용:
@@ -1442,14 +1454,22 @@ ${description.substring(0, 3000)}`;
           title: '사건 분석',
           summary: description.substring(0, 100),
           severity: 'high',
-          searchQuery: description.substring(0, 200)
+          searchQuery: description.substring(0, 200),
+          winRate: 50,
+          winRateReason: '사건 내용 분석 중입니다.',
+          favorableFactors: [],
+          unfavorableFactors: []
         }],
-        overallSummary: '사건을 분석 중입니다.'
+        overallSummary: '사건을 분석 중입니다.',
+        overallWinRate: 50,
+        overallAssessment: '사건을 분석 중입니다.'
       };
     }
 
     const issues = (issueData.issues || []).slice(0, 5); // 최대 5개 제한
     const overallSummary = issueData.overallSummary || '';
+    const overallWinRate = typeof issueData.overallWinRate === 'number' ? issueData.overallWinRate : null;
+    const overallAssessment = issueData.overallAssessment || '';
 
     console.log(`[쟁점 분석] ${issues.length}개 쟁점 추출 완료`);
 
@@ -1566,7 +1586,11 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
         id: issueId,
         title: issue.title,
         summary: issue.summary,
-        severity: issue.severity || 'medium'
+        severity: issue.severity || 'medium',
+        winRate: typeof issue.winRate === 'number' ? issue.winRate : null,
+        winRateReason: issue.winRateReason || '',
+        favorableFactors: issue.favorableFactors || [],
+        unfavorableFactors: issue.unfavorableFactors || [],
       });
 
       // 쟁점 노드
@@ -1632,6 +1656,8 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
       data: {
         issues: issueInfoList,
         summary: overallSummary,
+        overallWinRate,
+        overallAssessment,
         nodes,
         links,
         timestamp: new Date().toISOString()
@@ -3331,7 +3357,7 @@ const contextualSessions = new Map();
  */
 app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
   try {
-    const { caseDescription, issues, laws, summary, caseId } = req.body;
+    const { caseDescription, issues, laws, summary, caseId, consultMode } = req.body;
 
     if (!caseDescription) {
       return res.status(400).json({
@@ -3342,13 +3368,15 @@ app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
 
     const sessionId = `ctx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const userId = req.user?.uid || 'anonymous';
+    const mode = consultMode || 'general';
 
-    console.log(`[맥락 상담] 세션 생성: ${sessionId}`);
+    console.log(`[맥락 상담] 세션 생성: ${sessionId} (모드: ${mode})`);
 
     // ── 시스템 프롬프트 구성 ──
-    const issuesList = (issues || []).map((iss, i) =>
-      `${i + 1}. [${iss.severity === 'high' ? '높음' : iss.severity === 'medium' ? '보통' : '낮음'}] ${iss.title}: ${iss.summary || ''}`
-    ).join('\n');
+    const issuesList = (issues || []).map((iss, i) => {
+      const winInfo = typeof iss.winRate === 'number' ? ` (승률 ${iss.winRate}%)` : '';
+      return `${i + 1}. [${iss.severity === 'high' ? '높음' : iss.severity === 'medium' ? '보통' : '낮음'}] ${iss.title}${winInfo}: ${iss.summary || ''}`;
+    }).join('\n');
 
     const lawsList = (laws || []).map((law, i) => {
       const typeLabel = law.type === 'law' ? '법령' : law.type === 'precedent' ? '판례' : '행정해석';
@@ -3369,12 +3397,8 @@ app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
       }
     }
 
-    const systemPrompt = `당신은 한국 노동법 전문 AI 상담사 "노무톡"입니다.
-
-아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.
-이 맥락을 완전히 이해한 상태에서 상담을 진행하세요.
-
-═══════════════ 사건 내용 ═══════════════
+    // ── 공통 맥락 ──
+    const baseContext = `═══════════════ 사건 내용 ═══════════════
 ${caseDescription}
 
 ═══════════════ 핵심 쟁점 (${(issues || []).length}건) ═══════════════
@@ -3384,25 +3408,34 @@ ${issuesList || '(분석된 쟁점 없음)'}
 ${lawsList || '(분석된 법령 없음)'}
 
 ═══════════════ AI 분석 요약 ═══════════════
-${summary || '(요약 없음)'}${insightsSection}
+${summary || '(요약 없음)'}${insightsSection}`;
 
-═══════════════ 상담 규칙 ═══════════════
-1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.
-2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.
-3. 사용자의 권리와 의무를 명확히 설명합니다.
-4. 실질적인 대응 방안과 절차를 안내합니다.
-5. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.
-6. 한국어로 친절하고 이해하기 쉽게 답변합니다.
-7. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`;
+    // ── 모드별 전문 시스템 프롬프트 ──
+    const modePrompts = {
+      prediction: `당신은 한국 노동법 전문 AI 상담사 "노무톡"의 **사건 예측 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사건의 결과를 예측하고 분석합니다.\n\n${baseContext}\n\n═══════════════ 예측 전문가 규칙 ═══════════════\n1. 각 쟁점별 승소 가능성을 구체적 근거와 함께 분석합니다.\n2. "이기면?" 시나리오: 예상 복직, 금전 보상 등 구체적 결과를 제시합니다.\n3. "지면?" 시나리오: 최악의 경우와 대안을 제시합니다.\n4. 예상 소요 기간을 단계별로 안내합니다 (노동위원회, 행정소송, 민사소송 등).\n5. 유사 판례의 결과를 인용하며 예측 근거를 강화합니다.\n6. 승률에 영향을 미칠 수 있는 변수들을 설명합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.\n8. 예측은 참고용이며 법적 구속력이 없음을 안내합니다.`,
+      response: `당신은 한국 노동법 전문 AI 상담사 "노무톡"의 **대응 전략 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 실질적인 행동 전략과 대응 방안을 제시합니다.\n\n${baseContext}\n\n═══════════════ 대응 전략 전문가 규칙 ═══════════════\n1. 우선순위별 액션 플랜을 제시합니다 (즉시/1주 내/1개월 내/3개월 내).\n2. 쟁점별 맞춤 대응 전략을 구체적으로 안내합니다.\n3. 노동위원회 진정, 고용노동부 신고, 소송 등 구체적인 절차를 단계별로 안내합니다.\n4. 사용자와 대화 시 주의사항 (녹음, 문서화, 서면 통보 등)을 안내합니다.\n5. 협상·조정·합의 전략도 제시합니다.\n6. 감정 관리와 직장 내 대처 방법도 포함합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      evidence: `당신은 한국 노동법 전문 AI 상담사 "노무톡"의 **증거 분석 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 증거 수집과 증거력 분석을 전문적으로 수행합니다.\n\n${baseContext}\n\n═══════════════ 증거 분석 전문가 규칙 ═══════════════\n1. 쟁점별 필요 증거 체크리스트를 구체적으로 제시합니다.\n2. 각 증거의 증거력 등급을 평가합니다 (핵심 증거/보조 증거/참고 자료).\n3. 증거 확보 방법과 적법한 수집 절차를 안내합니다.\n4. 디지털 증거(카톡, 이메일, 녹음)의 법적 유효성을 설명합니다.\n5. 증거 보전 방법과 시효를 안내합니다.\n6. "이 증거가 있으면 승률이 어떻게 변하는지" 분석합니다.\n7. 증거가 부족한 경우 대안적 입증 방법을 제시합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      compensation: `당신은 한국 노동법 전문 AI 상담사 "노무톡"의 **보상금 산정 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 예상 보상금과 청구 가능 금액을 산정합니다.\n\n${baseContext}\n\n═══════════════ 보상금 산정 전문가 규칙 ═══════════════\n1. 체불임금, 퇴직금, 연차수당 등 법정 청구 항목별 예상 금액을 산정합니다.\n2. 부당해고 시 복직 + 임금상당액(해고기간 중 임금)을 계산합니다.\n3. 지연이자(근로기준법 제37조, 14.6% 연이율)를 포함한 총 청구액을 안내합니다.\n4. 합의금 협상 시 적정 범위를 제시합니다 (최소/적정/최대).\n5. 산정에 필요한 정보(월급, 근속기간, 근무시간 등)를 구체적으로 질문합니다.\n6. 세금·공제 등 실수령액 관련 사항도 안내합니다.\n7. 관련 법령 조항을 인용하며 산정 근거를 명확히 합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      document: `당신은 한국 노동법 전문 AI 상담사 "노무톡"의 **법률 서면 작성 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 법률 서면 작성을 도와줍니다.\n\n${baseContext}\n\n═══════════════ 법률 서면 작성 전문가 규칙 ═══════════════\n1. 진정서, 탄원서, 답변서, 이의신청서, 재심신청서, 증거설명서 등을 작성합니다.\n2. 사건 내용과 분석된 쟁점/법령을 기반으로 실전 서면을 생성합니다.\n3. 법률 서면 형식과 필수 기재사항을 정확히 포함합니다.\n4. 개인정보(이름, 주소, 전화번호)는 빈칸(_____)으로 표시합니다.\n5. 사용자가 원하는 서면 유형을 먼저 파악한 후 작성합니다.\n6. 작성 후 수정이 필요한 부분을 안내합니다.\n7. 한국어로 작성하며, 법률 용어는 괄호 안에 쉬운 설명을 추가합니다.\n8. 마크다운 형식으로 서면을 정리합니다.`,
+      general: `당신은 한국 노동법 전문 AI 상담사 "노무톡"입니다.\n\n아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.\n이 맥락을 완전히 이해한 상태에서 상담을 진행하세요.\n\n${baseContext}\n\n═══════════════ 상담 규칙 ═══════════════\n1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.\n2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.\n3. 사용자의 권리와 의무를 명확히 설명합니다.\n4. 실질적인 대응 방안과 절차를 안내합니다.\n5. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.\n6. 한국어로 친절하고 이해하기 쉽게 답변합니다.\n7. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`
+    };
+
+    const systemPrompt = modePrompts[mode] || modePrompts.general;
+
+    const modeWelcomes = {
+      prediction: `위 사건 맥락과 분석된 승률을 바탕으로 사용자에게 인사하고, 사건의 전체적인 전망을 간략히 요약한 뒤, 예측과 관련하여 어떤 부분이 궁금한지 물어보세요. "이기면/지면 어떻게 되나", "소요 기간", "유사 판례 결과" 등을 다룰 수 있음을 안내하세요. 응답은 200~350자 이내로 해주세요.`,
+      response: `위 사건 맥락을 바탕으로 사용자에게 인사하고, 가장 시급한 대응 사항을 1~2가지 간략히 안내한 뒤, 구체적인 대응 전략에 대해 어떤 부분이 궁금한지 물어보세요. "즉시 해야 할 일", "노동위 진정 절차", "협상 전략" 등을 다룰 수 있음을 안내하세요. 응답은 200~350자 이내로 해주세요.`,
+      evidence: `위 사건 맥락을 바탕으로 사용자에게 인사하고, 현재 쟁점별로 가장 중요한 증거 1~2가지를 언급한 뒤, 증거 관련 어떤 부분이 궁금한지 물어보세요. "필요 증거 체크리스트", "증거 수집 방법", "디지털 증거 유효성" 등을 다룰 수 있음을 안내하세요. 응답은 200~350자 이내로 해주세요.`,
+      compensation: `위 사건 맥락을 바탕으로 사용자에게 인사하고, 청구 가능한 보상 항목을 간략히 나열한 뒤, 정확한 산정을 위해 필요한 기본 정보(월급, 근속기간 등)를 질문하세요. "체불임금", "퇴직금", "위로금", "합의금 범위" 등을 다룰 수 있음을 안내하세요. 응답은 200~350자 이내로 해주세요.`,
+      document: `위 사건 맥락을 바탕으로 사용자에게 인사하고, 이 사건에서 작성 가능한 법률 서면 종류를 나열한 뒤, 어떤 서면을 작성하고 싶은지 물어보세요. "진정서", "답변서", "이의신청서", "증거설명서" 등을 다룰 수 있음을 안내하세요. 응답은 200~350자 이내로 해주세요.`,
+      general: `위 사건 맥락을 바탕으로 사용자에게 인사하고, 분석된 핵심 쟁점과 관련 법령을 간략히 요약한 뒤, 어떤 부분에 대해 더 자세히 상담받고 싶은지 물어보세요. 응답은 200~400자 이내로 해주세요.`
+    };
 
     // ── Gemini로 첫 인사 생성 ──
     const { GoogleGenAI } = require('@google/genai');
     const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const welcomePrompt = `위 사건 맥락을 바탕으로 사용자에게 인사하고, 
-분석된 핵심 쟁점과 관련 법령을 간략히 요약한 뒤, 
-어떤 부분에 대해 더 자세히 상담받고 싶은지 물어보세요.
-응답은 200~400자 이내로 해주세요.`;
+    const welcomePrompt = modeWelcomes[mode] || modeWelcomes.general;
 
     const response = await genai.models.generateContent({
       model: 'gemini-2.5-pro',
@@ -3420,6 +3453,7 @@ ${summary || '(요약 없음)'}${insightsSection}
       sessionId,
       userId,
       caseId: caseId || null,
+      consultMode: mode,
       systemPrompt,
       turnCount: 0,
       history: [
@@ -3431,7 +3465,7 @@ ${summary || '(요약 없음)'}${insightsSection}
       createdAt: new Date().toISOString()
     });
 
-    console.log(`[맥락 상담] 세션 생성 완료: ${sessionId}`);
+    console.log(`[맥락 상담] 세션 생성 완료: ${sessionId} (모드: ${mode})`);
 
     res.json({
       success: true,

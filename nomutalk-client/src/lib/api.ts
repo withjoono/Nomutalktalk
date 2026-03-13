@@ -100,6 +100,7 @@ export interface ContextualSessionRequest {
     issues: IssueInfo[];
     laws: { title: string; type: string; detail: string; label?: string }[];
     summary: string;
+    consultMode?: 'prediction' | 'response' | 'evidence' | 'compensation' | 'document' | 'general';
 }
 
 export async function createContextualSession(
@@ -186,11 +187,17 @@ export interface IssueInfo {
     title: string;
     summary: string;
     severity: 'high' | 'medium' | 'low';
+    winRate?: number | null;
+    winRateReason?: string;
+    favorableFactors?: string[];
+    unfavorableFactors?: string[];
 }
 
 export interface IssueAnalysisResult {
     issues: IssueInfo[];
     summary: string;
+    overallWinRate?: number | null;
+    overallAssessment?: string;
     nodes: GraphNode[];
     links: GraphLink[];
     timestamp: string;

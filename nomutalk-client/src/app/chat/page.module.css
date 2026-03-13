@@ -162,6 +162,223 @@
     box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
 }
 
+/* ═══ 승률 게이지 (브리핑 카드) ═══ */
+.winRateList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.winRateItem {
+    border-radius: 12px;
+    background: var(--toss-bg-primary);
+    border: 1px solid var(--toss-border);
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.winRateItem:hover {
+    border-color: rgba(59, 130, 246, 0.25);
+}
+
+.winRateHeader {
+    padding: 12px 14px;
+    cursor: pointer;
+}
+
+.winRateInfo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.winRateTitle {
+    flex: 1;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+}
+
+.winRateExpandIcon {
+    font-size: 0.6rem;
+    color: var(--toss-text-tertiary);
+    transition: transform 0.2s;
+}
+
+.winRateBarRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.winRateBarTrack {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--toss-bg-secondary);
+    overflow: hidden;
+}
+
+.winRateBarFill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease-out;
+    animation: barGrow 1s ease-out;
+}
+
+@keyframes barGrow {
+    from { width: 0 !important; }
+}
+
+.winRatePercent {
+    font-size: 0.92rem;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: right;
+}
+
+/* 승률 상세 패널 */
+.winRateDetail {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--toss-border);
+    margin-top: 0;
+    animation: slideUp 0.25s ease-out;
+}
+
+.winRateReason {
+    font-size: 0.83rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.6;
+    margin: 10px 0 8px;
+    padding: 8px 10px;
+    background: rgba(59, 130, 246, 0.04);
+    border-radius: 8px;
+    word-break: keep-all;
+}
+
+.factorGroup {
+    margin-top: 8px;
+}
+
+.factorLabel {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--toss-text-secondary);
+}
+
+.factorList {
+    margin: 4px 0 0;
+    padding-left: 20px;
+    font-size: 0.82rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+}
+
+.factorList li {
+    margin-bottom: 2px;
+}
+
+/* ═══ 종합 승률 도넛 차트 ═══ */
+.overallWinRateSection {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.donutContainer {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+}
+
+.donut {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.donutFill {
+    animation: donutDraw 1.5s ease-out;
+}
+
+@keyframes donutDraw {
+    from { stroke-dasharray: 0 251; }
+}
+
+.donutCenter {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.donutPercent {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+}
+
+.donutLabel {
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.overallTextSection {
+    flex: 1;
+    min-width: 0;
+}
+
+.overallAssessment {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+    line-height: 1.6;
+    margin: 0 0 8px;
+    word-break: keep-all;
+}
+
+/* ═══ 면책 문구 ═══ */
+.disclaimer {
+    font-size: 0.75rem;
+    color: var(--toss-text-tertiary);
+    text-align: center;
+    padding: 10px 16px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+/* ═══ 사이드바 승률 ═══ */
+.sideWinBadge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.sideWinBar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--toss-bg-primary);
+    margin: 4px 0 6px;
+    overflow: hidden;
+}
+
+.sideWinBarFill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s ease-out;
+}
+
 /* ═══ 상담 레이아웃 (사이드바 + 채팅) ═══ */
 .consultLayout {
     display: flex;
@@ -382,6 +599,59 @@
     font-size: 0.8rem;
     color: var(--toss-text-secondary);
     font-family: inherit;
+}
+
+/* ═══ 상담 모드 탭 바 ═══ */
+.consultTabBar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+}
+
+.consultTabBar::-webkit-scrollbar {
+    display: none;
+}
+
+.consultTab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--toss-text-tertiary);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: inherit;
+}
+
+.consultTab:hover {
+    color: var(--toss-text-secondary);
+    background: var(--toss-bg-primary);
+}
+
+.consultTabActive {
+    color: var(--toss-blue, #3b82f6);
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.consultTabIcon {
+    font-size: 1rem;
+}
+
+.consultTabLabel {
+    font-size: 0.82rem;
 }
 
 /* 추천 질문 영역 */

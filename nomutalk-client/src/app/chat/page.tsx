@@ -28,6 +28,21 @@ const SEVERITY_LABELS: Record<string, string> = {
     low: '낮음',
 };
 
+// 승률에 따른 색상
+function getWinRateColor(rate: number): string {
+    if (rate >= 75) return '#3b82f6';
+    if (rate >= 60) return '#10b981';
+    if (rate >= 40) return '#f59e0b';
+    return '#ef4444';
+}
+
+function getWinRateLabel(rate: number): string {
+    if (rate >= 75) return '매우 유리';
+    if (rate >= 60) return '유리';
+    if (rate >= 40) return '보통';
+    return '불리';
+}
+
 // 쟁점 기반 추천 질문 생성
 function generateSuggestions(issues: IssueInfo[], laws: { title: string; type: string }[]): string[] {
     const suggestions: string[] = [];
@@ -94,6 +109,59 @@ function getTypeLabel(type: string) {
     }
 }
 
+// ==================== Consultation Tabs ====================
+
+type ConsultMode = 'prediction' | 'response' | 'evidence' | 'compensation' | 'document';
+
+const CONSULT_TABS: { mode: ConsultMode; icon: string; label: string; desc: string }[] = [
+    { mode: 'prediction', icon: '📊', label: '예측', desc: '승률·결과 예측' },
+    { mode: 'response', icon: '🛡️', label: '대응', desc: '행동 전략·절차' },
+    { mode: 'evidence', icon: '📋', label: '증거', desc: '증거 수집·분석' },
+    { mode: 'compensation', icon: '💰', label: '보상', desc: '보상금 산정' },
+    { mode: 'document', icon: '📝', label: '서면', desc: '법률 서면 작성' },
+];
+
+function getTabSuggestions(mode: ConsultMode, issues: IssueInfo[]): string[] {
+    const topIssue = issues[0]?.title || '해당 쟁점';
+    switch (mode) {
+        case 'prediction':
+            return [
+                '이 사건에서 이기면 어떤 결과가 예상되나요?',
+                '지면 최악의 경우는 어떻게 되나요?',
+                '노동위원회에서 해결까지 얼마나 걸리나요?',
+                `"${topIssue}" 쟁점의 승률을 높이려면?`,
+            ];
+        case 'response':
+            return [
+                '지금 당장 해야 할 일은 무엇인가요?',
+                '노동위원회 진정 절차를 알려주세요',
+                '회사와 협상은 어떤 전략으로 해야 하나요?',
+                '증거 보전을 위해 주의할 점은?',
+            ];
+        case 'evidence':
+            return [
+                '이 사건에 필요한 증거 체크리스트를 알려주세요',
+                '카카오톡 대화가 증거로 인정되나요?',
+                '녹음 증거의 법적 유효성은 어떤가요?',
+                '증거가 부족하면 어떻게 입증하나요?',
+            ];
+        case 'compensation':
+            return [
+                '체불임금은 얼마나 청구할 수 있나요?',
+                '퇴직금 계산을 도와주세요',
+                '부당해고 시 받을 수 있는 금액은?',
+                '합의금은 어느 정도가 적정한가요?',
+            ];
+        case 'document':
+            return [
+                '진정서를 작성해주세요',
+                '답변서를 작성해주세요',
+                '이의신청서를 작성해주세요',
+                '증거설명서를 작성해주세요',
+            ];
+    }
+}
+
 // ==================== Component ====================
 
 export default function ChatPage() {
@@ -104,16 +172,29 @@ export default function ChatPage() {
     const [showBriefing, setShowBriefing] = useState(true);
     const [sidebarTab, setSidebarTab] = useState<'issues' | 'laws'>('issues');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
+
+    // 탭 상태
+    const [activeTab, setActiveTab] = useState<ConsultMode>('prediction');
+    // 탭별 독립 세션
+    const [tabSessions, setTabSessions] = useState<Record<string, {
+        sessionId: string | null;
+        messages: Message[];
+        initialized: boolean;
+        initializing: boolean;
+        error: string | null;
+    }>>({
+        prediction: { sessionId: null, messages: [], initialized: false, initializing: false, error: null },
+        response: { sessionId: null, messages: [], initialized: false, initializing: false, error: null },
+        evidence: { sessionId: null, messages: [], initialized: false, initializing: false, error: null },
+        compensation: { sessionId: null, messages: [], initialized: false, initializing: false, error: null },
+        document: { sessionId: null, messages: [], initialized: false, initializing: false, error: null },
+    });
 
     // 채팅 상태
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [sessionId, setSessionId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isInitializing, setIsInitializing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const initRef = useRef(false);
 
     // 이전 단계 미완료 시 리다이렉트
     useEffect(() => {
@@ -121,10 +202,17 @@ export default function ChatPage() {
         if (!state.issueResult) { router.push('/issue-analysis'); return; }
     }, [state.caseId, state.issueResult, router]);
 
+    // 현재 탭 데이터
+    const currentTab = tabSessions[activeTab];
+    const messages = currentTab.messages;
+    const sessionId = currentTab.sessionId;
+    const isInitializing = currentTab.initializing;
+    const error = currentTab.error;
+
     // 메시지 스크롤
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, activeTab]);
 
     if (!state.caseId || !state.issueResult) return null;
 
@@ -134,15 +222,24 @@ export default function ChatPage() {
         .filter(n => n.type !== 'case' && n.type !== 'issue')
         .map(n => ({ title: n.label, type: n.type || 'law', detail: n.detail || '', label: n.label }));
     const summaryText = state.issueResult.summary + (state.lawResult?.summary ? '\n\n' + state.lawResult.summary : '');
-    const suggestions = generateSuggestions(issues, lawNodes);
+    const suggestions = getTabSuggestions(activeTab, issues);
 
-    // 상담 세션 시작
-    const startConsultation = async () => {
+    // 상담 세션 시작 (탭별)
+    const startConsultation = async (mode?: ConsultMode) => {
         setShowBriefing(false);
-        if (initRef.current) return;
-        initRef.current = true;
-        setIsInitializing(true);
-        setError(null);
+        const tab = mode || activeTab;
+        if (mode) setActiveTab(tab);
+        await initTabSession(tab);
+    };
+
+    const initTabSession = async (tab: ConsultMode) => {
+        const ts = tabSessions[tab];
+        if (ts.initialized || ts.initializing) return;
+
+        setTabSessions(prev => ({
+            ...prev,
+            [tab]: { ...prev[tab], initializing: true, error: null }
+        }));
 
         try {
             const result = await createContextualSession({
@@ -151,20 +248,30 @@ export default function ChatPage() {
                 laws: lawNodes,
                 summary: summaryText,
                 caseId: state.caseId || undefined,
+                consultMode: tab,
             } as any);
 
-            setSessionId(result.sessionId);
-            setMessages([{
-                id: Date.now(),
-                role: 'assistant',
-                content: result.welcomeMessage,
-                time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-            }]);
+            setTabSessions(prev => ({
+                ...prev,
+                [tab]: {
+                    sessionId: result.sessionId,
+                    messages: [{
+                        id: Date.now(),
+                        role: 'assistant' as const,
+                        content: result.welcomeMessage,
+                        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                    }],
+                    initialized: true,
+                    initializing: false,
+                    error: null,
+                }
+            }));
         } catch (err: any) {
             console.error('세션 생성 오류:', err);
-            setError(err.message);
-        } finally {
-            setIsInitializing(false);
+            setTabSessions(prev => ({
+                ...prev,
+                [tab]: { ...prev[tab], initializing: false, error: err.message }
+            }));
         }
     };
 
@@ -175,24 +282,42 @@ export default function ChatPage() {
         setInput('');
 
         const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-        setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: messageText, time: now }]);
+        setTabSessions(prev => ({
+            ...prev,
+            [activeTab]: {
+                ...prev[activeTab],
+                messages: [...prev[activeTab].messages, { id: Date.now(), role: 'user' as const, content: messageText, time: now }]
+            }
+        }));
         setIsLoading(true);
 
         try {
             const response = await sendContextualMessage(sessionId, messageText);
-            setMessages(prev => [...prev, {
-                id: Date.now() + 1,
-                role: 'assistant',
-                content: response.message,
-                time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-            }]);
+            setTabSessions(prev => ({
+                ...prev,
+                [activeTab]: {
+                    ...prev[activeTab],
+                    messages: [...prev[activeTab].messages, {
+                        id: Date.now() + 1,
+                        role: 'assistant' as const,
+                        content: response.message,
+                        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                    }]
+                }
+            }));
         } catch (err: any) {
-            setMessages(prev => [...prev, {
-                id: Date.now() + 1,
-                role: 'assistant',
-                content: `오류가 발생했습니다: ${err.message}`,
-                time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-            }]);
+            setTabSessions(prev => ({
+                ...prev,
+                [activeTab]: {
+                    ...prev[activeTab],
+                    messages: [...prev[activeTab].messages, {
+                        id: Date.now() + 1,
+                        role: 'assistant' as const,
+                        content: `오류가 발생했습니다: ${err.message}`,
+                        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+                    }]
+                }
+            }));
         } finally {
             setIsLoading(false);
         }
@@ -202,6 +327,15 @@ export default function ChatPage() {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
+        }
+    };
+
+    // 탭 전환
+    const handleTabChange = async (tab: ConsultMode) => {
+        setActiveTab(tab);
+        setInput('');
+        if (!tabSessions[tab].initialized && !tabSessions[tab].initializing) {
+            await initTabSession(tab);
         }
     };
 
@@ -241,33 +375,73 @@ export default function ChatPage() {
                                 </div>
                             </div>
 
-                            {/* 핵심 쟁점 */}
+                            {/* 쟁점별 승소 가능성 */}
                             <div className={styles.briefingCard}>
-                                <div className={styles.briefingCardTitle}>🔥 핵심 쟁점 ({issues.length}건)</div>
-                                <div className={styles.issueChipList}>
+                                <div className={styles.briefingCardTitle}>📊 쟁점별 승소 가능성 예측</div>
+                                <div className={styles.winRateList}>
                                     {issues
                                         .sort((a, b) => {
                                             const order = { high: 0, medium: 1, low: 2 };
                                             return (order[a.severity as keyof typeof order] ?? 3) - (order[b.severity as keyof typeof order] ?? 3);
                                         })
-                                        .map(issue => (
-                                            <div key={issue.id} className={styles.issueChip}>
-                                                <span
-                                                    className={styles.issueChipDot}
-                                                    style={{ background: SEVERITY_COLORS[issue.severity] }}
-                                                />
-                                                <span className={styles.issueChipTitle}>{issue.title}</span>
-                                                <span
-                                                    className={styles.issueChipSeverity}
-                                                    style={{
-                                                        background: `${SEVERITY_COLORS[issue.severity]}18`,
-                                                        color: SEVERITY_COLORS[issue.severity],
-                                                    }}
-                                                >
-                                                    {SEVERITY_LABELS[issue.severity] || issue.severity}
-                                                </span>
-                                            </div>
-                                        ))}
+                                        .map(issue => {
+                                            const rate = issue.winRate ?? 50;
+                                            const color = getWinRateColor(rate);
+                                            const isExpanded = expandedIssueId === issue.id;
+                                            return (
+                                                <div key={issue.id} className={styles.winRateItem}>
+                                                    <div
+                                                        className={styles.winRateHeader}
+                                                        onClick={() => setExpandedIssueId(isExpanded ? null : issue.id)}
+                                                    >
+                                                        <div className={styles.winRateInfo}>
+                                                            <span
+                                                                className={styles.issueChipDot}
+                                                                style={{ background: SEVERITY_COLORS[issue.severity] }}
+                                                            />
+                                                            <span className={styles.winRateTitle}>{issue.title}</span>
+                                                            <span className={styles.winRateExpandIcon}>{isExpanded ? '▲' : '▼'}</span>
+                                                        </div>
+                                                        <div className={styles.winRateBarRow}>
+                                                            <div className={styles.winRateBarTrack}>
+                                                                <div
+                                                                    className={styles.winRateBarFill}
+                                                                    style={{ width: `${rate}%`, background: color }}
+                                                                />
+                                                            </div>
+                                                            <span className={styles.winRatePercent} style={{ color }}>{rate}%</span>
+                                                        </div>
+                                                    </div>
+                                                    {isExpanded && (
+                                                        <div className={styles.winRateDetail}>
+                                                            {issue.winRateReason && (
+                                                                <p className={styles.winRateReason}>💡 {issue.winRateReason}</p>
+                                                            )}
+                                                            {(issue.favorableFactors?.length ?? 0) > 0 && (
+                                                                <div className={styles.factorGroup}>
+                                                                    <span className={styles.factorLabel}>✅ 유리한 요소</span>
+                                                                    <ul className={styles.factorList}>
+                                                                        {issue.favorableFactors!.map((f, i) => (
+                                                                            <li key={i}>{f}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
+                                                            {(issue.unfavorableFactors?.length ?? 0) > 0 && (
+                                                                <div className={styles.factorGroup}>
+                                                                    <span className={styles.factorLabel}>⚠️ 불리한 요소</span>
+                                                                    <ul className={styles.factorList}>
+                                                                        {issue.unfavorableFactors!.map((f, i) => (
+                                                                            <li key={i}>{f}</li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                 </div>
                             </div>
 
@@ -291,20 +465,55 @@ export default function ChatPage() {
                                 </div>
                             )}
 
-                            {/* AI 분석 요약 */}
+                            {/* AI 분석 요약 + 종합 승률 */}
                             {state.issueResult.summary && (
                                 <div className={styles.briefingCard}>
                                     <div className={styles.briefingCardTitle}>🎯 AI 종합 판단</div>
-                                    <div className={styles.briefingCardBody}>
-                                        {state.issueResult.summary.length > 300
-                                            ? state.issueResult.summary.substring(0, 300) + '...'
-                                            : state.issueResult.summary}
+                                    <div className={styles.overallWinRateSection}>
+                                        {state.issueResult.overallWinRate != null && (
+                                            <div className={styles.donutContainer}>
+                                                <svg className={styles.donut} viewBox="0 0 100 100">
+                                                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--toss-border)" strokeWidth="8" />
+                                                    <circle
+                                                        cx="50" cy="50" r="40" fill="none"
+                                                        stroke={getWinRateColor(state.issueResult.overallWinRate)}
+                                                        strokeWidth="8"
+                                                        strokeDasharray={`${state.issueResult.overallWinRate * 2.51} ${251 - state.issueResult.overallWinRate * 2.51}`}
+                                                        strokeDashoffset="62.8"
+                                                        strokeLinecap="round"
+                                                        className={styles.donutFill}
+                                                    />
+                                                </svg>
+                                                <div className={styles.donutCenter}>
+                                                    <span className={styles.donutPercent} style={{ color: getWinRateColor(state.issueResult.overallWinRate) }}>
+                                                        {state.issueResult.overallWinRate}%
+                                                    </span>
+                                                    <span className={styles.donutLabel}>
+                                                        {getWinRateLabel(state.issueResult.overallWinRate)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className={styles.overallTextSection}>
+                                            {state.issueResult.overallAssessment && (
+                                                <p className={styles.overallAssessment}>{state.issueResult.overallAssessment}</p>
+                                            )}
+                                            <p className={styles.briefingCardBody}>
+                                                {state.issueResult.summary.length > 200
+                                                    ? state.issueResult.summary.substring(0, 200) + '...'
+                                                    : state.issueResult.summary}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <button className={styles.startBtn} onClick={startConsultation}>
+                        <div className={styles.disclaimer}>
+                            ⚠️ AI 예측은 참고용이며 법적 구속력이 없습니다. 정확한 판단은 노무사·변호사 상담을 권장합니다.
+                        </div>
+
+                        <button className={styles.startBtn} onClick={() => startConsultation()}>
                             💬 AI 노무전문가 상담 시작
                         </button>
                     </div>
@@ -350,7 +559,29 @@ export default function ChatPage() {
                                         style={{ background: SEVERITY_COLORS[issue.severity] }}
                                     />
                                     <span className={styles.sideIssueTitle}>{issue.title}</span>
+                                    {issue.winRate != null && (
+                                        <span
+                                            className={styles.sideWinBadge}
+                                            style={{
+                                                background: `${getWinRateColor(issue.winRate)}15`,
+                                                color: getWinRateColor(issue.winRate),
+                                            }}
+                                        >
+                                            {issue.winRate}%
+                                        </span>
+                                    )}
                                 </div>
+                                {issue.winRate != null && (
+                                    <div className={styles.sideWinBar}>
+                                        <div
+                                            className={styles.sideWinBarFill}
+                                            style={{
+                                                width: `${issue.winRate}%`,
+                                                background: getWinRateColor(issue.winRate),
+                                            }}
+                                        />
+                                    </div>
+                                )}
                                 {issue.summary && (
                                     <div className={styles.sideIssueSummary}>{issue.summary}</div>
                                 )}
@@ -379,7 +610,9 @@ export default function ChatPage() {
                 <main className={styles.chatArea}>
                     <div className={styles.chatHeader}>
                         <div className={styles.chatHeaderLeft}>
-                            <span className={styles.chatTitle}>💬 AI 노무전문가 상담</span>
+                            <span className={styles.chatTitle}>
+                                {CONSULT_TABS.find(t => t.mode === activeTab)?.icon} {CONSULT_TABS.find(t => t.mode === activeTab)?.label} 상담
+                            </span>
                             <span className={styles.chatStatus}>
                                 <span className={styles.chatStatusDot} />
                                 {isLoading ? '답변 생성 중...' : `쟁점 ${issues.length}건 · 법령 ${lawNodes.length}건 기반`}
@@ -391,6 +624,20 @@ export default function ChatPage() {
                         >
                             📋 맥락 {sidebarOpen ? '닫기' : '보기'}
                         </button>
+                    </div>
+
+                    {/* ═══ 상담 모드 탭 바 ═══ */}
+                    <div className={styles.consultTabBar}>
+                        {CONSULT_TABS.map(tab => (
+                            <button
+                                key={tab.mode}
+                                className={`${styles.consultTab} ${activeTab === tab.mode ? styles.consultTabActive : ''}`}
+                                onClick={() => handleTabChange(tab.mode)}
+                            >
+                                <span className={styles.consultTabIcon}>{tab.icon}</span>
+                                <span className={styles.consultTabLabel}>{tab.label}</span>
+                            </button>
+                        ))}
                     </div>
 
                     {/* 추천 질문 칩 */}
@@ -429,7 +676,13 @@ export default function ChatPage() {
                             <div className={styles.initScreen}>
                                 <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
                                 <button
-                                    onClick={() => { initRef.current = false; setError(null); startConsultation(); }}
+                                    onClick={() => {
+                                        setTabSessions(prev => ({
+                                            ...prev,
+                                            [activeTab]: { ...prev[activeTab], initialized: false, error: null }
+                                        }));
+                                        initTabSession(activeTab);
+                                    }}
                                     style={{
                                         padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--toss-border)',
                                         background: 'var(--toss-bg-secondary)', cursor: 'pointer', color: 'var(--toss-text-primary)',

@@ -20,6 +20,8 @@ export interface CaseFlowState {
     issueResult: {
         issues: IssueInfo[];
         summary: string;
+        overallWinRate?: number | null;
+        overallAssessment?: string;
         nodes: GraphNode[];
         links: GraphLink[];
     } | null;
@@ -160,6 +162,8 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             const issueResult = {
                 issues: result.issues || [],
                 summary: result.summary || '',
+                overallWinRate: result.overallWinRate ?? null,
+                overallAssessment: result.overallAssessment || '',
                 nodes: result.nodes || [],
                 links: result.links || [],
             };
