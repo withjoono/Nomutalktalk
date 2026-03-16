@@ -563,6 +563,65 @@ export async function searchLaws(params: SearchParams): Promise<SearchResultItem
     return results;
 }
 
+// ==================== Structured Law Search API ====================
+
+export interface LawResult {
+    id: string;
+    title: string;
+    article?: string;
+    summary: string;
+    lawType: string;
+    lawName?: string;
+    relatedCaseIds: string[];
+}
+
+export interface CaseResult {
+    id: string;
+    title: string;
+    court?: string;
+    date?: string;
+    summary: string;
+    verdict?: string;
+    relatedLawIds: string[];
+}
+
+export interface InterpretationResult {
+    id: string;
+    title: string;
+    date?: string;
+    summary: string;
+    agency?: string;
+    relatedLawIds: string[];
+}
+
+export interface StructuredSearchResult {
+    laws: LawResult[];
+    cases: CaseResult[];
+    interpretations: InterpretationResult[];
+    matchMap: Record<string, string[]>;
+    query: string;
+    timestamp: string;
+}
+
+/**
+ * 구조화된 법령·판례 검색 (법령 ↔ 판례 매칭)
+ */
+export async function searchLawsStructured(params: SearchParams): Promise<StructuredSearchResult> {
+    const { query, type = 'all', category } = params;
+
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/law-search`, {
+        method: 'POST',
+        body: JSON.stringify({ query, type, category: category || undefined })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '법령 검색 실패');
+    }
+
+    return data.data;
+}
 
 // ==================== Payment API ====================
 

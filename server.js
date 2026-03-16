@@ -2101,6 +2101,125 @@ app.post('/api/labor/ask', verifyToken, async (req, res) => {
 });
 
 /**
+ * 노무 AI - 법령·판례 구조화 검색 (법령 ↔ 판례 매칭)
+ * POST /api/labor/law-search
+ * Body: { query: string, type?: 'all'|'law'|'case'|'interpretation', category?: string }
+ */
+app.post('/api/labor/law-search', async (req, res) => {
+  try {
+    const { query, type = 'all', category } = req.body;
+
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({ success: false, error: '검색어가 필요합니다.' });
+    }
+
+    console.log(`[법령 검색] 구조화 검색: "${query.substring(0, 50)}..." (type=${type})`);
+
+    const agent = getLaborAgent();
+    const typeLabels = { law: '법령', case: '판례', interpretation: '행정해석' };
+    let searchScope = '';
+    if (type !== 'all') {
+      searchScope = `\n특히 ${typeLabels[type]}을(를) 중심으로 검색하되, 관련된 다른 유형의 자료도 포함해주세요.`;
+    }
+
+    const structuredPrompt = `다음 검색어에 대해 관련 노동법령, 판례, 행정해석을 검색하고 구조화된 JSON 형식으로 반환해주세요.${searchScope}
+
+검색어: "${query}"
+${category ? `카테고리: ${category}` : ''}
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요:
+{
+  "laws": [
+    { "id": "law-1", "title": "법령명 제N조 (조항 제목)", "article": "제N조", "summary": "해당 조항의 핵심 내용 요약 (2~3문장)", "lawType": "act|decree|rule", "lawName": "법령명" }
+  ],
+  "cases": [
+    { "id": "case-1", "title": "판례 제목 (대법원 20XX다XXXXX 등)", "court": "대법원|고등법원|지방법원|중앙노동위원회", "date": "YYYY.MM.DD", "summary": "핵심 판시사항 요약 (2~3문장)", "verdict": "원고승|원고패|일부인용|화해" }
+  ],
+  "interpretations": [
+    { "id": "interp-1", "title": "행정해석 제목", "date": "YYYY.MM.DD", "summary": "핵심 내용 요약 (2~3문장)", "agency": "고용노동부|노동위원회" }
+  ],
+  "matches": [
+    { "lawId": "law-1", "caseId": "case-1", "relation": "해당 판례가 이 법령을 인용/적용" }
+  ]
+}
+
+주의사항:
+1. 각 항목에 정확한 법조문 번호, 판례 번호를 포함해주세요.
+2. matches 배열에는 법령과 판례 간의 관계를 모두 기록해주세요.
+3. 검색 결과가 없는 카테고리는 빈 배열로 반환해주세요.
+4. 최소 2개 이상의 법령과 2개 이상의 판례를 찾아주세요.
+5. JSON만 반환하고, 설명 텍스트는 포함하지 마세요.`;
+
+    const result = await agent.askLabor(structuredPrompt, {
+      category,
+      includeCases: type === 'all' || type === 'case',
+      includeInterpretations: type === 'all' || type === 'interpretation'
+    });
+
+    const rawText = result?.text || result || '';
+    const citations = result?.citations || [];
+
+    // JSON 파싱 시도
+    let parsed = null;
+    try {
+      const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/) || rawText.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[1].trim());
+    } catch (parseErr) {
+      console.warn('[법령 검색] JSON 파싱 실패, 폴백 처리:', parseErr.message);
+    }
+
+    // 파싱 실패 시 citations 기반 폴백
+    if (!parsed) {
+      parsed = { laws: [], cases: [], interpretations: [], matches: [] };
+      citations.forEach((cit, idx) => {
+        const title = cit.title || '';
+        const citType = classifyCitationType(title);
+        if (citType === 'law') {
+          parsed.laws.push({ id: `law-${idx + 1}`, title, article: '', summary: rawText.substring(0, 200), lawType: 'act', lawName: title });
+        } else if (citType === 'precedent') {
+          parsed.cases.push({ id: `case-${idx + 1}`, title, court: '', date: '', summary: rawText.substring(0, 200), verdict: '' });
+        } else if (citType === 'interpretation') {
+          parsed.interpretations.push({ id: `interp-${idx + 1}`, title, date: '', summary: rawText.substring(0, 200), agency: '' });
+        }
+      });
+      if (parsed.laws.length === 0 && parsed.cases.length === 0) {
+        parsed.laws.push({ id: 'law-ai-1', title: `"${query}" 관련 법령`, article: '', summary: rawText.substring(0, 500), lawType: 'act', lawName: '' });
+      }
+    }
+
+    // matchMap 구성
+    const matchMap = {};
+    if (parsed.matches && Array.isArray(parsed.matches)) {
+      parsed.matches.forEach(m => {
+        if (m.lawId && m.caseId) {
+          if (!matchMap[m.lawId]) matchMap[m.lawId] = [];
+          if (!matchMap[m.caseId]) matchMap[m.caseId] = [];
+          if (!matchMap[m.lawId].includes(m.caseId)) matchMap[m.lawId].push(m.caseId);
+          if (!matchMap[m.caseId].includes(m.lawId)) matchMap[m.caseId].push(m.lawId);
+        }
+      });
+    }
+    (parsed.laws || []).forEach(law => { law.relatedCaseIds = matchMap[law.id] || []; });
+    (parsed.cases || []).forEach(c => { c.relatedLawIds = matchMap[c.id] || []; });
+    (parsed.interpretations || []).forEach(i => { i.relatedLawIds = matchMap[i.id] || []; });
+
+    console.log(`[법령 검색] 완료: 법령 ${parsed.laws?.length || 0}건, 판례 ${parsed.cases?.length || 0}건, 행정해석 ${parsed.interpretations?.length || 0}건`);
+
+    res.json({
+      success: true,
+      data: {
+        laws: parsed.laws || [], cases: parsed.cases || [],
+        interpretations: parsed.interpretations || [], matchMap,
+        query, timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('[법령 검색] 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * 노무 AI - 유사 판례 검색
  * POST /api/labor/similar-cases
  * Body: { description, model? }
