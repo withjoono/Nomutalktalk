@@ -100,19 +100,23 @@ export default function AppShell({ children }: AppShellProps) {
                 <nav className={styles.topNav}>
                     <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
                         {Icons.caseInput}
-                        <span>내 사건</span>
+                        <span>① 내 사건</span>
                     </Link>
                     <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
                         {Icons.caseSearch}
-                        <span>핵심 쟁점</span>
+                        <span>② 핵심 쟁점</span>
                     </Link>
                     <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
                         {Icons.laws}
-                        <span>관련 법령</span>
+                        <span>③ 관련 법령</span>
                     </Link>
-                    <Link href="/chat" className={`${styles.navLink} ${isActive('/chat') ? styles.navActive : ''}`}>
+                    <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
                         {Icons.chat}
-                        <span>AI 상담</span>
+                        <span>④ 대안 제안</span>
+                    </Link>
+                    <Link href="/follow-up" className={`${styles.navLink} ${isActive('/follow-up') ? styles.navActive : ''}`}>
+                        {Icons.caseInput}
+                        <span>⑤ 후속 지원</span>
                     </Link>
                     <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
                         {Icons.laws}
@@ -205,13 +209,17 @@ export default function AppShell({ children }: AppShellProps) {
                     {Icons.laws}
                     <span>법령</span>
                 </Link>
-                <Link href="/chat" className={`${styles.tabItem} ${isActive('/chat') ? styles.activeTab : ''}`}>
+                <Link href="/alternatives" className={`${styles.tabItem} ${isActive('/alternatives') ? styles.activeTab : ''}`}>
                     {Icons.chat}
-                    <span>상담</span>
+                    <span>대안</span>
                 </Link>
-                <Link href="/intro" className={styles.tabItem}>
-                    {Icons.promo}
-                    <span>소개</span>
+                <Link href="/follow-up" className={`${styles.tabItem} ${isActive('/follow-up') ? styles.activeTab : ''}`}>
+                    {Icons.caseInput}
+                    <span>후속</span>
+                </Link>
+                <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
+                    {Icons.laws}
+                    <span>검색</span>
                 </Link>
             </nav>
         </div>
