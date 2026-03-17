@@ -98,22 +98,13 @@
 
 .navActive {
   color: var(--toss-blue);
+  background-color: var(--toss-blue-light);
+  border-radius: var(--toss-radius-md);
 }
 
 .navActive svg {
   opacity: 1;
   stroke: var(--toss-blue);
-}
-
-.navActive::after {
-  content: "";
-  position: absolute;
-  bottom: -20px;
-  left: 12px;
-  right: 12px;
-  height: 2.5px;
-  background: var(--toss-blue);
-  border-radius: 2px 2px 0 0;
 }
 
 /* ── Icon Buttons (right side) ── */

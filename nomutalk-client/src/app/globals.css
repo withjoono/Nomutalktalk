@@ -5,11 +5,11 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 :root {
-  /* Primary */
-  --toss-blue: #3182f6;
-  --toss-blue-hover: #1b64da;
-  --toss-blue-light: #e8f3ff;
-  --toss-blue-50: #4d94f8;
+  /* Primary — Indigo (StudyPlanner-style) */
+  --toss-blue: #4f46e5;
+  --toss-blue-hover: #4338ca;
+  --toss-blue-light: #eef2ff;
+  --toss-blue-50: #6366f1;
 
   /* Semantic */
   --toss-red: #f04452;
@@ -17,32 +17,32 @@
   --toss-orange: #f59f00;
 
   /* Backgrounds */
-  --toss-bg-primary: #ffffff;
-  --toss-bg-secondary: #f2f4f6;
-  --toss-bg-tertiary: #e5e8eb;
+  --toss-bg-primary: #f9fafb;
+  --toss-bg-secondary: #f3f4f6;
+  --toss-bg-tertiary: #e5e7eb;
   --toss-bg-card: #ffffff;
 
   /* Text */
-  --toss-text-primary: #191f28;
-  --toss-text-secondary: #4e5968;
-  --toss-text-tertiary: #8b95a1;
-  --toss-text-disabled: #b0b8c1;
+  --toss-text-primary: #111827;
+  --toss-text-secondary: #4b5563;
+  --toss-text-tertiary: #9ca3af;
+  --toss-text-disabled: #d1d5db;
 
   /* Borders */
-  --toss-border: #e5e8eb;
-  --toss-border-light: #f2f4f6;
+  --toss-border: #e5e7eb;
+  --toss-border-light: #f3f4f6;
 
   /* Shadows */
-  --toss-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --toss-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --toss-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --toss-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --toss-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --toss-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --toss-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
+  --toss-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
 
   /* Radius */
   --toss-radius-sm: 8px;
   --toss-radius-md: 12px;
   --toss-radius-lg: 16px;
-  --toss-radius-xl: 20px;
+  --toss-radius-xl: 24px;
   --toss-radius-full: 9999px;
 
   /* Spacing */
