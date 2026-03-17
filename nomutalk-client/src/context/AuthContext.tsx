@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/chat');
+            router.push('/case-input');
         } catch (error) {
             console.error("Error signing in with Google", error);
             alert("구글 로그인 중 오류가 발생했습니다.");
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/chat');
+            router.push('/case-input');
         } catch (error: any) {
             console.error("Error signing in with email", error);
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/chat');
+            router.push('/case-input');
         } catch (error: any) {
             console.error("Error signing up with email", error);
             if (error.code === 'auth/email-already-in-use') {
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await signOut(auth);
             setToken(null);
             setApiToken(null);
-            router.push('/');
+            router.push('/intro');
         } catch (error) {
             console.error("Error signing out", error);
         }
