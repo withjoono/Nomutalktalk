@@ -54,6 +54,7 @@ export default function CaseInputPage() {
 
     const handleStart = () => {
         if (!caseDescription.trim()) { alert('사건 내용을 입력해주세요.'); return; }
+        if (!user) { alert('로그인 후 진행 가능합니다.'); return; }
         resetFlow();
         startNewCase(caseDescription.trim(), caseType || undefined);
     };
