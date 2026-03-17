@@ -41,10 +41,11 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 /* ═══════════════════
    HERO SECTION
 ═══════════════════ */
-.hero{background:#0a0e1a;position:relative}
-.hero::before{content:'';position:absolute;top:-15%;right:-10%;width:600px;height:600px;background:radial-gradient(circle,rgba(56,189,248,0.18) 0%,rgba(99,102,241,0.12) 30%,rgba(59,130,246,0.06) 50%,transparent 70%);border-radius:50%;filter:blur(60px);pointer-events:none;animation:glowPulse 6s ease-in-out infinite alternate}
-.hero::after{content:'';position:absolute;bottom:-10%;left:-8%;width:500px;height:500px;background:radial-gradient(circle,rgba(16,185,129,0.16) 0%,rgba(6,182,212,0.1) 35%,rgba(99,102,241,0.05) 55%,transparent 70%);border-radius:50%;filter:blur(60px);pointer-events:none;animation:glowPulse 8s ease-in-out 2s infinite alternate}
-@keyframes glowPulse{0%{opacity:.7;transform:scale(1)}100%{opacity:1;transform:scale(1.08)}}
+.hero{background:#0a0e1a;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-20%;right:-15%;width:900px;height:900px;background:radial-gradient(circle,rgba(56,189,248,0.45) 0%,rgba(99,102,241,0.3) 25%,rgba(59,130,246,0.15) 45%,transparent 65%);border-radius:50%;filter:blur(40px);pointer-events:none;animation:glowPulse 6s ease-in-out infinite alternate}
+.hero::after{content:'';position:absolute;bottom:-20%;left:-12%;width:800px;height:800px;background:radial-gradient(circle,rgba(16,185,129,0.4) 0%,rgba(6,182,212,0.25) 25%,rgba(52,211,153,0.12) 45%,transparent 65%);border-radius:50%;filter:blur(40px);pointer-events:none;animation:glowPulse 8s ease-in-out 2s infinite alternate}
+.hero-glow-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(99,102,241,0.12) 0%,transparent 60%);pointer-events:none;filter:blur(30px)}
+@keyframes glowPulse{0%{opacity:.75;transform:scale(1)}100%{opacity:1;transform:scale(1.1)}}
 .hero h1{font-size:clamp(36px,7vw,72px);font-weight:900;line-height:1.15;margin-bottom:16px;letter-spacing:-0.03em}
 .hero .sub{font-size:clamp(16px,3vw,22px);color:#94a3b8;font-weight:300;line-height:1.6;margin-bottom:32px;max-width:600px}
 .hero .stats{display:flex;gap:32px;flex-wrap:wrap;margin-top:24px}
@@ -188,6 +189,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 
 <!-- ═══════ 1. HERO ═══════ -->
 <section class="section hero" id="hero">
+<div class="hero-glow-center"></div>
 <div class="section-inner" style="text-align:center;position:relative;z-index:1">
     <h1><span class="grad-text">노무톡</span></h1>
     <p class="sub" style="margin:0 auto 28px">
