@@ -142,7 +142,7 @@ export default function LawSearch() {
     return (
         <div className={styles.container}>
             {/* Header */}
-            <div className={styles.header}>
+            <div className="page-hero hero-cyan">
                 <h1>법령·판례 검색</h1>
                 <p>
                     법령, 판례, 행정해석을 통합 검색하고 관련 판례를 자동 매칭합니다

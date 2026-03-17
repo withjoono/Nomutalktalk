@@ -124,7 +124,10 @@ export default function CaseInputPage() {
 
         return (
             <div className={styles.container}>
-                <h1>🩺 내 사건</h1>
+                <div className="page-hero hero-indigo">
+                    <h1>🩺 내 사건</h1>
+                    <p>사건을 보충하고 AI가 자동 재분석합니다.</p>
+                </div>
 
                 {/* ── 사건 요약 카드 ── */}
                 <div className={styles.dashboardCard}>
@@ -284,10 +287,10 @@ export default function CaseInputPage() {
     // ═══════ 입력 뷰 (새 사건 / 사건 미로드) ═══════
     return (
         <div className={styles.container}>
-            <h1>🩺 내 사건</h1>
-            <p className={styles.description}>
-                새 사건을 입력하거나, 이전 분석 내역을 클릭해 상세 이력을 확인하세요.
-            </p>
+            <div className="page-hero hero-indigo">
+                <h1>🩺 내 사건</h1>
+                <p>새 사건을 입력하거나, 이전 분석 내역을 클릭해 상세 이력을 확인하세요.</p>
+            </div>
 
             {/* ═══ 섹션 1: 이전 사건 목록 ═══ */}
             {user && (

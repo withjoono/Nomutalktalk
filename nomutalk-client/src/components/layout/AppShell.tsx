@@ -99,32 +99,25 @@ export default function AppShell({ children }: AppShellProps) {
                 {/* Center: Navigation */}
                 <nav className={styles.topNav}>
                     <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
-                        {Icons.caseInput}
-                        <span>① 내 사건</span>
+                        내 사건
                     </Link>
                     <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
-                        {Icons.caseSearch}
-                        <span>② 핵심 쟁점</span>
+                        핵심 쟁점
                     </Link>
                     <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
-                        {Icons.laws}
-                        <span>③ 관련 법령</span>
+                        관련 법령
                     </Link>
                     <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
-                        {Icons.chat}
-                        <span>④ 대안 제안</span>
+                        대안 제안
                     </Link>
                     <Link href="/follow-up" className={`${styles.navLink} ${isActive('/follow-up') ? styles.navActive : ''}`}>
-                        {Icons.caseInput}
-                        <span>⑤ 후속 지원</span>
+                        후속 지원
                     </Link>
                     <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
-                        {Icons.laws}
-                        <span>법령 검색</span>
+                        법령 검색
                     </Link>
-                    <Link href="/intro" className={styles.navLink}>
-                        {Icons.promo}
-                        <span>소개</span>
+                    <Link href="/intro" className={`${styles.navLink} ${isActive('/intro') ? styles.navActive : ''}`}>
+                        소개
                     </Link>
                 </nav>
 

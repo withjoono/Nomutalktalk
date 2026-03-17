@@ -43,10 +43,10 @@ export default function AlternativesPage() {
 
     return (
         <div className={styles.page}>
-            <h1 className={styles.title}>💡 대안 제안</h1>
-            <p className={styles.subtitle}>
-                사건에 적합한 해결 방법을 비교하고, 진행할 방법을 선택하세요.
-            </p>
+            <div className="page-hero hero-amber">
+                <h1>💡 대안 제안</h1>
+                <p>사건에 적합한 해결 방법을 비교하고, 진행할 방법을 선택하세요.</p>
+            </div>
 
             {/* ═══ 로딩 ═══ */}
             {state.isAnalyzing && !result && (

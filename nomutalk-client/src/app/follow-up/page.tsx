@@ -153,10 +153,10 @@ export default function FollowUpPage() {
 
     return (
         <div className={styles.page}>
-            <h1 className={styles.title}>🔗 후속 지원</h1>
-            <p className={styles.subtitle}>
-                서면 생성, 준비물 체크리스트, 진행 타임라인을 확인하세요.
-            </p>
+            <div className="page-hero hero-violet">
+                <h1>🔗 후속 지원</h1>
+                <p>서면 생성, 준비물 체크리스트, 진행 타임라인을 확인하세요.</p>
+            </div>
 
             {/* 선택된 해결 방법 배너 */}
             {state.selectedMethod && (

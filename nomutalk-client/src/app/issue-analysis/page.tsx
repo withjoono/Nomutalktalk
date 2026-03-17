@@ -79,6 +79,10 @@ export default function IssueAnalysisPage() {
 
     return (
         <div className={styles.page}>
+            <div className="page-hero hero-blue">
+                <h1>🔍 핵심 쟁점 분석</h1>
+                <p>AI가 사건의 핵심 쟁점을 식별하고 법적 근거를 분석합니다.</p>
+            </div>
             {/* ═══ 추가 정보 입력 ═══ */}
             {state.issueResult && !state.isAnalyzing && !submitted && (
                 <div style={{

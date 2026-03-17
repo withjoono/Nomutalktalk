@@ -92,11 +92,13 @@ export default function CaseSearchPage() {
 
     return (
         <div className={styles.page}>
+            <div className="page-hero hero-emerald">
+                <h1>⚖️ 관련 법령·판례</h1>
+                <p>각 쟁점에 대한 법령과 판례를 교차 분석합니다.</p>
+            </div>
             {/* 로딩 */}
             {state.isAnalyzing && !state.lawResult && (
                 <div className={styles.inputSection}>
-                    <h1 className={styles.title}>⚖️ 관련 법령·판례</h1>
-                    <p className={styles.subtitle}>각 쟁점에 대한 관련 법령을 분석하고 있습니다...</p>
                     <div style={{ textAlign: 'center', padding: '2rem 0' }}>
                         <span className={styles.spinner} style={{ width: 40, height: 40, borderWidth: 3 }} />
                     </div>
@@ -106,7 +108,6 @@ export default function CaseSearchPage() {
             {/* 에러 */}
             {state.error && !state.lawResult && !state.isAnalyzing && (
                 <div className={styles.inputSection}>
-                    <h1 className={styles.title}>⚖️ 관련 법령·판례</h1>
                     <div className={styles.errorMsg}>⚠️ {state.error}</div>
                     <button className={styles.analyzeBtn} onClick={runLawAnalysis}>🔄 다시 시도</button>
                 </div>
