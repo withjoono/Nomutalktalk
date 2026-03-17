@@ -1,464 +1,542 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>노무톡 - AI가 바꾸는 노동법 상담의 미래</title>
-    <meta name="description" content="노무톡은 AI 기반 노동법 특화 상담 서비스입니다. 법령·판례·행정해석을 교차 분석하여 98% 정확도의 맞춤형 답변을 제공합니다.">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="promo.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>노무톡 — 나보다 나를 더 잘 아는 AI 노무 상담</title>
+<meta name="description" content="노무톡은 하이브리드 RAG와 Knowledge Graph 기반의 초개인화 AI 노무 상담 솔루션입니다. 98% 정확도로 법령·판례·행정해석을 교차 분석합니다.">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-snap-type:y mandatory;overflow-y:scroll}
+body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0a0e1a;overflow-x:hidden}
+
+/* ── 공통 ── */
+.section{min-height:100vh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:60px 20px;position:relative;overflow:hidden}
+.section-inner{max-width:1120px;width:100%;margin:0 auto}
+.grad-text{background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.grad-text-green{background:linear-gradient(135deg,#34d399,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pill{display:inline-block;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.06em}
+.section-label{text-transform:uppercase;font-size:11px;font-weight:800;letter-spacing:0.12em;margin-bottom:12px;color:#818cf8}
+.section-title{font-size:clamp(28px,5vw,48px);font-weight:900;line-height:1.25;margin-bottom:16px;color:#f8fafc}
+.section-desc{font-size:clamp(14px,2.5vw,18px);color:#94a3b8;line-height:1.7;max-width:680px}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:28px;backdrop-filter:blur(8px);transition:transform .2s,box-shadow .2s}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media(max-width:900px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.grid5{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.grid5{grid-template-columns:repeat(2,1fr)}}
+
+.icon-circle{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+
+/* ── DOT NAV ── */
+.dot-nav{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:200;display:flex;flex-direction:column;gap:10px}
+.dot-nav a{display:block;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all .2s;border:2px solid transparent}
+.dot-nav a.active{background:#818cf8;border-color:rgba(129,140,248,0.4);width:12px;height:12px}
+.dot-nav a:hover{background:#818cf8}
+@media(max-width:640px){.dot-nav{right:8px;gap:7px}.dot-nav a{width:7px;height:7px}}
+
+/* ═══════════════════
+   HERO SECTION
+═══════════════════ */
+.hero{background:radial-gradient(ellipse at 50% -20%,rgba(56,189,248,0.12),transparent 70%)}
+.hero h1{font-size:clamp(36px,7vw,72px);font-weight:900;line-height:1.15;margin-bottom:16px;letter-spacing:-0.03em}
+.hero .sub{font-size:clamp(16px,3vw,22px);color:#94a3b8;font-weight:300;line-height:1.6;margin-bottom:32px;max-width:600px}
+.hero .stats{display:flex;gap:32px;flex-wrap:wrap;margin-top:24px}
+.hero .stat{text-align:center}
+.hero .stat-num{font-size:28px;font-weight:900;color:#f8fafc}
+.hero .stat-label{font-size:11px;color:#64748b;margin-top:4px}
+.hero-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:40px;background:linear-gradient(135deg,#3b82f6,#818cf8);color:#fff;font-size:16px;font-weight:700;text-decoration:none;border:none;cursor:pointer;box-shadow:0 8px 32px rgba(99,102,241,0.3);transition:all .2s}
+.hero-cta:hover{transform:scale(1.04);box-shadow:0 12px 40px rgba(99,102,241,0.4)}
+
+/* ═══════════════════
+   CORE TECH
+═══════════════════ */
+.tech-card{position:relative;overflow:hidden}
+.tech-card .badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(99,102,241,0.2);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)}
+.tech-card .icon-circle{margin-bottom:16px}
+.tech-card h4{font-size:18px;font-weight:800;color:#f1f5f9;margin-bottom:8px}
+.tech-card p{font-size:13px;color:#94a3b8;line-height:1.6}
+.tech-card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.tech-card .tag{font-size:10px;padding:4px 10px;border-radius:8px;font-weight:600}
+
+/* ── PIPELINE ── */
+.pipeline{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:32px;padding:24px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+.pipeline-node{text-align:center;padding:12px 16px;border-radius:12px;min-width:90px}
+.pipeline-node .p-icon{font-size:20px;margin-bottom:4px}
+.pipeline-node .p-label{font-size:11px;font-weight:700;margin-bottom:2px}
+.pipeline-node .p-sub{font-size:9px;color:#64748b}
+.pipeline-arrow{font-size:18px;font-weight:900;color:#38bdf8}
+
+/* ═══════════════════
+   SERVICE 5-STEP
+═══════════════════ */
+.step-card{text-align:center;position:relative;padding-top:0}
+.step-header{padding:12px 8px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
+.step-name{font-size:13px;font-weight:700;color:#fff}
+.step-body{padding:16px 12px;flex:1}
+.step-body .step-icon{font-size:24px;margin-bottom:8px}
+.step-body p{font-size:11px;color:#94a3b8;line-height:1.5}
+.step-example{margin-top:10px;padding:10px;border-radius:10px;text-align:left}
+.step-example .ex-label{font-size:10px;color:#64748b;margin-bottom:4px}
+.step-example .ex-item{font-size:10px;line-height:1.6}
+
+/* 성과 지표 라인 */
+.metrics-row{display:flex;justify-content:space-around;flex-wrap:wrap;gap:16px;margin-top:28px;padding:20px;border-radius:16px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(99,102,241,0.15));border:1px solid rgba(99,102,241,0.2)}
+.metric{text-align:center}
+.metric-num{font-size:24px;font-weight:900;color:#f8fafc}
+.metric-label{font-size:10px;color:#94a3b8;margin-top:2px}
+
+/* ═══════════════════
+   FUTURE VISION
+═══════════════════ */
+.future-card{overflow:hidden;border:none}
+.future-header{padding:20px 24px;display:flex;align-items:center;gap:14px}
+.future-header .f-icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:22px}
+.future-header .f-phase{font-size:10px;opacity:.7}
+.future-header .f-name{font-size:16px;font-weight:800;color:#fff}
+.future-body{padding:20px 24px}
+.future-body p{font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:14px}
+.future-feature{display:flex;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px}
+.future-feature .ff-icon{font-size:16px;line-height:1}
+.future-feature .ff-title{font-size:12px;font-weight:700;margin-bottom:2px}
+.future-feature .ff-desc{font-size:11px;color:#94a3b8;line-height:1.5}
+
+/* ═══════════════════
+   ROADMAP
+═══════════════════ */
+.roadmap-cards{display:flex;gap:16px}
+@media(max-width:900px){.roadmap-cards{flex-direction:column}}
+.roadmap-card{flex:1;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)}
+.rm-header{padding:16px 20px;display:flex;align-items:center;gap:12px}
+.rm-header .rm-num{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px}
+.rm-header .rm-phase{font-size:10px;opacity:.7}
+.rm-header .rm-name{font-size:14px;font-weight:700;color:#fff}
+.rm-body{padding:16px 20px}
+.rm-body h5{font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px}
+.rm-body p{font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:10px}
+.rm-tags{display:flex;flex-wrap:wrap;gap:6px}
+.rm-tags span{font-size:10px;padding:4px 10px;border-radius:8px;font-weight:600}
+
+/* AGENTIC MARKET */
+.market-banner{margin-top:28px;padding:24px;border-radius:16px;background:linear-gradient(135deg,rgba(126,34,206,0.15),rgba(99,102,241,0.1));border:1px solid rgba(139,92,246,0.2);text-align:center}
+.market-banner .banner-title{font-size:12px;font-weight:800;color:#c4b5fd;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px}
+.market-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap}
+.market-item{text-align:center;padding:12px 20px;border-radius:12px;background:rgba(255,255,255,0.05)}
+.market-item .m-year{font-size:10px;color:#94a3b8}
+.market-item .m-val{font-size:22px;font-weight:900;margin:4px 0}
+.market-item .m-note{font-size:9px;color:#64748b}
+
+/* ═══════════════════
+   CTA
+═══════════════════ */
+.cta-section{background:radial-gradient(ellipse at 50% 80%,rgba(99,102,241,0.12),transparent 70%)}
+.cta-card{text-align:center;padding:48px 32px;border-radius:24px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.1));border:1px solid rgba(99,102,241,0.15);max-width:680px;margin:0 auto}
+.cta-card h2{font-size:clamp(24px,4vw,40px);font-weight:900;margin-bottom:16px;color:#f8fafc}
+.cta-card p{font-size:15px;color:#94a3b8;line-height:1.7;margin-bottom:28px}
+.cta-btn{display:inline-flex;align-items:center;gap:8px;padding:16px 36px;border-radius:40px;background:linear-gradient(135deg,#3b82f6,#818cf8);color:#fff;font-size:17px;font-weight:800;text-decoration:none;border:none;cursor:pointer;box-shadow:0 8px 32px rgba(99,102,241,0.35);transition:all .2s;letter-spacing:-0.01em}
+.cta-btn:hover{transform:scale(1.04);box-shadow:0 12px 40px rgba(99,102,241,0.45)}
+.cta-sub{margin-top:16px;font-size:13px;color:#64748b}
+
+/* ── COMPETITION TABLE ── */
+.comp-table{width:100%;border-collapse:separate;border-spacing:0;border-radius:16px;overflow:hidden;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)}
+.comp-table th,.comp-table td{padding:14px 16px;text-align:left;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.comp-table th{background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b}
+.comp-table th:last-child{color:#818cf8}
+.comp-table td{color:#94a3b8}
+.comp-table td:first-child{font-weight:600;color:#cbd5e1}
+.comp-table .good{color:#34d399;font-weight:700}
+.comp-table .bad{color:#f87171}
+.comp-table .mid{color:#fbbf24}
+.comp-table .total-row{background:rgba(99,102,241,0.08)}
+.comp-table .total-row td:last-child{font-size:16px}
+@media(max-width:640px){.comp-table{font-size:11px}.comp-table th,.comp-table td{padding:10px 8px}}
+</style>
 </head>
-
 <body>
-    <!-- Fixed Navigation -->
-    <nav class="nav" id="mainNav">
-        <div class="nav-inner">
-            <a href="/auth/login" class="nav-logo" style="display:flex;align-items:center;gap:6px;">← <span
-                    style="opacity:.7;font-size:.85em;">로그인</span></a>
-            <a href="#hero" class="nav-logo" style="display:flex;align-items:center;gap:8px;"><img src="/logo.png"
-                    alt="노무톡" width="32" height="32" style="border-radius:6px;">노무톡</a>
-            <div class="nav-links">
-                <a href="#product">서비스</a>
-                <a href="#technology">기술</a>
-                <a href="#comparison">비교</a>
-                <a href="#roadmap">로드맵</a>
-                <a href="#cta" class="nav-cta">무료 체험</a>
-            </div>
-            <button class="nav-mobile-btn" id="mobileMenuBtn" aria-label="메뉴">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-        <div class="nav-mobile" id="mobileMenu">
-            <a href="/auth/login">→ 로그인</a>
-            <a href="#product">서비스</a>
-            <a href="#technology">기술</a>
-            <a href="#comparison">비교</a>
-            <a href="#roadmap">로드맵</a>
-            <a href="#cta" class="nav-cta">무료 체험</a>
-        </div>
-    </nav>
 
-    <!-- HERO -->
-    <section id="hero" class="hero">
-        <div class="hero-bg">
-            <div class="hero-orb hero-orb--1"></div>
-            <div class="hero-orb hero-orb--2"></div>
-            <div class="hero-orb hero-orb--3"></div>
-        </div>
-        <div class="hero-content">
-            <div class="hero-badge">🤖 AI 노동법 특화 서비스</div>
-            <h1>복잡한 <em>노동법</em>,<br>이제 <em>AI</em>에게 물어보세요</h1>
-            <p class="hero-sub">질문만 하면 AI가 법령·판례·행정해석을 교차 분석하여<br>98% 정확도의 맞춤 답변을 3분 안에 드립니다.</p>
-            <div class="hero-actions">
-                <a href="#cta" class="btn btn--primary btn--lg">
-                    <span>무료로 시작하기</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                </a>
-                <a href="#product" class="btn btn--ghost btn--lg">서비스 알아보기</a>
-            </div>
-            <div class="hero-stats">
-                <div class="hero-stat">
-                    <strong>98%</strong>
-                    <span>답변 정확도</span>
-                </div>
-                <div class="hero-stat-divider"></div>
-                <div class="hero-stat">
-                    <strong>3분</strong>
-                    <span>평균 응답시간</span>
-                </div>
-                <div class="hero-stat-divider"></div>
-                <div class="hero-stat">
-                    <strong>24/7</strong>
-                    <span>무중단 서비스</span>
-                </div>
+<!-- DOT NAV -->
+<nav class="dot-nav" id="dotNav">
+<a href="#hero" data-idx="0" class="active"></a>
+<a href="#tech" data-idx="1"></a>
+<a href="#service" data-idx="2"></a>
+<a href="#future" data-idx="3"></a>
+<a href="#competition" data-idx="4"></a>
+<a href="#roadmap" data-idx="5"></a>
+<a href="#cta" data-idx="6"></a>
+</nav>
+
+<!-- ═══════ 1. HERO ═══════ -->
+<section class="section hero" id="hero">
+<div class="section-inner" style="text-align:center">
+    <div class="pill" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);margin-bottom:20px">🧭 초개인화 노무 솔루션</div>
+    <h1><span class="grad-text">노무톡</span></h1>
+    <p class="sub" style="margin:0 auto 28px">
+        나보다 나를 더 잘 아는 AI 노무 전문가<br>
+        법령·판례·행정해석을 교차 분석하는<br>
+        <strong style="color:#f1f5f9">노동법 전문 AI</strong>
+    </p>
+    <a href="https://nomutalk.kr/case-input" class="hero-cta">💬 무료 상담 시작하기</a>
+    <div class="stats" style="justify-content:center;margin-top:36px">
+        <div class="stat"><div class="stat-num grad-text">98%</div><div class="stat-label">답변 정확도</div></div>
+        <div class="stat"><div class="stat-num">3분</div><div class="stat-label">평균 응답시간</div></div>
+        <div class="stat"><div class="stat-num">24/7</div><div class="stat-label">무중단 서비스</div></div>
+        <div class="stat"><div class="stat-num">30,000+</div><div class="stat-label">법령·판례 DB</div></div>
+    </div>
+    <p style="font-size:12px;color:#475569;margin-top:32px">청사AI · 대표 성시웅</p>
+</div>
+</section>
+
+<!-- ═══════ 2. 핵심기술 ═══════ -->
+<section class="section" id="tech" style="background:radial-gradient(ellipse at 30% 20%,rgba(99,102,241,0.06),transparent 60%)">
+<div class="section-inner">
+    <div class="section-label">Core Technology</div>
+    <h2 class="section-title">범용 AI를 넘어선<br><span class="grad-text">버티컬 노동법 AI</span> 엔진</h2>
+    <p class="section-desc" style="margin-bottom:32px">단순 텍스트 생성이 아닌, 법령의 위계·시간·논리를 이해하는 <strong style="color:#f1f5f9">4대 핵심 기술</strong> 스택</p>
+
+    <div class="grid2">
+        <!-- 하이브리드 RAG -->
+        <div class="card tech-card">
+            <div class="badge">Core</div>
+            <div class="icon-circle" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">🔍</div>
+            <h4>하이브리드 RAG</h4>
+            <p>키워드 검색(BM25)의 <strong style="color:#38bdf8">정확성</strong>과 시맨틱 검색(벡터 임베딩)의 <strong style="color:#38bdf8">유연성</strong>을 결합. "야근수당" = "연장근로수당"을 자동 이해합니다.</p>
+            <div class="tags">
+                <span class="tag" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)">BM25 + 벡터 임베딩</span>
+                <span class="tag" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)">Recall 95%+</span>
             </div>
         </div>
-        <div class="hero-scroll-indicator">
-            <span>스크롤</span>
-            <div class="hero-scroll-line"></div>
-        </div>
-    </section>
-
-    <!-- PRODUCT (Section 03) -->
-    <section id="product" class="section">
-        <div class="container">
-            <div class="section-header" data-animate>
-                <span class="section-label">Product & Service</span>
-                <h2>3분 안에, <em>맞춤형 노동법 답변</em></h2>
-                <p>복잡한 노동법을 누구나 쉽게. 질문만 하면 AI가 법령·판례·행정해석을 교차 분석하여 정확한 답을 드립니다.</p>
-            </div>
-            <div class="steps" data-animate>
-                <div class="step">
-                    <div class="step-icon step-icon--blue">💬</div>
-                    <div class="step-badge">STEP 1</div>
-                    <h3>상황 입력</h3>
-                    <p>"5인 미만 사업장인데<br>야근수당을 안 줍니다"</p>
-                </div>
-                <div class="step-arrow">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                </div>
-                <div class="step step--highlight">
-                    <div class="step-icon step-icon--indigo">🧠</div>
-                    <div class="step-badge step-badge--indigo">STEP 2</div>
-                    <h3>AI 교차 분석</h3>
-                    <p>근로기준법 + 행정해석 +<br>최신 판례 자동 매칭</p>
-                </div>
-                <div class="step-arrow">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                </div>
-                <div class="step">
-                    <div class="step-icon step-icon--green">✅</div>
-                    <div class="step-badge step-badge--green">STEP 3</div>
-                    <h3>맞춤 답변</h3>
-                    <p>법적 근거 + 대응 방법 +<br>예상 보상금 안내</p>
-                </div>
-            </div>
-
-            <!-- Features Grid -->
-            <div class="features" data-animate>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h4>즉시 상담</h4>
-                    <p>24시간 365일, 대기 없이 즉시 노동법 상담을 받으세요.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📋</div>
-                    <h4>법적 근거 제시</h4>
-                    <p>모든 답변에 관련 조문·판례번호를 명시하여 신뢰성을 보장합니다.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🧮</div>
-                    <h4>통상임금 자동계산</h4>
-                    <p>복잡한 통상임금·퇴직금을 법적 산정식에 따라 정확히 계산합니다.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🏢</div>
-                    <h4>사업장 규모별 맞춤</h4>
-                    <p>5인 미만/이상 등 사업장 규모에 따른 법적 적용 차이를 정확히 안내합니다.</p>
-                </div>
+        <!-- Knowledge Graph -->
+        <div class="card tech-card">
+            <div class="badge">Visual</div>
+            <div class="icon-circle" style="background:linear-gradient(135deg,#6366f1,#a855f7)">🕸️</div>
+            <h4>Knowledge Graph</h4>
+            <p>법령↔시행령↔판례↔행정해석의 <strong style="color:#a5b4fc">위계와 논리적 연결</strong>을 그래프로 구조화. 옵시디언 스타일 동적 탐색 인터페이스.</p>
+            <div class="tags">
+                <span class="tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25)">조-항-호-목 매핑</span>
+                <span class="tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25)">쟁점 연쇄 추론</span>
             </div>
         </div>
-    </section>
-
-    <!-- TECHNOLOGY (Section 04) -->
-    <section id="technology" class="section section--dark">
-        <div class="container">
-            <div class="section-header section-header--light" data-animate>
-                <span class="section-label section-label--cyan">Core Technology</span>
-                <h2>범용 AI를 넘어선<br><em class="em--cyan">버티컬 노동법 AI</em></h2>
-                <p>단순히 텍스트를 생성하는 것이 아닙니다. 법령, 시행령, 지침, 판례 간의 위계와 논리적 연결고리를 구조화하여 법적 논리에 기반한 답변을 도출합니다.</p>
+        <!-- Context Memory -->
+        <div class="card tech-card">
+            <div class="badge">Data</div>
+            <div class="icon-circle" style="background:linear-gradient(135deg,#f59e0b,#ea580c)">🔐</div>
+            <h4>Context Memory</h4>
+            <p>기업별 <strong style="color:#fbbf24">독립 저장공간(Namespace)</strong>에 취업규칙·상담 이력을 축적. "나보다 나를 더 잘 아는" 초개인화 노무 상담을 실현합니다.</p>
+            <div class="tags">
+                <span class="tag" style="background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.25)">멀티테넌시 격리</span>
+                <span class="tag" style="background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.25)">개인화 메모리</span>
             </div>
-
-            <div class="tech-grid" data-animate>
-                <div class="tech-card">
-                    <div class="tech-card-icon">🔗</div>
-                    <h4>노동법 Knowledge Graph</h4>
-                    <p>법령↔시행령↔판례↔행정해석 간 위계와 논리적 연결 구조화</p>
-                </div>
-                <div class="tech-card">
-                    <div class="tech-card-icon">🧠</div>
-                    <h4>Advanced RAG Engine</h4>
-                    <p>Google Gemini + 자체 벡터 스토어 기반 메타데이터 리치 인덱싱</p>
-                </div>
-                <div class="tech-card">
-                    <div class="tech-card-icon">📚</div>
-                    <h4>전문 데이터 파이프라인</h4>
-                    <p>Elabor.co.kr 전체 법령 + 판례 + 사례 자동 크롤링 및 구조화</p>
-                </div>
+        </div>
+        <!-- 법 적용 3대 로직 -->
+        <div class="card tech-card">
+            <div class="badge">Logic</div>
+            <div class="icon-circle" style="background:linear-gradient(135deg,#10b981,#06b6d4)">⚖️</div>
+            <h4>법 적용 3대 로직</h4>
+            <p><strong style="color:#34d399">시간적 원칙 · 우선법 원칙 · 관련성 추론</strong> — 사건 발생 시점의 법령, 특별법 우선, 연쇄 쟁점 확장을 AI가 내재화합니다.</p>
+            <div class="tags">
+                <span class="tag" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25)">시행일 추적</span>
+                <span class="tag" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25)">특별법·신법 우선</span>
             </div>
+        </div>
+    </div>
 
-            <!-- Knowledge Graph Visualization -->
-            <div class="graph-visual" data-animate>
-                <div class="graph-container">
-                    <svg class="graph-lines" viewBox="0 0 600 400">
-                        <line x1="300" y1="200" x2="150" y2="70" stroke="rgba(56,189,248,0.4)" stroke-width="2"
-                            stroke-dasharray="6" />
-                        <line x1="300" y1="200" x2="450" y2="70" stroke="rgba(129,140,248,0.4)" stroke-width="2"
-                            stroke-dasharray="6" />
-                        <line x1="300" y1="200" x2="120" y2="330" stroke="rgba(52,211,153,0.4)" stroke-width="2"
-                            stroke-dasharray="6" />
-                        <line x1="300" y1="200" x2="480" y2="330" stroke="rgba(251,191,36,0.4)" stroke-width="2"
-                            stroke-dasharray="6" />
-                    </svg>
-                    <div class="graph-node graph-node--center">
-                        <span class="graph-node-label">User Query</span>
-                        <span class="graph-node-text">주휴수당<br>산정</span>
-                    </div>
-                    <div class="graph-node graph-node--top-left">
-                        <span class="graph-node-label" style="color:#7dd3fc">근거 법령</span>
-                        <span class="graph-node-text">근로기준법<br>제55조</span>
-                    </div>
-                    <div class="graph-node graph-node--top-right">
-                        <span class="graph-node-label" style="color:#a5b4fc">판례</span>
-                        <span class="graph-node-text">대법2024</span>
-                    </div>
-                    <div class="graph-node graph-node--bot-left">
-                        <span class="graph-node-label" style="color:#6ee7b7">행정해석</span>
-                        <span class="graph-node-text">고용부 지침</span>
-                    </div>
-                    <div class="graph-node graph-node--bot-right">
-                        <span class="graph-node-label" style="color:#fcd34d">최신 판례</span>
-                        <span class="graph-node-text">대법원<br>2024다...</span>
-                        <span class="graph-node-badge">Logic Override</span>
-                    </div>
-                </div>
-                <p class="graph-caption">※ AI 추론 경로 시각화 — Knowledge Graph 기반 법적 논리 추론</p>
+    <!-- Pipeline -->
+    <div class="pipeline">
+        <div class="pipeline-node" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15)">
+            <div class="p-icon">📚</div><div class="p-label" style="color:#93c5fd">Data Pipeline</div><div class="p-sub">eLABOR 크롤링</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.2)">
+            <div class="p-icon">🔍</div><div class="p-label" style="color:#93c5fd">RAG Engine</div><div class="p-sub">하이브리드 검색</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2)">
+            <div class="p-icon">🕸️</div><div class="p-label" style="color:#a5b4fc">Knowledge Graph</div><div class="p-sub">법령 위계 구조화</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-node" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2)">
+            <div class="p-icon">🔐</div><div class="p-label" style="color:#fcd34d">Context Memory</div><div class="p-sub">초개인화 상담</div>
+        </div>
+        <div class="pipeline-arrow">=</div>
+        <div class="pipeline-node" style="background:linear-gradient(135deg,rgba(56,189,248,0.2),rgba(59,130,246,0.2));border:1px solid rgba(56,189,248,0.3)">
+            <div style="font-size:28px;font-weight:900;color:#f8fafc">98%</div><div class="p-label" style="color:#38bdf8">답변 정확도</div>
+        </div>
+    </div>
+</div>
+</section>
+
+<!-- ═══════ 3. 현재 서비스 (5단계) ═══════ -->
+<section class="section" id="service" style="background:radial-gradient(ellipse at 70% 80%,rgba(56,189,248,0.06),transparent 60%)">
+<div class="section-inner">
+    <div class="section-label">Product & Service</div>
+    <h2 class="section-title"><span class="grad-text">노무톡</span>, 5단계 AI 노동법 상담</h2>
+    <p class="section-desc" style="margin-bottom:28px">내 사건을 입력하면, AI가 <strong style="color:#f1f5f9">쟁점을 추출하고, 법령을 찾고, 해결책을 제안하고, 서면까지 작성</strong>합니다.</p>
+
+    <div class="grid5">
+        <!-- Step 1 -->
+        <div class="card step-card" style="padding:0">
+            <div class="step-header" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
+                <div class="step-num">1</div><div class="step-name">내 사건</div>
             </div>
-
-            <!-- 3 Core Logic -->
-            <div class="logic-grid" data-animate>
-                <div class="logic-card">
-                    <div class="logic-icon">🕐</div>
-                    <h4>시간적 원칙</h4>
-                    <p>사건 발생 시점~현재까지 연도별 법령 변화를 정확히 추적</p>
-                </div>
-                <div class="logic-card">
-                    <div class="logic-icon">👑</div>
-                    <h4>우선법 원칙</h4>
-                    <p>복잡하게 얽힌 관련 법률의 우선순위를 엄격히 준수</p>
-                </div>
-                <div class="logic-card">
-                    <div class="logic-icon">🔍</div>
-                    <h4>관련성 추론</h4>
-                    <p>핵심 법령·판례를 찾는 고도화된 탐색 로직 최우선</p>
+            <div class="step-body">
+                <div class="step-icon">📝</div>
+                <p>자연어로 상황을 설명하면 AI가 <strong style="color:#93c5fd">카테고리·긴급도</strong>를 자동 분석</p>
+                <div class="step-example" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15)">
+                    <div class="ex-label">💬 사용자</div>
+                    <div class="ex-item" style="color:#93c5fd;font-style:italic">"임금을 3개월째 못 받고 있어요"</div>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- COMPARISON (Section 05) -->
-    <section id="comparison" class="section">
-        <div class="container">
-            <div class="section-header" data-animate>
-                <span class="section-label">Competitive Analysis</span>
-                <h2>왜 <em>노무톡</em>이어야 하는가</h2>
+        <!-- Step 2 -->
+        <div class="card step-card" style="padding:0">
+            <div class="step-header" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+                <div class="step-num">2</div><div class="step-name">핵심 쟁점</div>
             </div>
-            <div class="comparison-table-wrap" data-animate>
-                <table class="comparison-table">
-                    <thead>
-                        <tr>
-                            <th class="comp-col-label">구분</th>
-                            <th class="comp-col-other">범용 AI<br><small>ChatGPT 등</small></th>
-                            <th class="comp-col-other">HR Tech<br><small>급여·근태 서비스</small></th>
-                            <th class="comp-col-ours">노무톡<br><small>Vertical Labor AI</small></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>노동법 정확도</td>
-                            <td class="comp-bad">60% 환각 위험</td>
-                            <td class="comp-warn">N/A</td>
-                            <td class="comp-good">98% Knowledge Graph</td>
-                        </tr>
-                        <tr>
-                            <td>판례·행정해석 반영</td>
-                            <td class="comp-bad">✗ 학습 데이터 한계</td>
-                            <td class="comp-bad">✗</td>
-                            <td class="comp-good">✓ 실시간 업데이트</td>
-                        </tr>
-                        <tr>
-                            <td>법적 근거 제시</td>
-                            <td class="comp-warn">△ 출처 불명</td>
-                            <td class="comp-bad">✗</td>
-                            <td class="comp-good">✓ 조문·판례번호 명시</td>
-                        </tr>
-                        <tr>
-                            <td>통상임금 계산</td>
-                            <td class="comp-bad">✗ 오류 빈번</td>
-                            <td class="comp-warn">△ 단순 급여만</td>
-                            <td class="comp-good">✓ 법적 산정식 적용</td>
-                        </tr>
-                        <tr>
-                            <td>개인화 상담</td>
-                            <td class="comp-warn">△</td>
-                            <td class="comp-bad">✗</td>
-                            <td class="comp-good">✓ 사업장 규모별 맞춤</td>
-                        </tr>
-                        <tr class="comp-total-row">
-                            <td>종합 경쟁력</td>
-                            <td class="comp-bad">★★☆☆☆</td>
-                            <td class="comp-warn">★★☆☆☆</td>
-                            <td class="comp-good">★★★★★</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <!-- ROADMAP (Section 06) -->
-    <section id="roadmap" class="section section--subtle">
-        <div class="container">
-            <div class="section-header" data-animate>
-                <span class="section-label">Technology Roadmap</span>
-                <h2>3단계 <em>기술 로드맵</em></h2>
-                <p>노동 법률 테크 서비스의 기술 발전 단계를 제시합니다</p>
-            </div>
-            <div class="roadmap" data-animate>
-                <div class="roadmap-line"></div>
-                <div class="roadmap-stage">
-                    <div class="roadmap-header roadmap-header--blue">
-                        <div class="roadmap-num">1</div>
-                        <div>
-                            <small>STAGE 1</small>
-                            <strong>RAG 기반 지능형 분쟁 해결</strong>
-                        </div>
-                    </div>
-                    <div class="roadmap-body">
-                        <h4>데이터 구조화 & 서면 자동생성</h4>
-                        <p>LLM과 <strong>RAG(검색 증강 생성)</strong>을 결합하여 방대한 판례 및 법령 데이터를 실시간 검색하고, 분쟁 해결을 위한 법률 서면(고소장,
-                            답변서) 초안을 자동 생성합니다.</p>
-                        <div class="roadmap-tags">
-                            <span>판례 실시간 검색</span>
-                            <span>서면 초안 자동화</span>
-                            <span>상담 데이터 정형화</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="roadmap-stage">
-                    <div class="roadmap-header roadmap-header--indigo">
-                        <div class="roadmap-num">2</div>
-                        <div>
-                            <small>STAGE 2</small>
-                            <strong>멀티테넌시 맞춤형 지식베이스</strong>
-                        </div>
-                    </div>
-                    <div class="roadmap-body">
-                        <h4>사용자별 격리 · 개인화 솔루션</h4>
-                        <p><strong>멀티테넌시(Multi-tenancy)</strong> 기술을 도입하여 사용자별 계약서, 취업규칙 등을 벡터 DB 내 독립된 공간에 격리·축적합니다. 각
-                            사용자 상황에 최적화된 <strong>고정밀 분쟁 해결 솔루션</strong>을 제공합니다.</p>
-                        <div class="roadmap-tags">
-                            <span>벡터 DB 파티셔닝</span>
-                            <span>개인화 컨텍스트</span>
-                            <span>고정밀 분석</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="roadmap-stage">
-                    <div class="roadmap-header roadmap-header--green">
-                        <div class="roadmap-num">3</div>
-                        <div>
-                            <small>STAGE 3</small>
-                            <strong>예측 분석 기반 분쟁 예방</strong>
-                        </div>
-                    </div>
-                    <div class="roadmap-body">
-                        <h4>지능형 리스크 시뮬레이션</h4>
-                        <p>축적된 개인 데이터와 사법 데이터에 <strong>예측 분석(Predictive Analytics)</strong> 알고리즘을 적용합니다. 잠재적 리스크를
-                            시뮬레이션하여 분쟁 발생 가능성을 <strong>사전에 경고</strong>하는 예방 기능을 구현합니다.</p>
-                        <div class="roadmap-tags">
-                            <span>예측 분석</span>
-                            <span>리스크 시뮬레이션</span>
-                            <span>분쟁 사전 예방</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="roadmap-summary" data-animate>
-                <div class="roadmap-summary-item">
-                    <div class="roadmap-dot roadmap-dot--blue"></div>분쟁 해결
-                </div>
-                <div class="roadmap-arrow">→</div>
-                <div class="roadmap-summary-item">
-                    <div class="roadmap-dot roadmap-dot--indigo"></div>맞춤형 지식
-                </div>
-                <div class="roadmap-arrow">→</div>
-                <div class="roadmap-summary-item">
-                    <div class="roadmap-dot roadmap-dot--green"></div>분쟁 예방
+            <div class="step-body">
+                <div class="step-icon">🎯</div>
+                <p><strong style="color:#a5b4fc">법적 쟁점을 자동 추출</strong>하고 Knowledge Graph로 관계를 시각화</p>
+                <div class="step-example" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15)">
+                    <div class="ex-label">🎯 추출된 쟁점</div>
+                    <div class="ex-item" style="color:#c4b5fd">① 임금 체불<br>② 지연이자 청구<br>③ 악의적 체불 여부</div>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- CTA -->
-    <section id="cta" class="section section--cta">
-        <div class="container">
-            <div class="cta-content" data-animate>
-                <div class="cta-badge">🚀 지금 바로 시작하세요</div>
-                <h2>노동법 고민,<br><em>노무톡</em>이 해결합니다</h2>
-                <p>복잡한 법률 용어, 비싼 상담 비용은 잊으세요.<br>AI 기반 98% 정확도의 노동법 상담을 무료로 체험해보세요.</p>
-                <div class="cta-actions">
-                    <a href="/chat/" class="btn btn--white btn--lg">
-                        <span>무료 상담 시작</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                    </a>
+        <!-- Step 3 -->
+        <div class="card step-card" style="padding:0">
+            <div class="step-header" style="background:linear-gradient(135deg,#10b981,#059669)">
+                <div class="step-num">3</div><div class="step-name">관련 법령</div>
+            </div>
+            <div class="step-body">
+                <div class="step-icon">⚖️</div>
+                <p><strong style="color:#6ee7b7">하이브리드 RAG</strong>로 법령·판례·행정해석을 교차 검색</p>
+                <div class="step-example" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15)">
+                    <div class="ex-label">📚 검색 결과</div>
+                    <div class="ex-item" style="color:#6ee7b7">📖 근기법 §43<br>📖 §109 벌칙<br>⚖️ 대법원 2019다12345</div>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-inner">
-                <div class="footer-brand">
-                    <div class="nav-logo" style="display:flex;align-items:center;gap:8px;"><img src="/logo.png"
-                            alt="노무톡" width="32" height="32" style="border-radius:6px;">노무톡</div>
-                    <p>AI가 바꾸는 노동법 상담의 미래</p>
-                </div>
-                <div class="footer-info">
-                    <p>(주)청사에이아이 · 대표 성시웅</p>
-                    <p>대전광역시 서구 청사로 228, 11층 1110호</p>
-                    <p>사업자번호 512-88-03060 · Tel 070-4448-6960</p>
+        <!-- Step 4 -->
+        <div class="card step-card" style="padding:0">
+            <div class="step-header" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+                <div class="step-num">4</div><div class="step-name">대안 제안</div>
+            </div>
+            <div class="step-body">
+                <div class="step-icon">💡</div>
+                <p>해결 방법을 <strong style="color:#fcd34d">비용·시간·성공률</strong>로 비교 제시</p>
+                <div class="step-example" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15)">
+                    <div class="ex-label">📋 해결 방안</div>
+                    <div class="ex-item" style="color:#fcd34d">① 내용증명 (1주)<br><strong>② 노동청 진정 ⭐</strong><br>③ 민사 소송 (6개월)</div>
                 </div>
             </div>
-            <div class="footer-copy">© 2026 (주)청사에이아이. All rights reserved.</div>
         </div>
-    </footer>
+        <!-- Step 5 -->
+        <div class="card step-card" style="padding:0">
+            <div class="step-header" style="background:linear-gradient(135deg,#ef4444,#dc2626)">
+                <div class="step-num">5</div><div class="step-name">후속 지원</div>
+            </div>
+            <div class="step-body">
+                <div class="step-icon">📄</div>
+                <p><strong style="color:#fca5a5">법률 서면을 자동 생성</strong>하고 체크리스트까지 안내</p>
+                <div class="step-example" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15)">
+                    <div class="ex-label">📄 자동 생성</div>
+                    <div class="ex-item" style="color:#fca5a5">✅ 내용증명 초안<br>✅ 노동청 진정서<br>⏰ 소멸시효 안내</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        // Navbar scroll effect
-        const nav = document.getElementById('mainNav');
-        window.addEventListener('scroll', () => {
-            nav.classList.toggle('nav--scrolled', window.scrollY > 50);
+    <!-- 성과 지표 -->
+    <div class="metrics-row">
+        <div class="metric"><div class="metric-num grad-text">98%</div><div class="metric-label">답변 정확도</div></div>
+        <div class="metric"><div class="metric-num">3분</div><div class="metric-label">평균 응답시간</div></div>
+        <div class="metric"><div class="metric-num">24/7</div><div class="metric-label">무중단 서비스</div></div>
+        <div class="metric"><div class="metric-num">10개</div><div class="metric-label">노동법 전문 분야</div></div>
+        <div class="metric"><div class="metric-num">30,000+</div><div class="metric-label">법령·판례 DB</div></div>
+    </div>
+</div>
+</section>
+
+<!-- ═══════ 4. 향후 서비스 ═══════ -->
+<section class="section" id="future" style="background:radial-gradient(ellipse at 20% 70%,rgba(139,92,246,0.06),transparent 60%)">
+<div class="section-inner">
+    <div class="section-label">Future Vision</div>
+    <h2 class="section-title">분쟁 해결을 넘어,<br><span class="grad-text">예방</span>과 <span style="color:#c4b5fd">에이전틱 AI</span>로</h2>
+    <p class="section-desc" style="margin-bottom:32px">현재의 분쟁 해결 AI에서 출발하여, 리스크를 사전에 차단하는 <strong style="color:#f1f5f9">예방 AI</strong>와 스스로 사고하고 행동하는 <strong style="color:#f1f5f9">에이전틱 AI</strong>로 진화합니다.</p>
+
+    <div class="grid2">
+        <!-- 예방 AI -->
+        <div class="card future-card" style="padding:0;border:none">
+            <div class="future-header" style="background:linear-gradient(135deg,#f59e0b,#ea580c)">
+                <div class="f-icon">🛡️</div>
+                <div><div class="f-phase">PHASE 2 · 2026~2027</div><div class="f-name">리스크 예방 AI</div></div>
+            </div>
+            <div class="future-body">
+                <p>"문제가 터진 후"가 아닌, <strong style="color:#fbbf24">"문제가 터지기 전"</strong>에 리스크를 감지하고 해결합니다.</p>
+                <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
+                    <div class="ff-icon">📡</div>
+                    <div><div class="ff-title" style="color:#fbbf24">실시간 법령 모니터링</div><div class="ff-desc">변경된 노동법 고시에 맞춰 취업규칙 개정안 자동 생성</div></div>
+                </div>
+                <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
+                    <div class="ff-icon">⏰</div>
+                    <div><div class="ff-title" style="color:#fbbf24">근로시간 위반 사전 경고</div><div class="ff-desc">출퇴근 데이터와 급여 명세서를 실시간 연동하여 위반 가능성 사전 감지</div></div>
+                </div>
+                <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
+                    <div class="ff-icon">📋</div>
+                    <div><div class="ff-title" style="color:#fbbf24">취업규칙 자동 점검</div><div class="ff-desc">최신 판례와 비교하여 현행 규정의 법적 리스크를 진단·개선안 제시</div></div>
+                </div>
+            </div>
+        </div>
+        <!-- 에이전틱 AI -->
+        <div class="card future-card" style="padding:0;border:none">
+            <div class="future-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
+                <div class="f-icon">🤖</div>
+                <div><div class="f-phase">PHASE 3 · 2027~2028</div><div class="f-name">에이전틱 노무 AI</div></div>
+            </div>
+            <div class="future-body">
+                <p>AI가 지시를 기다리는 도구가 아닌, <strong style="color:#c4b5fd">스스로 사고하고 행동하는 자율 에이전트</strong>로 진화합니다.</p>
+                <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
+                    <div class="ff-icon">🧠</div>
+                    <div><div class="ff-title" style="color:#c4b5fd">자율적 계획 수립</div><div class="ff-desc">목표만 주면 AI가 단계를 설계·실행 — 퇴직금 점검부터 개정안 도출까지</div></div>
+                </div>
+                <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
+                    <div class="ff-icon">🔄</div>
+                    <div><div class="ff-title" style="color:#c4b5fd">멀티에이전트 시스템</div><div class="ff-desc">법률 분석 + 급여 계산 + 컴플라이언스 에이전트가 협업</div></div>
+                </div>
+                <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
+                    <div class="ff-icon">💾</div>
+                    <div><div class="ff-title" style="color:#c4b5fd">에이전트 메모리</div><div class="ff-desc">과거 수행 경험으로부터 학습 — 단순 LLM을 넘어선 '지능의 축적'</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 에이전틱 시장 -->
+    <div class="market-banner">
+        <div class="banner-title">Agentic AI Market Outlook — 30배 성장 전망</div>
+        <div class="market-grid">
+            <div class="market-item"><div class="m-year">2025년</div><div class="m-val" style="color:#c4b5fd">$86.2B</div><div class="m-note">엔터프라이즈 SW 5% 미만</div></div>
+            <div class="market-item"><div class="m-year">2026년</div><div class="m-val" style="color:#a5b4fc">$117.9B</div><div class="m-note">에이전틱 워크플로우 통합</div></div>
+            <div class="market-item"><div class="m-year">2035년</div><div class="m-val" style="color:#38bdf8">$2,639.6B</div><div class="m-note">멀티에이전트 자율 조직화</div></div>
+        </div>
+        <p style="font-size:11px;color:#64748b;margin-top:14px">Gartner: 2028년까지 기업용 앱의 <strong style="color:#94a3b8">90%</strong>가 AI 에이전트 통합 전망</p>
+    </div>
+</div>
+</section>
+
+<!-- ═══════ 5. 경쟁 분석 ═══════ -->
+<section class="section" id="competition">
+<div class="section-inner">
+    <div class="section-label">Competitive Analysis</div>
+    <h2 class="section-title">왜 <span class="grad-text">노무톡</span>이어야 하는가</h2>
+    <p class="section-desc" style="margin-bottom:28px">범용 AI와 HR Tech 솔루션이 제공하지 못하는, <strong style="color:#f1f5f9">노동법 버티컬 AI</strong>의 차별 우위</p>
+
+    <table class="comp-table">
+        <thead>
+            <tr><th style="width:24%">구분</th><th style="width:24%">범용 AI<br><span style="font-weight:400;text-transform:none">ChatGPT 등</span></th><th style="width:24%">HR Tech<br><span style="font-weight:400;text-transform:none">급여·근태 서비스</span></th><th style="width:28%">노무톡<br><span style="font-weight:400;text-transform:none">Vertical Labor AI</span></th></tr>
+        </thead>
+        <tbody>
+            <tr><td>노동법 정확도</td><td class="bad">60% 환각 위험</td><td class="mid">N/A</td><td class="good">98% Knowledge Graph</td></tr>
+            <tr><td>판례·행정해석 반영</td><td class="bad">✗ 학습 데이터 한계</td><td class="bad">✗</td><td class="good">✓ 실시간 업데이트</td></tr>
+            <tr><td>법적 근거 제시</td><td class="mid">△ 출처 불명</td><td class="bad">✗</td><td class="good">✓ 조문·판례번호 명시</td></tr>
+            <tr><td>통상임금 계산</td><td class="bad">✗ 오류 빈번</td><td class="mid">△ 단순 급여만</td><td class="good">✓ 법적 산정식 적용</td></tr>
+            <tr><td>개인화 상담</td><td class="mid">△</td><td class="bad">✗</td><td class="good">✓ 사업장 규모별 맞춤</td></tr>
+            <tr class="total-row"><td style="font-weight:800">종합 경쟁력</td><td class="bad" style="text-align:center">★★☆☆☆</td><td class="mid" style="text-align:center">★★☆☆☆</td><td class="good" style="text-align:center">★★★★★</td></tr>
+        </tbody>
+    </table>
+</div>
+</section>
+
+<!-- ═══════ 6. 로드맵 ═══════ -->
+<section class="section" id="roadmap" style="background:radial-gradient(ellipse at 60% 30%,rgba(139,92,246,0.06),transparent 60%)">
+<div class="section-inner">
+    <div class="section-label">Technology Roadmap</div>
+    <h2 class="section-title">3-Phase <span class="grad-text">기술 진화</span> 로드맵</h2>
+    <p class="section-desc" style="margin-bottom:28px">분쟁 해결에서 출발하여, 리스크 예방과 자율 에이전트로 진화하는 기술 로드맵</p>
+
+    <div class="roadmap-cards">
+        <!-- Phase 1 -->
+        <div class="roadmap-card" style="border-top:3px solid #3b82f6">
+            <div class="rm-header" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),transparent)">
+                <div class="rm-num" style="background:rgba(59,130,246,0.3)">1</div>
+                <div><div class="rm-phase" style="color:#93c5fd;font-size:10px">PHASE 1 · 현재~2026</div><div class="rm-name">분쟁 해결 AI</div></div>
+                <div class="pill" style="background:rgba(59,130,246,0.2);color:#93c5fd;border:1px solid rgba(59,130,246,0.3);margin-left:auto;font-size:9px">NOW</div>
+            </div>
+            <div class="rm-body">
+                <h5>🔥 지능형 RAG 기반 법률 상담</h5>
+                <p>LLM과 하이브리드 RAG를 결합하여 법령·판례·행정해석을 실시간 검색. 분쟁 해결을 위한 법률 답변과 서면 초안을 자동 생성합니다.</p>
+                <div class="rm-tags">
+                    <span style="background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.2)">하이브리드 검색</span>
+                    <span style="background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.2)">Knowledge Graph</span>
+                    <span style="background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.2)">서면 자동화</span>
+                </div>
+            </div>
+        </div>
+        <!-- Phase 2 -->
+        <div class="roadmap-card" style="border-top:3px solid #f59e0b">
+            <div class="rm-header" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),transparent)">
+                <div class="rm-num" style="background:rgba(245,158,11,0.3)">2</div>
+                <div><div class="rm-phase" style="color:#fcd34d;font-size:10px">PHASE 2 · 2026~2027</div><div class="rm-name">리스크 예방 AI</div></div>
+            </div>
+            <div class="rm-body">
+                <h5>🛡️ 예측 분석 기반 분쟁 예방</h5>
+                <p>축적된 데이터에 예측 분석 알고리즘을 적용. 법규 변화나 기업 운영 패턴에 따른 잠재적 리스크를 사전에 경고합니다.</p>
+                <div class="rm-tags">
+                    <span style="background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.2)">법령 변경 모니터링</span>
+                    <span style="background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.2)">리스크 시뮬레이션</span>
+                </div>
+            </div>
+        </div>
+        <!-- Phase 3 -->
+        <div class="roadmap-card" style="border-top:3px solid #7c3aed">
+            <div class="rm-header" style="background:linear-gradient(135deg,rgba(124,58,237,0.15),transparent)">
+                <div class="rm-num" style="background:rgba(124,58,237,0.3)">3</div>
+                <div><div class="rm-phase" style="color:#c4b5fd;font-size:10px">PHASE 3 · 2027~2028</div><div class="rm-name">에이전틱 노무 AI</div></div>
+            </div>
+            <div class="rm-body">
+                <h5>🤖 자율 에이전트 시스템</h5>
+                <p>AI가 스스로 계획을 수립하고 실행하는 에이전틱 시스템. 멀티에이전트가 협업하여 법률 분석·급여 계산·컴플라이언스를 자율적으로 처리합니다.</p>
+                <div class="rm-tags">
+                    <span style="background:rgba(124,58,237,0.12);color:#c4b5fd;border:1px solid rgba(124,58,237,0.2)">자율 계획 수립</span>
+                    <span style="background:rgba(124,58,237,0.12);color:#c4b5fd;border:1px solid rgba(124,58,237,0.2)">멀티에이전트</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+
+<!-- ═══════ 7. CTA ═══════ -->
+<section class="section cta-section" id="cta">
+<div class="section-inner">
+    <div class="cta-card">
+        <div class="pill" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);margin-bottom:20px">🌐 nomutalk.kr</div>
+        <h2><span class="grad-text">노무톡</span>과 함께<br>노동 문제를 해결하세요</h2>
+        <p>부당해고, 임금체불, 산재, 직장 내 괴롭힘 —<br>어떤 노동 문제든 AI 노무 전문가가 24시간 함께합니다.</p>
+        <a href="https://nomutalk.kr/case-input" class="cta-btn">💬 무료 상담 시작하기</a>
+        <div class="cta-sub">회원가입 없이 즉시 시작 · 완전 무료</div>
+    </div>
+</div>
+</section>
+
+<!-- DOT NAV SCRIPT -->
+<script>
+(function(){
+    const dots=document.querySelectorAll('.dot-nav a');
+    const sections=document.querySelectorAll('.section');
+    const obs=new IntersectionObserver(entries=>{
+        entries.forEach(e=>{
+            if(e.isIntersecting){
+                const id=e.target.id;
+                dots.forEach(d=>{d.classList.toggle('active',d.getAttribute('href')==='#'+id)});
+            }
         });
-
-        // Mobile menu
-        const mobileBtn = document.getElementById('mobileMenuBtn');
-        const mobileMenu = document.getElementById('mobileMenu');
-        mobileBtn.addEventListener('click', () => {
-            mobileBtn.classList.toggle('active');
-            mobileMenu.classList.toggle('open');
-        });
-        mobileMenu.querySelectorAll('a').forEach(a => {
-            a.addEventListener('click', () => {
-                mobileBtn.classList.remove('active');
-                mobileMenu.classList.remove('open');
-            });
-        });
-
-        // Scroll animations
-        const animateEls = document.querySelectorAll('[data-animate]');
-        const animObs = new IntersectionObserver((entries) => {
-            entries.forEach(e => {
-                if (e.isIntersecting) {
-                    e.target.classList.add('animated');
-                    animObs.unobserve(e.target);
-                }
-            });
-        }, { threshold: 0.15 });
-        animateEls.forEach(el => animObs.observe(el));
-
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const target = document.querySelector(a.getAttribute('href'));
-                if (target) target.scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-    </script>
+    },{threshold:0.5});
+    sections.forEach(s=>obs.observe(s));
+})();
+</script>
 </body>
-
 </html>
