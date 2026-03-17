@@ -191,6 +191,8 @@ export interface IssueInfo {
     winRateReason?: string;
     favorableFactors?: string[];
     unfavorableFactors?: string[];
+    estimatedAmount?: string;
+    risks?: string[];
 }
 
 export interface IssueAnalysisResult {
@@ -967,5 +969,87 @@ export async function uploadEvidence(
     });
     const data = await response.json();
     if (!data.success) throw new Error(data.error || '증거 업로드 실패');
+    return data.data;
+}
+
+// ==================== Alternatives API (Step 4) ====================
+
+export interface AlternativeMethod {
+    id: string;
+    name: string;
+    icon: string;
+    timeframe: string;
+    cost: string;
+    successRate: number;
+    pros: string[];
+    cons: string[];
+    description: string;
+    procedure?: string[];
+    isRecommended?: boolean;
+}
+
+export interface AlternativesResult {
+    methods: AlternativeMethod[];
+    recommendation: string;
+    reasoning: string;
+}
+
+export async function fetchAlternatives(
+    caseId: string,
+    description: string,
+    issues: IssueInfo[],
+    caseType?: string,
+): Promise<AlternativesResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/alternatives`, {
+        method: 'POST',
+        body: JSON.stringify({ caseId, description, issues, caseType }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '대안 분석 실패');
+    return data.data;
+}
+
+// ==================== Follow-up Support API (Step 5) ====================
+
+export interface ChecklistItem {
+    id: string;
+    label: string;
+    category: string;
+    description?: string;
+    checked?: boolean;
+}
+
+export interface TimelineStep {
+    day: string;
+    label: string;
+    description: string;
+    type: 'action' | 'expected' | 'deadline';
+}
+
+export async function fetchChecklist(
+    caseId: string,
+    resolution: string,
+    caseType?: string,
+): Promise<{ items: ChecklistItem[] }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/checklist`, {
+        method: 'POST',
+        body: JSON.stringify({ caseId, resolution, caseType }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '체크리스트 생성 실패');
+    return data.data;
+}
+
+export async function fetchTimeline(
+    caseId: string,
+    resolution: string,
+    caseType?: string,
+): Promise<{ steps: TimelineStep[]; statute_of_limitations?: string }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/timeline`, {
+        method: 'POST',
+        body: JSON.stringify({ caseId, resolution, caseType }),
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || '타임라인 생성 실패');
     return data.data;
 }

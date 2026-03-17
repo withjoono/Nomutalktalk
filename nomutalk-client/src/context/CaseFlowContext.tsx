@@ -6,6 +6,7 @@ import {
     GraphNode, GraphLink, IssueInfo, CaseDetail, BuildMeta, TimelineEvent, CaseInsight,
     createCase, getCase, updateCaseStep, analyzeIssues, analyzeCaseGraph,
     reanalyzeCase, updateCaseDescription as apiUpdateDescription, ReanalysisResult,
+    AlternativeMethod, fetchAlternatives,
 } from '@/lib/api';
 
 // ==================== Types ====================
@@ -14,7 +15,7 @@ export interface CaseFlowState {
     caseId: string | null;
     description: string;
     caseType: string;
-    currentStep: number; // 0=입력, 1=쟁점, 2=법령, 3=상담
+    currentStep: number; // 0=입력, 1=쟁점, 2=법령, 3=대안, 4=후속
 
     // Step 1: 쟁점 분석 결과
     issueResult: {
@@ -33,7 +34,17 @@ export interface CaseFlowState {
         summary: string;
     } | null;
 
-    // Step 3: 채팅 세션
+    // Step 3: 대안 제안 결과
+    alternativesResult: {
+        methods: AlternativeMethod[];
+        recommendation: string;
+        reasoning: string;
+    } | null;
+
+    // 선택된 해결 방법 (Step 4 → Step 5 전달용)
+    selectedMethod: AlternativeMethod | null;
+
+    // 채팅 세션 (AI 상담)
     chatSessionId: string | null;
 
     // 빌드 시스템
@@ -54,9 +65,11 @@ interface CaseFlowContextType {
     loadCase: (caseId: string) => Promise<void>;
     runIssueAnalysis: () => Promise<void>;
     runLawAnalysis: () => Promise<void>;
+    runAlternativesAnalysis: () => Promise<void>;
     goToStep: (step: number) => void;
     setIssueResult: (result: CaseFlowState['issueResult']) => void;
     setLawResult: (result: CaseFlowState['lawResult']) => void;
+    setSelectedMethod: (method: AlternativeMethod | null) => void;
     resetFlow: () => void;
     /** 재분석 실행 (빌드) */
     reanalyze: (stepName: 'issueAnalysis' | 'lawAnalysis', trigger?: 'manual' | 'evidence_added' | 'description_updated') => Promise<void>;
@@ -73,6 +86,8 @@ const initialState: CaseFlowState = {
     currentStep: 0,
     issueResult: null,
     lawResult: null,
+    alternativesResult: null,
+    selectedMethod: null,
     chatSessionId: null,
     buildMeta: defaultBuildMeta,
     timeline: [],
@@ -131,6 +146,8 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 currentStep: detail.currentStep,
                 issueResult: detail.steps.issueAnalysis || null,
                 lawResult: detail.steps.lawAnalysis || null,
+                alternativesResult: (detail.steps as any).alternativesAnalysis || null,
+                selectedMethod: null,
                 chatSessionId: typeof detail.steps.chatSessionId === 'string' ? detail.steps.chatSessionId : null,
                 buildMeta: detail.buildMeta || defaultBuildMeta,
                 timeline: detail.timeline || [],
@@ -260,13 +277,37 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
         }
     }, [state.caseId]);
 
+    // 대안 분석 실행
+    const runAlternativesAnalysis = useCallback(async () => {
+        if (!state.caseId || !state.issueResult) return;
+        setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
+        try {
+            const result = await fetchAlternatives(
+                state.caseId,
+                state.description,
+                state.issueResult.issues,
+                state.caseType,
+            );
+            setState(prev => ({
+                ...prev,
+                alternativesResult: result,
+                currentStep: 3,
+                isAnalyzing: false,
+            }));
+            updateCaseStep(state.caseId, 'alternativesAnalysis', result, 3).catch(console.error);
+        } catch (err: any) {
+            setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
+        }
+    }, [state.caseId, state.description, state.issueResult, state.caseType]);
+
     const goToStep = useCallback((step: number) => {
         setState(prev => ({ ...prev, currentStep: step }));
         switch (step) {
             case 0: router.push('/case-input'); break;
             case 1: router.push('/issue-analysis'); break;
             case 2: router.push('/case-search'); break;
-            case 3: router.push('/chat'); break;
+            case 3: router.push('/alternatives'); break;
+            case 4: router.push('/follow-up'); break;
         }
     }, [router]);
 
@@ -278,6 +319,10 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
         setState(prev => ({ ...prev, lawResult: result }));
     }, []);
 
+    const setSelectedMethod = useCallback((method: AlternativeMethod | null) => {
+        setState(prev => ({ ...prev, selectedMethod: method }));
+    }, []);
+
     return (
         <CaseFlowContext.Provider value={{
             state,
@@ -285,9 +330,11 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             loadCase,
             runIssueAnalysis,
             runLawAnalysis,
+            runAlternativesAnalysis,
             goToStep,
             setIssueResult,
             setLawResult,
+            setSelectedMethod,
             resetFlow,
             reanalyze,
             updateDescription,

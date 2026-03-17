@@ -4005,6 +4005,271 @@ app.get('/api/payments/history/:id', (req, res) => {
   res.json({ success: true, data: order });
 });
 
+// ==================== 5단계 강화 API ====================
+
+/**
+ * POST /api/labor/alternatives
+ * 대안 제안 비교표 생성 (Step 4)
+ */
+app.post('/api/labor/alternatives', verifyToken, async (req, res) => {
+  try {
+    const { caseId, description, issues, caseType } = req.body;
+    if (!description) {
+      return res.status(400).json({ success: false, error: '사건 내용이 필요합니다.' });
+    }
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const issuesSummary = (issues || []).map(i => `- ${i.title} (${i.severity})`).join('\n');
+
+    const prompt = `당신은 대한민국 노동법 전문가입니다. 아래 사건에 대해 가능한 해결 방법들을 비교 분석해주세요.
+
+[사건 유형] ${caseType || '일반'}
+[사건 내용] ${description}
+[핵심 쟁점]
+${issuesSummary || '없음'}
+
+각 해결 방법에 대해 다음을 포함하여 JSON 형식으로 답변하세요:
+
+{
+  "methods": [
+    {
+      "id": "method_1",
+      "name": "해결 방법 이름",
+      "icon": "적절한 이모지",
+      "description": "한 줄 설명",
+      "timeframe": "예상 소요 기간",
+      "cost": "예상 비용",
+      "successRate": 성공률(0-100 정수),
+      "pros": ["장점1", "장점2"],
+      "cons": ["단점1", "단점2"],
+      "procedure": ["절차1", "절차2", "절차3"],
+      "isRecommended": true/false
+    }
+  ],
+  "recommendation": "종합 권장 사항 (어떤 방법을 왜 추천하는지)",
+  "reasoning": "분석 근거 상세 설명"
+}
+
+일반적인 해결 방법: 내용증명 발송, 노동청 진정, 노동위원회 구제신청, 민사소송, 임금체불 고소, 합의/조정 등
+사건 유형에 맞는 2~5개의 현실적인 방법을 제안하세요.
+반드시 하나의 방법에 isRecommended: true를 지정하세요.
+JSON만 출력하세요.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    } catch {
+      parsed = {
+        methods: [{
+          id: 'method_1', name: '노동청 진정', icon: '📋',
+          description: '고용노동부에 사건을 신고하여 조사를 요청합니다.',
+          timeframe: '2~4주', cost: '무료', successRate: 65,
+          pros: ['무료', '강제 조사 권한'], cons: ['처리 시간이 걸림'],
+          procedure: ['관할 노동청 방문 또는 온라인 신고', '진정서 작성 및 제출', '근로감독관 조사', '결과 통보'],
+          isRecommended: true,
+        }],
+        recommendation: '노동청 진정이 비용 대비 효과가 가장 좋습니다.',
+        reasoning: text,
+      };
+    }
+
+    res.json({ success: true, data: parsed });
+  } catch (error) {
+    console.error('대안 분석 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/labor/generate-document
+ * 법률 서면 자동 생성 (Step 5)
+ */
+app.post('/api/labor/generate-document', verifyToken, async (req, res) => {
+  try {
+    const { caseDescription, documentType, additionalInfo } = req.body;
+    if (!caseDescription || !documentType) {
+      return res.status(400).json({ success: false, error: '사건 내용과 서면 유형이 필요합니다.' });
+    }
+
+    const docTypeNames = {
+      complaint: '진정서 (노동청)',
+      response: '답변서',
+      objection: '이의신청서',
+      appeal: '재심신청서',
+      evidence: '증거설명서',
+    };
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const docTypeName = docTypeNames[documentType] || documentType;
+    const addInfo = additionalInfo ? Object.entries(additionalInfo).map(([k, v]) => `${k}: ${v}`).join('\n') : '';
+
+    const prompt = `당신은 대한민국 노동법 전문 법률 서면 작성자입니다.
+아래 사건에 대한 "${docTypeName}" 초안을 작성해주세요.
+
+[사건 내용]
+${caseDescription}
+
+${addInfo ? `[추가 정보]\n${addInfo}\n` : ''}
+다음 형식으로 작성하세요:
+1. 제목
+2. 수신처 (해당하는 경우)
+3. 진정인/신청인 정보 (빈칸으로 표시)
+4. 피진정인/피신청인 정보 (빈칸으로 표시)
+5. 본문 (사건 경위, 법적 근거, 요청 사항)
+6. 첨부 서류 목록
+
+실제 제출 가능한 수준의 전문적인 서면을 작성하세요.
+개인정보는 "___" 빈칸으로 남겨두세요.`;
+
+    const result = await model.generateContent(prompt);
+    const content = result.response.text();
+
+    res.json({
+      success: true,
+      data: {
+        documentType,
+        documentTypeName: docTypeName,
+        content,
+        citations: [],
+        timestamp: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    console.error('서면 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/labor/checklist
+ * 동적 체크리스트 생성 (Step 5)
+ */
+app.post('/api/labor/checklist', verifyToken, async (req, res) => {
+  try {
+    const { caseId, resolution, caseType } = req.body;
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const prompt = `당신은 대한민국 노동법 전문가입니다.
+"${resolution}" 방법으로 "${caseType || '노동'}" 사건을 해결하려는 근로자를 위한 준비물 체크리스트를 만들어주세요.
+
+JSON 형식으로 답변하세요:
+{
+  "items": [
+    {
+      "id": "check_1",
+      "label": "체크 항목",
+      "category": "카테고리명 (예: 서류 준비, 증거 확보, 사전 조치)",
+      "description": "상세 설명 또는 팁"
+    }
+  ]
+}
+
+카테고리별로 5~15개 항목을 만들어주세요.
+일반적인 항목 예시: 근로계약서, 급여명세서, 출퇴근 기록, 업무 관련 문자/카톡, 증인 확보 등
+해결 방법에 특화된 항목을 포함하세요.
+JSON만 출력하세요.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    } catch {
+      parsed = {
+        items: [
+          { id: 'check_1', label: '근로계약서 확보', category: '서류 준비', description: '원본 또는 사본' },
+          { id: 'check_2', label: '급여명세서 확보', category: '서류 준비', description: '최근 3개월분' },
+          { id: 'check_3', label: '출퇴근 기록 정리', category: '증거 확보', description: '캘린더, 교통카드 등' },
+          { id: 'check_4', label: '관련 대화 내역 저장', category: '증거 확보', description: '문자, 카톡, 이메일' },
+        ],
+      };
+    }
+
+    res.json({ success: true, data: parsed });
+  } catch (error) {
+    console.error('체크리스트 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/labor/timeline
+ * 예상 타임라인 생성 (Step 5)
+ */
+app.post('/api/labor/timeline', verifyToken, async (req, res) => {
+  try {
+    const { caseId, resolution, caseType } = req.body;
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const prompt = `당신은 대한민국 노동법 전문가입니다.
+"${resolution}" 방법으로 "${caseType || '노동'}" 사건을 해결할 때의 예상 타임라인을 만들어주세요.
+
+JSON 형식으로 답변하세요:
+{
+  "steps": [
+    {
+      "day": "D-Day / 1일차 / 1주차 등",
+      "label": "단계 이름",
+      "description": "구체적인 안내",
+      "type": "action 또는 expected 또는 deadline"
+    }
+  ],
+  "statute_of_limitations": "소멸시효 정보 (예: 임금채권 3년, 퇴직금 3년 등)"
+}
+
+type 설명:
+- action: 당사자가 해야 할 행동
+- expected: 예상되는 진행 사항
+- deadline: 법적 기한
+
+5~10단계로 현실적인 타임라인을 작성하세요.
+JSON만 출력하세요.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    let parsed;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+    } catch {
+      parsed = {
+        steps: [
+          { day: 'D-Day', label: '증거 자료 정리', description: '근로계약서, 급여명세서 등 관련 자료를 모두 정리합니다.', type: 'action' },
+          { day: '1~3일차', label: '진정서 작성', description: '관할 노동청에 제출할 진정서를 작성합니다.', type: 'action' },
+          { day: '1주차', label: '노동청 접수', description: '관할 고용노동청에 진정서를 접수합니다.', type: 'action' },
+          { day: '2~4주차', label: '근로감독관 조사', description: '배정된 근로감독관이 사실 관계를 조사합니다.', type: 'expected' },
+          { day: '4~6주차', label: '결과 통보', description: '조사 결과 및 시정 명령 여부가 통보됩니다.', type: 'expected' },
+        ],
+        statute_of_limitations: '임금채권 소멸시효: 3년 (근로기준법 제49조)',
+      };
+    }
+
+    res.json({ success: true, data: parsed });
+  } catch (error) {
+    console.error('타임라인 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ==================== 서버 시작 ====================
 
 async function startServer() {

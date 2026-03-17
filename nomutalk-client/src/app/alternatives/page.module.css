@@ -1,0 +1,340 @@
+.page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--toss-spacing-lg);
+    min-height: 100%;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin: 0 0 4px;
+    letter-spacing: -0.03em;
+}
+
+.subtitle {
+    font-size: 0.92rem;
+    color: var(--toss-text-tertiary);
+    margin: 0 0 24px;
+}
+
+/* ═══ 비교표 그리드 ═══ */
+.methodsGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.methodCard {
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg);
+    padding: 20px;
+    background: var(--toss-bg-card);
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.methodCard:hover {
+    border-color: var(--toss-blue);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.1);
+    transform: translateY(-2px);
+}
+
+.methodCard.recommended {
+    border-color: var(--toss-blue);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(139, 92, 246, 0.04));
+}
+
+.methodCard.recommended::before {
+    content: '⭐ 권장';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+}
+
+.methodCard.selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.methodHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.methodIcon {
+    font-size: 1.6rem;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--toss-bg-secondary);
+    border-radius: var(--toss-radius-md);
+    flex-shrink: 0;
+}
+
+.methodName {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    letter-spacing: -0.02em;
+}
+
+.methodDesc {
+    font-size: 0.85rem;
+    color: var(--toss-text-tertiary);
+    margin-top: 2px;
+}
+
+/* ═══ 메트릭 행 ═══ */
+.metricsRow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.metric {
+    text-align: center;
+    padding: 10px 8px;
+    background: var(--toss-bg-secondary);
+    border-radius: var(--toss-radius-sm);
+}
+
+.metricLabel {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.metricValue {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+/* ═══ 성공률 바 ═══ */
+.successRateBar {
+    height: 6px;
+    background: var(--toss-border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.successRateFill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+/* ═══ 장단점 ═══ */
+.prosConsRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 0.82rem;
+}
+
+.proItem {
+    color: #10b981;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.conItem {
+    color: #f59e0b;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+/* ═══ 상세 절차 (확장) ═══ */
+.procedureSection {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--toss-border);
+    animation: fadeIn 0.2s ease;
+}
+
+.procedureTitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+    margin: 0 0 8px;
+}
+
+.procedureList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.procedureStep {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.5;
+}
+
+.procedureStep::before {
+    content: counter(step);
+    counter-increment: step;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--toss-blue);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.procedureList {
+    counter-reset: step;
+}
+
+/* ═══ 권장 카드 ═══ */
+.recommendationCard {
+    padding: 18px 20px;
+    border-radius: var(--toss-radius-lg);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    margin-bottom: 20px;
+}
+
+.recommendationTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #3b82f6;
+    margin: 0 0 6px;
+}
+
+.recommendationText {
+    font-size: 0.88rem;
+    color: var(--toss-text-secondary);
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* ═══ 하단 CTA ═══ */
+.ctaSection {
+    margin-top: 8px;
+    text-align: center;
+}
+
+.ctaButton {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.ctaButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+}
+
+.ctaButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* ═══ 로딩/에러 ═══ */
+.loadingSection {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.spinner {
+    border: 3px solid var(--toss-border);
+    border-top: 3px solid var(--toss-blue);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.errorMsg {
+    background: #fef2f2;
+    border-left: 3px solid var(--toss-red);
+    padding: 12px 16px;
+    border-radius: var(--toss-radius-sm);
+    color: var(--toss-red);
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+}
+
+.retryBtn {
+    padding: 10px 24px;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    background: var(--toss-bg-card);
+    color: var(--toss-text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+@media (max-width: 640px) {
+    .metricsRow {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+
+    .prosConsRow {
+        grid-template-columns: 1fr;
+    }
+
+    .methodCard.recommended::before {
+        font-size: 0.68rem;
+        padding: 2px 8px;
+    }
+}

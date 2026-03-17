@@ -314,3 +314,232 @@
         flex-direction: column;
     }
 }
+
+/* ═══ 대시보드 뷰 ═══ */
+.dashboardCard {
+    padding: 18px 20px;
+    border: 1px solid var(--toss-border);
+    border-radius: var(--toss-radius-lg, 16px);
+    background: var(--toss-bg-card);
+    margin-bottom: 16px;
+}
+
+.dashCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.dashBadge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.dashMeta {
+    display: flex;
+    gap: 10px;
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+}
+
+.dashDesc {
+    font-size: 0.92rem;
+    color: var(--toss-text-primary);
+    line-height: 1.6;
+    margin: 0 0 14px;
+    white-space: pre-wrap;
+}
+
+.dashStatusRow {
+    display: flex;
+    gap: 4px;
+}
+
+.dashStepBtn {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 8px;
+    background: var(--toss-bg-tertiary, #334155);
+    color: var(--toss-text-disabled);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.dashStepBtn.dashStepDone {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.dashStepBtn:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+/* ── 탭 ── */
+.dashTabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    background: var(--toss-bg-secondary);
+    border-radius: var(--toss-radius-md);
+    padding: 4px;
+}
+
+.dashTab {
+    flex: 1;
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--toss-radius-sm);
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--toss-text-tertiary);
+    transition: all 0.15s;
+    font-family: inherit;
+    text-align: center;
+}
+
+.dashTab:hover {
+    color: var(--toss-text-secondary);
+}
+
+.dashTabActive {
+    background: var(--toss-bg-primary);
+    color: var(--toss-text-primary);
+    font-weight: 600;
+    box-shadow: var(--toss-shadow-sm);
+}
+
+.dashHint {
+    font-size: 0.85rem;
+    color: var(--toss-text-tertiary);
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+
+/* ── 파일 첨부 행 ── */
+.dashFileRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0 0;
+}
+
+.fileName {
+    font-size: 0.82rem;
+    color: var(--toss-text-secondary);
+    background: var(--toss-bg-secondary);
+    padding: 4px 10px;
+    border-radius: 8px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── 히스토리 ── */
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 18px;
+}
+
+.historyList::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--toss-border);
+}
+
+.historyItem {
+    position: relative;
+    padding: 8px 0 8px 16px;
+}
+
+.historyDot {
+    position: absolute;
+    left: -16px;
+    top: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--toss-border);
+    background: var(--toss-bg-primary);
+    z-index: 1;
+}
+
+.historyDot[data-type="analysis"],
+.historyDot[data-type="reanalysis"] {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.historyDot[data-type="supplement"],
+.historyDot[data-type="evidence_added"] {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.historyDot[data-type="progress"] {
+    background: #f59e0b;
+    border-color: #f59e0b;
+}
+
+.historyContent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.historyTime {
+    font-size: 0.72rem;
+    color: var(--toss-text-tertiary);
+}
+
+.historyDetail {
+    font-size: 0.85rem;
+    color: var(--toss-text-primary);
+    line-height: 1.4;
+}
+
+.historyTrigger {
+    font-size: 0.72rem;
+    color: var(--toss-text-disabled);
+}
+
+/* ── 새 사건 링크 ── */
+.newCaseLink {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+    border: 1px dashed var(--toss-border);
+    border-radius: var(--toss-radius-md);
+    color: var(--toss-text-tertiary);
+    font-size: 0.88rem;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.15s;
+    margin-bottom: 16px;
+    font-family: inherit;
+}
+
+.newCaseLink:hover {
+    border-color: var(--toss-blue);
+    color: #3b82f6;
+}

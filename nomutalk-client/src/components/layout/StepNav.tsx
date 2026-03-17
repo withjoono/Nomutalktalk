@@ -5,10 +5,11 @@ import { useCaseFlow } from '@/context/CaseFlowContext';
 import styles from './StepNav.module.css';
 
 const STEPS = [
-    { step: 0, label: '내 사건', icon: '📂' },
-    { step: 1, label: '핵심 쟁점', icon: '🔥' },
-    { step: 2, label: '관련 법령', icon: '⚖️' },
-    { step: 3, label: 'AI 상담', icon: '💬' },
+    { step: 0, label: '내 사건', icon: '🩺' },
+    { step: 1, label: '핵심 쟁점', icon: '⚖️' },
+    { step: 2, label: '관련 법령', icon: '📚' },
+    { step: 3, label: '대안 제안', icon: '💡' },
+    { step: 4, label: '후속 지원', icon: '🔗' },
 ];
 
 interface StepNavProps {
