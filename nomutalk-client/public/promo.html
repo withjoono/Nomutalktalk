@@ -54,13 +54,27 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 /* ═══════════════════
    CORE TECH
 ═══════════════════ */
-.tech-card{position:relative;overflow:hidden}
+.tech-card{position:relative;overflow:hidden;cursor:pointer}
 .tech-card .badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(99,102,241,0.2);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3)}
 .tech-card .icon-circle{margin-bottom:16px}
 .tech-card h4{font-size:18px;font-weight:800;color:#f1f5f9;margin-bottom:8px}
 .tech-card p{font-size:13px;color:#94a3b8;line-height:1.6}
 .tech-card .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .tech-card .tag{font-size:10px;padding:4px 10px;border-radius:8px;font-weight:600}
+.tech-card .expand-btn{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;padding:7px 16px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
+.tech-card .expand-btn:hover{background:rgba(255,255,255,0.1);color:#e2e8f0}
+.tech-card .expand-btn .arrow{transition:transform .3s;display:inline-block}
+.tech-card.expanded .expand-btn .arrow{transform:rotate(180deg)}
+.tech-detail{max-height:0;overflow:hidden;transition:max-height .4s ease;margin-top:0}
+.tech-card.expanded .tech-detail{max-height:600px;margin-top:16px}
+.tech-detail-inner{padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+.tech-detail-inner h5{font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px}
+.td-row{display:flex;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:6px}
+.td-row .td-icon{font-size:14px;line-height:1}
+.td-row .td-title{font-size:11px;font-weight:700;margin-bottom:2px}
+.td-row .td-desc{font-size:10px;color:#94a3b8;line-height:1.5}
+.td-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:640px){.td-cols{grid-template-columns:1fr}}
 
 /* ── PIPELINE ── */
 .pipeline{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:32px;padding:24px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
@@ -199,7 +213,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 
     <div class="grid2">
         <!-- 하이브리드 RAG -->
-        <div class="card tech-card">
+        <div class="card tech-card" onclick="toggleTech(this)">
             <div class="badge">Core</div>
             <div class="icon-circle" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">🔍</div>
             <h4>하이브리드 RAG</h4>
@@ -208,9 +222,38 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <span class="tag" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)">BM25 + 벡터 임베딩</span>
                 <span class="tag" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25)">Recall 95%+</span>
             </div>
+            <div class="expand-btn">자세히 보기 <span class="arrow">↓</span></div>
+            <div class="tech-detail">
+                <div class="tech-detail-inner">
+                    <h5>🔍 하이브리드 검색 아키텍처</h5>
+                    <div class="td-cols">
+                        <div class="td-row" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.12)">
+                            <div class="td-icon">🔤</div>
+                            <div><div class="td-title" style="color:#93c5fd">키워드 검색</div><div class="td-desc">"5인 미만", "야근수당" 등 정확한 법률 용어 매칭 (BM25 알고리즘)</div></div>
+                        </div>
+                        <div class="td-row" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.12)">
+                            <div class="td-icon">🧠</div>
+                            <div><div class="td-title" style="color:#a5b4fc">시맨틱 검색</div><div class="td-desc">"연장근로수당" = "야근수당" 의미적으로 동일한 개념 자동 확장 (벡터 임베딩)</div></div>
+                        </div>
+                    </div>
+                    <h5 style="margin-top:12px">💡 왜 하이브리드인가?</h5>
+                    <div class="td-row" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.1)">
+                        <div class="td-icon">❌</div>
+                        <div><div class="td-title" style="color:#fca5a5">키워드만으로는 부족</div><div class="td-desc">"야근수당"을 검색하면 "연장근로수당"이라는 공식 법률 용어와 매칭 실패</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.1)">
+                        <div class="td-icon">⚠️</div>
+                        <div><div class="td-title" style="color:#fcd34d">시맨틱만으로는 위험</div><div class="td-desc">"제55조" vs "제56조"처럼 의미가 유사하지만 법적으로 전혀 다른 조문을 혼동</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">✅</div>
+                        <div><div class="td-title" style="color:#6ee7b7">하이브리드 = 최적</div><div class="td-desc">키워드의 정확성 + 시맨틱의 유연성을 결합하여 법률 도메인 특화 최적 검색. 정확도 98%, Recall 95%+</div></div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- Knowledge Graph -->
-        <div class="card tech-card">
+        <div class="card tech-card" onclick="toggleTech(this)">
             <div class="badge">Visual</div>
             <div class="icon-circle" style="background:linear-gradient(135deg,#6366f1,#a855f7)">🕸️</div>
             <h4>Knowledge Graph</h4>
@@ -219,9 +262,40 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <span class="tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25)">조-항-호-목 매핑</span>
                 <span class="tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25)">쟁점 연쇄 추론</span>
             </div>
+            <div class="expand-btn">자세히 보기 <span class="arrow">↓</span></div>
+            <div class="tech-detail">
+                <div class="tech-detail-inner">
+                    <h5>🕸️ 그래프 핵심 기능</h5>
+                    <div class="td-row" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.12)">
+                        <div class="td-icon">🎯</div>
+                        <div><div class="td-title" style="color:#a5b4fc">자동 쟁점 추출</div><div class="td-desc">상담 내용에서 핵심 법적 쟁점을 자동 추출하여 중심 노드 생성</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.12)">
+                        <div class="td-icon">🔗</div>
+                        <div><div class="td-title" style="color:#93c5fd">법령 위계 시각화</div><div class="td-desc">법→시행령→시행규칙→행정해석의 위계 관계를 그래프로 직관 표시</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.12)">
+                        <div class="td-icon">🔄</div>
+                        <div><div class="td-title" style="color:#67e8f9">동적 탐색</div><div class="td-desc">노드 클릭으로 관련 판례·조문으로 즉시 이동, 디테일 확인</div></div>
+                    </div>
+                    <h5 style="margin-top:12px">🔬 XAI 기반 투명성</h5>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">📋</div>
+                        <div><div class="td-title" style="color:#6ee7b7">출처 명시</div><div class="td-desc">조문번호 · 판례번호 · 행정해석 번호를 답변에 직접 인용</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">🔍</div>
+                        <div><div class="td-title" style="color:#6ee7b7">추론 경로</div><div class="td-desc">AI가 어떤 논리로 결론에 도달했는지 단계별 표시</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">⚖️</div>
+                        <div><div class="td-title" style="color:#6ee7b7">신뢰도 표시</div><div class="td-desc">답변의 법적 확실성을 수치로 제공하여 사용자 의사결정 지원</div></div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- Context Memory -->
-        <div class="card tech-card">
+        <div class="card tech-card" onclick="toggleTech(this)">
             <div class="badge">Data</div>
             <div class="icon-circle" style="background:linear-gradient(135deg,#f59e0b,#ea580c)">🔐</div>
             <h4>Context Memory</h4>
@@ -230,9 +304,36 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <span class="tag" style="background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.25)">멀티테넌시 격리</span>
                 <span class="tag" style="background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.25)">개인화 메모리</span>
             </div>
+            <div class="expand-btn">자세히 보기 <span class="arrow">↓</span></div>
+            <div class="tech-detail">
+                <div class="tech-detail-inner">
+                    <h5>🔐 Namespace 격리 아키텍처</h5>
+                    <div class="td-row" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.1)">
+                        <div class="td-icon">🗄️</div>
+                        <div><div class="td-title" style="color:#fcd34d">프라이빗 메모리</div><div class="td-desc">기업별 독립 저장공간(Namespace) 구축, 타 기업과 데이터 혼용 완전 차단</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">🎛️</div>
+                        <div><div class="td-title" style="color:#6ee7b7">데이터 주권 대시보드</div><div class="td-desc">업로드 문서(취업규칙 등)의 학습 활용 여부를 사용자가 직접 승인/거부</div></div>
+                    </div>
+                    <h5 style="margin-top:12px">📈 활용 시나리오</h5>
+                    <div class="td-row" style="background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.1)">
+                        <div class="td-icon">1️⃣</div>
+                        <div><div class="td-title" style="color:#67e8f9">첫 상담</div><div class="td-desc">"50인 사업장 정규직, 취업규칙에 연장근로 수당 150% 규정" → 컨텍스트 축적</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.1)">
+                        <div class="td-icon">2️⃣</div>
+                        <div><div class="td-title" style="color:#a5b4fc">재상담 (3개월 후)</div><div class="td-desc">"야근수당을 안 줍니다" → AI가 자동으로 50인 사업장 + 150% 기준을 적용하여 답변</div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">3️⃣</div>
+                        <div><div class="td-title" style="color:#6ee7b7">리스크 예방</div><div class="td-desc">"귀사 취업규칙의 야간근로 조항에 최근 판례 변경으로 리스크가 있습니다." → 선제적 알림</div></div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- 법 적용 3대 로직 -->
-        <div class="card tech-card">
+        <div class="card tech-card" onclick="toggleTech(this)">
             <div class="badge">Logic</div>
             <div class="icon-circle" style="background:linear-gradient(135deg,#10b981,#06b6d4)">⚖️</div>
             <h4>법 적용 3대 로직</h4>
@@ -240,6 +341,26 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
             <div class="tags">
                 <span class="tag" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25)">시행일 추적</span>
                 <span class="tag" style="background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25)">특별법·신법 우선</span>
+            </div>
+            <div class="expand-btn">자세히 보기 <span class="arrow">↓</span></div>
+            <div class="tech-detail">
+                <div class="tech-detail-inner">
+                    <div class="td-row" style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.1)">
+                        <div class="td-icon">🕐</div>
+                        <div><div class="td-title" style="color:#93c5fd">① 시간적 원칙</div><div class="td-desc">사건 발생일~현재까지의 연도별 법령 변화를 추적하여 해당 시점에 적용 가능한 정확한 법률을 특정<br><span style="color:#64748b">예시: "2023년 1월 해고 사건" → 2023년 당시의 근로기준법 조문 적용</span></div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.1)">
+                        <div class="td-icon">👑</div>
+                        <div><div class="td-title" style="color:#a5b4fc">② 우선법 원칙</div><div class="td-desc">헌법→법률→시행령→시행규칙→행정해석의 위계를 엄격히 준수하고, 특별법 우선·신법 우선 원칙 적용<br><span style="color:#64748b">예시: 근로기준법(일반법) vs 기간제법(특별법) → 기간제법 우선</span></div></div>
+                    </div>
+                    <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
+                        <div class="td-icon">🔍</div>
+                        <div><div class="td-title" style="color:#6ee7b7">③ 관련성 추론</div><div class="td-desc">사용자 질문에서 핵심 법률 쟁점을 추출하고, Knowledge Graph를 탐색하여 가장 관련성 높은 법령·판례 조합을 도출<br><span style="color:#64748b">예시: "야근수당" → 연장근로(§56) + 5인 미만 적용제외(§11) + 통상임금 판례까지 연쇄 추론</span></div></div>
+                    </div>
+                    <div style="text-align:center;margin-top:12px;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,185,129,0.1));border:1px solid rgba(99,102,241,0.15)">
+                        <span style="font-size:11px;font-weight:700;color:#f1f5f9">① + ② + ③ = <span class="grad-text" style="font-size:14px">98% 정확도</span>의 법률 답변</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -537,6 +658,9 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
     },{threshold:0.5});
     sections.forEach(s=>obs.observe(s));
 })();
+function toggleTech(el){
+    el.classList.toggle('expanded');
+}
 </script>
 </body>
 </html>
