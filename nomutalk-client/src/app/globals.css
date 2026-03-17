@@ -117,39 +117,40 @@ select {
    ═══════════════════════════════════════ */
 .page-hero {
   position: relative;
-  margin: calc(-1 * var(--toss-spacing-2xl)) calc(-1 * var(--toss-spacing-xl)) 0;
-  padding: 56px var(--toss-spacing-xl) 48px;
+  margin: 0;
+  padding: 60px 48px 52px;
   color: #fff;
   overflow: hidden;
-  border-radius: 0 0 24px 24px;
 }
 
 .page-hero h1 {
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 900;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   letter-spacing: -0.03em;
   position: relative;
   z-index: 1;
+  max-width: 1200px;
 }
 
 .page-hero p {
-  font-size: 1rem;
-  opacity: 0.85;
+  font-size: 1.05rem;
+  opacity: 0.88;
   font-weight: 400;
   line-height: 1.6;
   position: relative;
   z-index: 1;
+  max-width: 1200px;
 }
 
 .page-hero::before {
   content: '';
   position: absolute;
   top: -40%;
-  right: -15%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 65%);
+  right: -5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -158,9 +159,9 @@ select {
   content: '';
   position: absolute;
   bottom: -30%;
-  left: -10%;
-  width: 300px;
-  height: 300px;
+  left: -5%;
+  width: 400px;
+  height: 400px;
   background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 65%);
   border-radius: 50%;
   pointer-events: none;
@@ -175,12 +176,23 @@ select {
 .hero-violet { background: linear-gradient(135deg, #6d28d9, #8b5cf6); }
 .hero-cyan   { background: linear-gradient(135deg, #0e7490, #06b6d4); }
 
+/* ── Section padding for full-width pages ── */
+.page-section {
+  padding: 32px 48px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .page-hero { padding: 48px 32px 40px; }
+  .page-hero h1 { font-size: 1.8rem; }
+  .page-section { padding: 24px 32px; }
+}
+
 @media (max-width: 768px) {
   .page-hero {
-    margin: calc(-1 * var(--toss-spacing-md)) calc(-1 * var(--toss-spacing-md)) 0;
-    padding: 40px var(--toss-spacing-md) 36px;
-    border-radius: 0 0 16px 16px;
+    padding: 40px 20px 36px;
   }
   .page-hero h1 { font-size: 1.5rem; }
   .page-hero p { font-size: 0.88rem; }
+  .page-section { padding: 20px 16px; }
 }

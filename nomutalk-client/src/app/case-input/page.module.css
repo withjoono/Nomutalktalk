@@ -1,8 +1,15 @@
 .container {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: var(--toss-spacing-xl);
+    width: 100%;
+    padding: 32px 48px;
     min-height: 100%;
+}
+
+@media (max-width: 1024px) {
+    .container { padding: 24px 32px; }
+}
+
+@media (max-width: 768px) {
+    .container { padding: 20px 16px; }
 }
 
 .container h1 {

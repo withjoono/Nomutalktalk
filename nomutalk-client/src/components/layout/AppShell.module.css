@@ -147,9 +147,7 @@
 .content {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--toss-spacing-2xl) var(--toss-spacing-xl);
+  padding: 0;
 }
 
 /* ═══════════════════════════════════════
@@ -307,6 +305,6 @@
   }
 
   .content {
-    padding: var(--toss-spacing-md);
+    padding: 0;
   }
 }
