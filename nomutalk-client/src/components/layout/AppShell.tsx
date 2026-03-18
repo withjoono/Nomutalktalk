@@ -129,15 +129,18 @@ export default function AppShell({ children }: AppShellProps) {
                     <button className={styles.iconBtn} title="알림">
                         {Icons.bell}
                     </button>
-                    <Link
+                    <a
                         href={user ? "/profile" : "/auth/login"}
                         className={`${styles.iconBtn} ${isActive('/profile') || isActive('/auth') ? styles.iconBtnActive : ''}`}
                         title={user ? "프로필" : "로그인"}
                     >
                         {user ? Icons.user : Icons.login}
-                    </Link>
+                    </a>
                     {user && (
-                        <button className={styles.iconBtn} title="로그아웃" onClick={logout}>
+                        <button className={styles.iconBtn} title="로그아웃" onClick={async () => {
+                            await logout();
+                            window.location.href = '/intro';
+                        }}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                                 <polyline points="16 17 21 12 16 7" />

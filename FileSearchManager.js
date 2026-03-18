@@ -161,10 +161,10 @@ class FileSearchManager {
    * File Search를 사용하여 질문에 답변
    * @param {string} query - 질문 내용
    * @param {string|Array<string>} storeNames - 검색할 스토어 이름(들)
-   * @param {string} model - 사용할 모델 (기본값: 'gemini-2.5-flash')
+   * @param {string} model - 사용할 모델 (기본값: 'gemini-2.5-pro')
    * @returns {Promise<string>} 답변 텍스트
    */
-  async search(query, storeNames, model = 'gemini-2.5-flash') {
+  async search(query, storeNames, model = 'gemini-2.5-pro') {
     // storeNames를 배열로 정규화
     const storeNameArray = Array.isArray(storeNames) ? storeNames : [storeNames];
 

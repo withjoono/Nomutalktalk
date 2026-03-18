@@ -11,13 +11,13 @@ class RAGAgent {
    * @param {string} apiKey - Google Gemini API 키
    * @param {Object} options - 에이전트 설정
    * @param {string} options.storeName - 사용할 스토어 이름 (선택사항)
-   * @param {string} options.model - 사용할 모델 (기본값: 'gemini-2.5-flash')
+   * @param {string} options.model - 사용할 모델 (기본값: 'gemini-2.5-pro')
    * @param {number} options.uploadPollInterval - 업로드 완료 체크 간격 (밀리초, 기본값: 5000)
    */
   constructor(apiKey, options = {}) {
     this.manager = new FileSearchManager(apiKey);
     this.storeName = options.storeName || null;
-    this.model = options.model || 'gemini-2.5-flash';
+    this.model = options.model || 'gemini-2.5-pro';
     this.uploadPollInterval = options.uploadPollInterval || 5000;
   }
 

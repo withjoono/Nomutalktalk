@@ -42,7 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
+        console.log('[NomuTalk Auth] v7 init - authDomain:', auth.config?.authDomain || 'unknown');
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('[NomuTalk Auth] state changed:', user ? user.email : 'NO USER');
             if (user) {
                 const idToken = await user.getIdToken();
                 setUser(user);
@@ -60,15 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithGoogle = async () => {
+        console.log('[NomuTalk Auth] signInWithPopup called');
         try {
             const result = await signInWithPopup(auth, googleProvider);
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/case-input');
-        } catch (error) {
-            console.error("Error signing in with Google", error);
-            alert("구글 로그인 중 오류가 발생했습니다.");
+            window.location.href = '/case-input';
+        } catch (error: any) {
+            console.error("[NomuTalk Auth] Google sign-in error:", error);
+            if (error.code === 'auth/popup-blocked') {
+                alert("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                // User closed popup, do nothing
+            } else {
+                alert("구글 로그인 중 오류가 발생했습니다: " + (error.message || error.code));
+            }
         }
     };
 
@@ -78,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/case-input');
+            window.location.href = '/case-input';
         } catch (error: any) {
             console.error("Error signing in with email", error);
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -95,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const idToken = await result.user.getIdToken();
             setToken(idToken);
             setApiToken(idToken);
-            router.push('/case-input');
+            window.location.href = '/case-input';
         } catch (error: any) {
             console.error("Error signing up with email", error);
             if (error.code === 'auth/email-already-in-use') {
@@ -109,11 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
+        console.log('[NomuTalk Auth] logout called');
         try {
             await signOut(auth);
             setToken(null);
             setApiToken(null);
-            router.push('/intro');
         } catch (error) {
             console.error("Error signing out", error);
         }

@@ -1006,7 +1006,7 @@ app.post('/api/ask', async (req, res) => {
     if (!useRag) {
       const { GoogleGenerativeAI } = require('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const modelName = requestedModel || 'gemini-2.5-flash';
+      const modelName = requestedModel || 'gemini-2.5-pro';
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(query);
       answer = result.response.text();
@@ -1158,7 +1158,7 @@ app.delete('/api/file/:fileName', async (req, res) => {
  */
 let laborAgentInstance = null;
 
-function getLaborAgent() {
+async function getLaborAgent() {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
   }
@@ -1166,9 +1166,8 @@ function getLaborAgent() {
   const laborStoreName = process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base';
 
   if (!laborAgentInstance) {
-    laborAgentInstance = new RAGAgent(process.env.GEMINI_API_KEY, {
-      storeName: laborStoreName
-    });
+    laborAgentInstance = new RAGAgent(process.env.GEMINI_API_KEY);
+    await laborAgentInstance.initialize(laborStoreName);
   }
 
   return laborAgentInstance;
@@ -1216,7 +1215,7 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
     // ── 1차: RAG 검색 시도 ──
     let ragHasResults = false;
     try {
-      const agent = getLaborAgent();
+      const agent = await getLaborAgent();
       const [askResult, casesResult] = await Promise.allSettled([
         agent.askLabor(description, { includeCases: true, includeInterpretations: true }),
         agent.findSimilarCases(description)
@@ -1392,7 +1391,7 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
 
     console.log(`[쟁점 분석] 시작: ${description.substring(0, 50)}...`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     // 1단계: Gemini로 핵심 쟁점 추출
     const { GoogleGenAI } = require('@google/genai');
@@ -1728,7 +1727,7 @@ app.post('/api/labor/analyze-file', verifyToken, upload.single('file'), async (r
     const originalName = req.file.originalname;
     console.log(`[사건 분석] 파일 업로드 분석 시작: ${originalName}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     // 1. Gemini File API로 텍스트를 추출하거나, 직접 읽기
     let extractedText = '';
@@ -1886,7 +1885,7 @@ app.post('/api/labor/expand-node', verifyToken, async (req, res) => {
 
     console.log(`[그래프 확장] ${nodeType}: ${nodeLabel}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     // 노드 유형에 따라 다른 질의 생성
     let query = '';
@@ -2014,7 +2013,7 @@ app.post('/api/labor/generate-document', verifyToken, async (req, res) => {
 
     console.log(`[서면 생성] ${docConfig.name} 생성 시작`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     const fullPrompt = `${docConfig.prompt}
 
@@ -2071,7 +2070,7 @@ app.post('/api/labor/ask', verifyToken, async (req, res) => {
 
     console.log(`[노무 AI] 질의: ${query.substring(0, 50)}...`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     const result = await agent.askLabor(query, {
       category,
       includeCases,
@@ -2115,7 +2114,7 @@ app.post('/api/labor/law-search', async (req, res) => {
 
     console.log(`[법령 검색] 구조화 검색: "${query.substring(0, 50)}..." (type=${type})`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     const typeLabels = { law: '법령', case: '판례', interpretation: '행정해석' };
     let searchScope = '';
     if (type !== 'all') {
@@ -2237,7 +2236,7 @@ app.post('/api/labor/similar-cases', async (req, res) => {
 
     console.log(`[노무 AI] 유사 판례 검색 중...`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     const result = await agent.findSimilarCases(description, { model });
 
     res.json({
@@ -2277,7 +2276,7 @@ app.post('/api/labor/law-article', async (req, res) => {
 
     console.log(`[노무 AI] 법령 조항 검색: ${lawName} ${article}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     const result = await agent.searchLawArticle(lawName, article, { model });
 
     res.json({
@@ -2318,7 +2317,7 @@ app.post('/api/labor/consult', async (req, res) => {
 
     console.log(`[노무 AI] 템플릿 상담: ${templateType}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     const result = await agent.consultWithTemplate(templateType, params);
 
     res.json({
@@ -2395,7 +2394,7 @@ app.post('/api/labor/upload-law', upload.single('file'), async (req, res) => {
 
     console.log(`[노무 AI] 법령 업로드: ${title}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     // 스토어가 없으면 초기화
     if (!agent.storeName) {
@@ -2457,7 +2456,7 @@ app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
 
     console.log(`[노무 AI] 판례 업로드: ${title}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     // 스토어가 없으면 초기화
     if (!agent.storeName) {
@@ -2499,7 +2498,7 @@ app.post('/api/labor/upload-case', upload.single('file'), async (req, res) => {
  */
 app.get('/api/labor/store-status', async (req, res) => {
   try {
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
 
     if (!agent.storeName) {
       return res.json({
@@ -2543,7 +2542,7 @@ app.post('/api/labor/initialize', async (req, res) => {
 
     console.log(`[노무 AI] 스토어 초기화: ${targetStoreName}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     await agent.initialize(targetStoreName);
 
     res.json({
@@ -2606,7 +2605,7 @@ app.post('/api/labor/case-session/create', verifyToken, upload.array('files', 10
 
     console.log(`[통합 상담] 세션 생성 시작 - 텍스트: ${description.length}자, 파일: ${files.length}개`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     if (!agent.storeName) {
       await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
     }
@@ -3048,7 +3047,7 @@ app.post('/api/labor/cases/:id/reanalyze', verifyToken, async (req, res) => {
 
     console.log(`[빌드] 재분석 시작 - 사건: ${id}, 단계: ${stepName}, 트리거: ${trigger}`);
 
-    const agent = getLaborAgent();
+    const agent = await getLaborAgent();
     if (!agent.storeName) {
       await agent.initialize(process.env.LABOR_STORE_NAME || 'labor-law-knowledge-base');
     }
@@ -4018,9 +4017,8 @@ app.post('/api/labor/alternatives', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '사건 내용이 필요합니다.' });
     }
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const issuesSummary = (issues || []).map(i => `- ${i.title} (${i.severity})`).join('\n');
 
@@ -4058,8 +4056,8 @@ ${issuesSummary || '없음'}
 반드시 하나의 방법에 isRecommended: true를 지정하세요.
 JSON만 출력하세요.`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await genai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+    const text = result.text;
 
     let parsed;
     try {
@@ -4106,9 +4104,8 @@ app.post('/api/labor/generate-document', verifyToken, async (req, res) => {
       evidence: '증거설명서',
     };
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const docTypeName = docTypeNames[documentType] || documentType;
     const addInfo = additionalInfo ? Object.entries(additionalInfo).map(([k, v]) => `${k}: ${v}`).join('\n') : '';
@@ -4131,8 +4128,8 @@ ${addInfo ? `[추가 정보]\n${addInfo}\n` : ''}
 실제 제출 가능한 수준의 전문적인 서면을 작성하세요.
 개인정보는 "___" 빈칸으로 남겨두세요.`;
 
-    const result = await model.generateContent(prompt);
-    const content = result.response.text();
+    const result = await genai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+    const content = result.text;
 
     res.json({
       success: true,
@@ -4158,9 +4155,8 @@ app.post('/api/labor/checklist', verifyToken, async (req, res) => {
   try {
     const { caseId, resolution, caseType } = req.body;
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const prompt = `당신은 대한민국 노동법 전문가입니다.
 "${resolution}" 방법으로 "${caseType || '노동'}" 사건을 해결하려는 근로자를 위한 준비물 체크리스트를 만들어주세요.
@@ -4182,8 +4178,8 @@ JSON 형식으로 답변하세요:
 해결 방법에 특화된 항목을 포함하세요.
 JSON만 출력하세요.`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await genai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+    const text = result.text;
 
     let parsed;
     try {
@@ -4215,9 +4211,8 @@ app.post('/api/labor/timeline', verifyToken, async (req, res) => {
   try {
     const { caseId, resolution, caseType } = req.body;
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const prompt = `당신은 대한민국 노동법 전문가입니다.
 "${resolution}" 방법으로 "${caseType || '노동'}" 사건을 해결할 때의 예상 타임라인을 만들어주세요.
@@ -4243,8 +4238,8 @@ type 설명:
 5~10단계로 현실적인 타임라인을 작성하세요.
 JSON만 출력하세요.`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await genai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+    const text = result.text;
 
     let parsed;
     try {
