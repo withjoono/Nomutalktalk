@@ -66,7 +66,7 @@ export default function PaymentPage() {
                     name: prepared.productName,
                     amount: prepared.amount,
                     buyer_email: user.email || '',
-                    buyer_name: user.displayName || '노무톡 회원',
+                    buyer_name: user.displayName || '노무톡톡 회원',
                 },
                 async (response: Record<string, unknown>) => {
                     if (response.success || response.imp_success) {
@@ -138,7 +138,7 @@ export default function PaymentPage() {
                 {/* 헤더 */}
                 <div className={styles.header}>
                     <h1>💳 결제</h1>
-                    <p>노무톡 프리미엄 서비스를 이용해보세요.</p>
+                    <p>노무톡톡 프리미엄 서비스를 이용해보세요.</p>
                 </div>
 
                 {/* 로그인 안내 */}

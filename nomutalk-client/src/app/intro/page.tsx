@@ -8,7 +8,7 @@ export default function IntroPage() {
             <iframe
                 src="/promo.html"
                 className={styles.promoFrame}
-                title="노무톡 소개"
+                title="노무톡톡 소개"
             />
         </div>
     );

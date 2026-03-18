@@ -28,7 +28,7 @@ export default function LoginPage() {
                     <img src="/logo.png" alt="NomuTalk Logo" className={styles.logoImage} />
                 </div>
                 <h1 className={styles.title}>{isSignUp ? '회원가입' : '로그인'}</h1>
-                <p className={styles.subtitle}>노무 AI 컨설턴트 '노무톡'</p>
+                <p className={styles.subtitle}>노무 AI 컨설턴트 '노무톡톡'</p>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
