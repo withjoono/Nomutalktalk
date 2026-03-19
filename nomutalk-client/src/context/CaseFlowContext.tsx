@@ -15,6 +15,7 @@ export interface CaseFlowState {
     caseId: string | null;
     description: string;
     caseType: string;
+    legalDomain: string; // 법 분야: labor, civil, criminal, family, admin, ip, corporate
     currentStep: number; // 0=입력, 1=쟁점, 2=법령, 3=대안, 4=후속
 
     // Step 1: 쟁점 분석 결과
@@ -61,7 +62,7 @@ export interface CaseFlowState {
 
 interface CaseFlowContextType {
     state: CaseFlowState;
-    startNewCase: (description: string, caseType?: string) => Promise<void>;
+    startNewCase: (description: string, caseType?: string, legalDomain?: string) => Promise<void>;
     loadCase: (caseId: string) => Promise<void>;
     runIssueAnalysis: () => Promise<void>;
     runLawAnalysis: () => Promise<void>;
@@ -83,6 +84,7 @@ const initialState: CaseFlowState = {
     caseId: null,
     description: '',
     caseType: '',
+    legalDomain: 'labor',
     currentStep: 0,
     issueResult: null,
     lawResult: null,
@@ -109,7 +111,7 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
     const resetFlow = useCallback(() => setState(initialState), []);
 
     // 새 사건 시작
-    const startNewCase = useCallback(async (description: string, caseType?: string) => {
+    const startNewCase = useCallback(async (description: string, caseType?: string, legalDomain?: string) => {
         setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
         try {
             const { caseId } = await createCase(description, caseType);
@@ -118,6 +120,7 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 caseId,
                 description,
                 caseType: caseType || '',
+                legalDomain: legalDomain || 'labor',
                 currentStep: 1,
                 issueResult: null,
                 lawResult: null,
@@ -143,6 +146,7 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
                 caseId,
                 description: detail.description,
                 caseType: detail.caseType,
+                legalDomain: (detail as any).legalDomain || 'labor',
                 currentStep: detail.currentStep,
                 issueResult: detail.steps.issueAnalysis || null,
                 lawResult: detail.steps.lawAnalysis || null,

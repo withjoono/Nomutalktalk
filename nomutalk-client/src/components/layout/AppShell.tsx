@@ -92,8 +92,8 @@ export default function AppShell({ children }: AppShellProps) {
                 {/* Left: Logo + Brand */}
                 <Link href="/" className={styles.headerLogo}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/logo.png" alt="노무톡톡" width={40} height={40} className={styles.headerLogoImage} />
-                    <span className={styles.brandText}>노무톡톡</span>
+                    <img src="/logo.png" alt="Legal Tech" width={40} height={40} className={styles.headerLogoImage} />
+                    <span className={styles.brandText}>Legal Tech</span>
                 </Link>
 
                 {/* Center: Navigation */}
@@ -164,7 +164,7 @@ export default function AppShell({ children }: AppShellProps) {
                             {/* Left: Logo */}
                             <div className={styles.footerLogoArea}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/logo.png" alt="노무톡톡" className={styles.footerLogo} />
+                                <img src="/logo.png" alt="Legal Tech" className={styles.footerLogo} />
                             </div>
 
                             {/* Center: Company Info (2 lines) */}

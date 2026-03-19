@@ -218,7 +218,7 @@ class DialogueFlowEngine {
     if (this.isEndingConversation(userMessage)) {
       const summary = this.conversationManager.generateSessionSummary(sessionId);
       return {
-        content: '도움이 되셨길 바랍니다. 언제든 다시 문의해주세요!\n\n혹시 다른 노무 문제가 있으시면 언제든 말씀해주세요.',
+        content: '도움이 되셨길 바랍니다. 언제든 다시 문의해주세요!\n\n혹시 다른 법률 문제가 있으시면 언제든 말씀해주세요.',
         stage: 'followup',
         nextStage: 'complete',
         summary: summary

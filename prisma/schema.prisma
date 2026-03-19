@@ -9,11 +9,12 @@ datasource db {
 
 // ==================== 사건 관리 ====================
 
-model LaborCase {
+model LegalCase {
   id          String   @id @default(cuid())
   userId      String
   description String   @db.Text
   caseType    String   @default("")
+  legalDomain String   @default("labor")  // 법 분야: labor, civil, criminal, family, admin, ip, corporate
   currentStep Int      @default(0)
 
   // Build 시스템 메타
@@ -35,6 +36,7 @@ model LaborCase {
   updates           CaseUpdate[]
   evidence          CaseEvidence[]
 
+  @@map("LaborCase")
   @@index([userId])
   @@index([createdAt])
 }
@@ -55,7 +57,7 @@ model CaseEvidence {
   expiresAt       DateTime?  // 원본 파일 만료일
   createdAt       DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
 }
@@ -69,7 +71,7 @@ model CaseUpdate {
   content   String   @db.Text
   createdAt DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([caseId, type])
@@ -86,7 +88,7 @@ model CaseIssue {
   isUserAdded Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
 }
@@ -102,7 +104,7 @@ model CaseLaw {
   issueId   String?
   createdAt DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
 }
@@ -119,7 +121,7 @@ model AnalysisVersion {
   diff      Json?    // 이전 버전과의 차이
   createdAt DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([caseId, stepName])
@@ -135,7 +137,7 @@ model CaseInsight {
   source    String   @default("manual")
   createdAt DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
 }
@@ -152,7 +154,7 @@ model CaseTimeline {
   metadata  Json?    // 추가 데이터 (oldDescriptionPreview 등)
   createdAt DateTime @default(now())
 
-  case LaborCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case LegalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
   @@index([caseId, createdAt])
@@ -168,7 +170,7 @@ model ChatSession {
   createdAt    DateTime @default(now())
 
   messages ChatMessage[]
-  case     LaborCase?    @relation(fields: [caseId], references: [id])
+  case     LegalCase?    @relation(fields: [caseId], references: [id])
 
   @@index([userId])
   @@index([caseId])

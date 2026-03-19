@@ -9,19 +9,10 @@ import {
 } from '@/lib/api';
 import StepNav from '@/components/layout/StepNav';
 import CaseDetailPanel from '@/components/case/CaseDetailPanel';
+import DomainSelector, { DOMAIN_CASE_TYPES } from '@/components/case/DomainSelector';
 import styles from './page.module.css';
 
-const CASE_TYPES = [
-    { value: '', label: '사건 유형 선택 (선택사항)' },
-    { value: '부당해고', label: '⚠️ 부당해고' },
-    { value: '임금체불', label: '💰 임금체불' },
-    { value: '산업재해', label: '🏥 산업재해' },
-    { value: '근로시간', label: '⏰ 근로시간/초과근무' },
-    { value: '직장내괴롭힘', label: '😤 직장 내 괴롭힘' },
-    { value: '퇴직금', label: '📋 퇴직금' },
-    { value: '차별', label: '🚫 차별/성희롱' },
-    { value: '기타', label: '📌 기타' },
-];
+
 
 const STEP_LABELS = ['입력', '쟁점', '법령', '대안', '후속'];
 
@@ -29,6 +20,7 @@ export default function CaseInputPage() {
     const { state, startNewCase, loadCase, resetFlow, reanalyze, updateDescription, goToStep } = useCaseFlow();
     const { user } = useAuth();
     const [caseType, setCaseType] = useState('');
+    const [legalDomain, setLegalDomain] = useState('labor');
     const [caseDescription, setCaseDescription] = useState('');
     const [pastCases, setPastCases] = useState<CaseRecord[]>([]);
     const [loadingCases, setLoadingCases] = useState(false);
@@ -56,7 +48,7 @@ export default function CaseInputPage() {
         if (!caseDescription.trim()) { alert('사건 내용을 입력해주세요.'); return; }
         if (!user) { alert('로그인 후 진행 가능합니다.'); return; }
         resetFlow();
-        startNewCase(caseDescription.trim(), caseType || undefined);
+        startNewCase(caseDescription.trim(), caseType || undefined, legalDomain);
     };
 
     const handleContinue = (caseId: string) => {
@@ -274,7 +266,7 @@ export default function CaseInputPage() {
                 {/* ── 새 사건 시작 링크 ── */}
                 <button
                     className={styles.newCaseLink}
-                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); }}
+                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); setLegalDomain('labor'); }}
                 >
                     ➕ 새 사건 시작하기
                 </button>
@@ -362,9 +354,14 @@ export default function CaseInputPage() {
                 <h2 className={styles.sectionTitle}>✏️ 새 사건 입력</h2>
 
                 <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>법 분야</label>
+                    <DomainSelector selected={legalDomain} onSelect={(d) => { setLegalDomain(d); setCaseType(''); }} />
+                </div>
+
+                <div className={styles.formGroup}>
                     <label className={styles.formLabel}>사건 유형</label>
                     <select className={styles.select} value={caseType} onChange={(e) => setCaseType(e.target.value)}>
-                        {CASE_TYPES.map((t) => (
+                        {(DOMAIN_CASE_TYPES[legalDomain] || DOMAIN_CASE_TYPES.labor).map((t) => (
                             <option key={t.value} value={t.value}>{t.label}</option>
                         ))}
                     </select>

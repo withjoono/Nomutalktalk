@@ -183,22 +183,6 @@ const corsOptions = {
         'http://127.0.0.1:4030',
         'http://127.0.0.1:8080',
         'https://google-file-search.vercel.app',
-        'https://google-file-search.netlify.app',
-        'https://laborlawtech.web.app',
-        'https://laborlawtech.firebaseapp.com',
-        'https://nomutalk-889bd.web.app',
-        'https://nomutalk-889bd.firebaseapp.com',
-        'https://nomutalk.kr',
-        'https://www.nomutalk.kr'
-      ];
-
-    // origin이 없는 경우 (같은 origin 요청, Postman 등) 또는 허용 목록에 있는 경우
-    if (!origin || allowedOrigins.includes(origin) ||
-      origin.endsWith('.vercel.app') ||
-      origin.endsWith('.netlify.app') ||
-      origin.endsWith('.railway.app') ||
-      origin.endsWith('.render.com') ||
-      origin.endsWith('.run.app')) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -275,6 +259,16 @@ function getAgent() {
 
   return agentInstance;
 }
+
+// ==================== /api/legal → /api/labor 라우트 별칭 ====================
+// 새 /api/legal/* 경로를 기존 /api/labor/* 핸들러로 투명하게 라우팅
+// 기존 /api/labor/* 경로도 하위 호환성을 위해 그대로 유지
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/legal/') || req.path === '/api/legal') {
+    req.url = req.url.replace('/api/legal', '/api/labor');
+  }
+  next();
+});
 
 // ==================== API 엔드포인트 ====================
 
@@ -2783,7 +2777,7 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
     }
 
     const userId = req.user.uid;
-    const laborCase = await prisma.laborCase.create({
+    const laborCase = await prisma.legalCase.create({
       data: {
         userId,
         description: description.trim(),
@@ -2814,7 +2808,7 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
 app.get('/api/labor/cases', verifyToken, async (req, res) => {
   try {
     const userId = req.user.uid;
-    const cases = await prisma.laborCase.findMany({
+    const cases = await prisma.legalCase.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -2860,7 +2854,7 @@ app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
     const { stepName, stepData, currentStep } = req.body;
     const userId = req.user.uid;
 
-    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    const existing = await prisma.legalCase.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
@@ -2905,7 +2899,7 @@ app.patch('/api/labor/cases/:id', verifyToken, async (req, res) => {
       });
     }
 
-    await prisma.laborCase.update({ where: { id }, data: updateData });
+    await prisma.legalCase.update({ where: { id }, data: updateData });
     console.log(`[사건관리] 사건 ${id} 업데이트 - step: ${stepName}, currentStep: ${currentStep}`);
 
     res.json({ success: true });
@@ -2924,7 +2918,7 @@ app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.uid;
 
-    const laborCase = await prisma.laborCase.findUnique({
+    const laborCase = await prisma.legalCase.findUnique({
       where: { id },
       include: {
         issues: true,
@@ -2996,14 +2990,14 @@ app.post('/api/labor/cases/:id/update-description', verifyToken, async (req, res
       return res.status(400).json({ success: false, error: '새 사건 내용을 입력해주세요.' });
     }
 
-    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    const existing = await prisma.legalCase.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
     const oldDesc = existing.description;
 
     await prisma.$transaction([
-      prisma.laborCase.update({ where: { id }, data: { description: newDescription.trim() } }),
+      prisma.legalCase.update({ where: { id }, data: { description: newDescription.trim() } }),
       prisma.caseTimeline.create({
         data: {
           caseId: id, type: 'description_updated', detail: reason || '상황 업데이트',
@@ -3034,7 +3028,7 @@ app.post('/api/labor/cases/:id/reanalyze', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '유효한 분석 단계를 지정해주세요.' });
     }
 
-    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    const existing = await prisma.legalCase.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
@@ -3112,7 +3106,7 @@ app.post('/api/labor/cases/:id/reanalyze', verifyToken, async (req, res) => {
 
     await prisma.$transaction([
       prisma.analysisVersion.create({ data: { caseId: id, stepName, version: versionNum, trigger: trigger || 'manual', data: newResult, diff } }),
-      prisma.laborCase.update({ where: { id }, data: { analysisCount: { increment: 1 }, lastAnalyzedAt: new Date() } }),
+      prisma.legalCase.update({ where: { id }, data: { analysisCount: { increment: 1 }, lastAnalyzedAt: new Date() } }),
       prisma.caseTimeline.create({ data: { caseId: id, type: 'reanalyzed', detail: `${stepName === 'issueAnalysis' ? '쟁점' : '법령'} 재분석 v${versionNum} (${triggerLabel})`, version: versionNum, trigger: trigger || 'manual' } }),
     ]);
 
@@ -3135,13 +3129,13 @@ app.post('/api/labor/cases/:id/insights', verifyToken, async (req, res) => {
     const userId = req.user.uid;
     if (!content || !content.trim()) return res.status(400).json({ success: false, error: '인사이트 내용을 입력해주세요.' });
 
-    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    const existing = await prisma.legalCase.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
     const [insight] = await prisma.$transaction([
       prisma.caseInsight.create({ data: { caseId: id, content: content.trim(), type: type || 'user_memo', source: source || 'manual' } }),
-      prisma.laborCase.update({ where: { id }, data: { insightCount: { increment: 1 } } }),
+      prisma.legalCase.update({ where: { id }, data: { insightCount: { increment: 1 } } }),
       prisma.caseTimeline.create({ data: { caseId: id, type: 'insight_added', detail: `${type === 'ai_extracted' ? 'AI 추출' : '사용자 메모'}: ${content.trim().substring(0, 50)}...` } }),
     ]);
 
@@ -3160,7 +3154,7 @@ app.get('/api/labor/cases/:id/insights', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
-    const existing = await prisma.laborCase.findUnique({ where: { id } });
+    const existing = await prisma.legalCase.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ success: false, error: '사건을 찾을 수 없습니다.' });
     if (existing.userId !== userId) return res.status(403).json({ success: false, error: '권한이 없습니다.' });
 
@@ -3689,7 +3683,7 @@ ${recentMessages}`;
 
             await prisma.$transaction([
               prisma.caseInsight.createMany({ data: newInsightRecords }),
-              prisma.laborCase.update({ where: { id: session.caseId }, data: { insightCount: { increment: newInsightRecords.length } } }),
+              prisma.legalCase.update({ where: { id: session.caseId }, data: { insightCount: { increment: newInsightRecords.length } } }),
               prisma.caseTimeline.create({ data: { caseId: session.caseId, type: 'insight_auto_extracted', detail: `AI 상담 ${session.turnCount}턴에서 인사이트 ${newInsightRecords.length}건 자동 추출` } }),
             ]);
             console.log(`[빌드] 인사이트 자동 추출 - 사건: ${session.caseId}, ${newInsightRecords.length}건`);
@@ -4274,7 +4268,7 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║                    노무 AI 시스템 시작                         ║
+║                 Legal Tech AI 시스템 시작                       ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  📡 URL: http://localhost:${PORT}                                  
 ║  🔑 Gemini API: ${process.env.GEMINI_API_KEY ? '✅ 설정됨' : '❌ 미설정'}                              
@@ -4289,27 +4283,21 @@ async function startServer() {
    POST   /api/query          - 질의
    GET    /api/stores         - 스토어 목록
 
-📋 노무 AI API 엔드포인트:
-   POST   /api/labor/ask              - 노무 상담
-   GET    /api/labor/categories          - 카테고리 목록
-   POST   /api/labor/upload-law          - 법령 업로드
-   POST   /api/labor/upload-case         - 판례 업로드
-   GET    /api/labor/store-status        - 스토어 상태
-   POST   /api/labor/initialize          - 스토어 초기화
-   GET    /api/labor/health              - Health Check
+📋 법률 AI API 엔드포인트 (/api/legal/* → /api/labor/* 별칭 지원):
+   POST   /api/legal/ask              - 법률 상담
+   GET    /api/legal/categories       - 카테고리 목록
+   POST   /api/legal/analyze-issues   - 쟁점 분석
+   POST   /api/legal/analyze-case     - 사건 분석
+   POST   /api/legal/law-search       - 법령 검색
+   POST   /api/legal/alternatives     - 대안 제안
+   GET    /api/legal/health           - Health Check
+   POST   /api/legal/cases            - 사건 생성/목록
 
 📋 대화형 챗봇 API 엔드포인트:
    POST   /api/chat/session/new          - 새 세션 생성
    POST   /api/chat/message              - 메시지 전송
-   GET    /api/chat/session/:id          - 세션 조회
-   GET    /api/chat/session/:id/messages - 대화 내역
-   GET    /api/chat/session/:id/summary  - 세션 요약
    DELETE /api/chat/session/:id          - 세션 삭제
-   GET    /api/chat/sessions             - 활성 세션 목록
-
-🌐 웹 인터페이스:
-   http://localhost:${PORT}/labor_ai.html    - 노무 AI (기존 기능)
-   http://localhost:${PORT}/chat.html        - 대화형 챗봇 (신규)
+   POST   /api/legal/chat/contextual     - 맥락 상담 세션
     `);
 
     if (!process.env.GEMINI_API_KEY) {

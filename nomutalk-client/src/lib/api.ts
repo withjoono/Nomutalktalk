@@ -1,5 +1,5 @@
 /**
- * NomuTalk API Utilities
+ * Legal Tech API Utilities
  * 백엔드 API 호출을 위한 유틸리티 함수
  */
 
@@ -106,7 +106,7 @@ export interface ContextualSessionRequest {
 export async function createContextualSession(
     context: ContextualSessionRequest
 ): Promise<{ sessionId: string; welcomeMessage: string }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/chat/contextual`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/chat/contextual`, {
         method: 'POST',
         body: JSON.stringify(context)
     });
@@ -124,7 +124,7 @@ export async function sendContextualMessage(
     sessionId: string,
     message: string
 ): Promise<{ message: string; stage: string }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/chat/message`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/chat/message`, {
         method: 'POST',
         body: JSON.stringify({ sessionId, message })
     });
@@ -209,7 +209,7 @@ export interface IssueAnalysisResult {
  * 핵심 쟁점 분석 (사건 → 쟁점 → 관련 법령/판례)
  */
 export async function analyzeIssues(description: string): Promise<IssueAnalysisResult> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/analyze-issues`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/analyze-issues`, {
         method: 'POST',
         body: JSON.stringify({ description })
     });
@@ -227,7 +227,7 @@ export async function analyzeIssues(description: string): Promise<IssueAnalysisR
  * 사건 분석 그래프 생성
  */
 export async function analyzeCaseGraph(description: string): Promise<CaseAnalysisResult> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/analyze-case`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/analyze-case`, {
         method: 'POST',
         body: JSON.stringify({ description })
     });
@@ -256,7 +256,7 @@ export async function analyzeFileGraph(file: File): Promise<FileAnalysisResult> 
     const headers: Record<string, string> = {};
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-    const response = await fetch(`${API_BASE_URL}/api/labor/analyze-file`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/analyze-file`, {
         method: 'POST',
         headers,
         body: formData,
@@ -282,7 +282,7 @@ export interface ExpandNodeResult {
 }
 
 export async function expandGraphNode(nodeId: string, nodeLabel: string, nodeType: string): Promise<ExpandNodeResult> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/expand-node`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/expand-node`, {
         method: 'POST',
         body: JSON.stringify({ nodeId, nodeLabel, nodeType })
     });
@@ -314,7 +314,7 @@ export async function generateLegalDocument(
     documentType: DocumentType,
     additionalInfo?: Record<string, string>
 ): Promise<GeneratedDocument> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/generate-document`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/generate-document`, {
         method: 'POST',
         body: JSON.stringify({ caseDescription, documentType, additionalInfo })
     });
@@ -350,7 +350,7 @@ export async function createCaseSession(description: string, files: File[]): Pro
     const headers: Record<string, string> = {};
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-    const response = await fetch(`${API_BASE_URL}/api/labor/case-session/create`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/case-session/create`, {
         method: 'POST',
         headers,
         body: formData,
@@ -374,7 +374,7 @@ export interface AskQuestionParams {
 }
 
 export async function askQuestion(params: AskQuestionParams): Promise<LaborAIResponse> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/ask`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/ask`, {
         method: 'POST',
         body: JSON.stringify(params)
     });
@@ -395,7 +395,7 @@ export async function askQuestion(params: AskQuestionParams): Promise<LaborAIRes
  * 유사 판례 검색
  */
 export async function searchSimilarCases(description: string): Promise<LaborAIResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/labor/similar-cases`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/similar-cases`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description })
@@ -417,7 +417,7 @@ export async function searchSimilarCases(description: string): Promise<LaborAIRe
  * 법령 조항 검색
  */
 export async function searchLawArticle(lawName: string, article: string): Promise<LaborAIResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/labor/law-article`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/law-article`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lawName, article })
@@ -442,7 +442,7 @@ export async function consultWithTemplate(
     templateType: string,
     params: Record<string, string>
 ): Promise<LaborAIResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/labor/consult`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/consult`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templateType, params })
@@ -469,7 +469,7 @@ export interface Category {
 }
 
 export async function getCategories(): Promise<Category[]> {
-    const response = await fetch(`${API_BASE_URL}/api/labor/categories`);
+    const response = await fetch(`${API_BASE_URL}/api/legal/categories`);
     const data = await response.json();
 
     if (!data.success) {
@@ -484,7 +484,7 @@ export async function getCategories(): Promise<Category[]> {
  */
 export async function checkHealth(): Promise<boolean> {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/labor/health`);
+        const response = await fetch(`${API_BASE_URL}/api/legal/health`);
         const data = await response.json();
         return data.success === true;
     } catch {
@@ -519,7 +519,7 @@ export interface SearchParams {
 
 /**
  * 통합 검색 (법령, 판례, 행정해석)
- * /api/labor/ask 를 활용하여 검색 결과 생성
+ * /api/legal/ask 를 활용하여 검색 결과 생성
  */
 export async function searchLaws(params: SearchParams): Promise<SearchResultItem[]> {
     const { query, type = 'all', category } = params;
@@ -531,7 +531,7 @@ export async function searchLaws(params: SearchParams): Promise<SearchResultItem
         searchQuery = `${typeLabels[type]} 중에서 "${query}"에 대해 알려주세요`;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/labor/ask`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -611,7 +611,7 @@ export interface StructuredSearchResult {
 export async function searchLawsStructured(params: SearchParams): Promise<StructuredSearchResult> {
     const { query, type = 'all', category } = params;
 
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/law-search`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/law-search`, {
         method: 'POST',
         body: JSON.stringify({ query, type, category: category || undefined })
     });
@@ -826,7 +826,7 @@ export interface CaseEvidence {
 }
 
 export async function createCase(description: string, caseType?: string): Promise<{ caseId: string }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases`, {
         method: 'POST',
         body: JSON.stringify({ description, caseType }),
     });
@@ -836,13 +836,13 @@ export async function createCase(description: string, caseType?: string): Promis
 }
 
 export async function listCases(): Promise<CaseRecord[]> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases`);
     const data = await response.json();
     return data.data || [];
 }
 
 export async function getCase(caseId: string): Promise<CaseDetail> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}`);
     const data = await response.json();
     if (!data.success) throw new Error(data.error || '사건 조회 실패');
     return data.data;
@@ -854,7 +854,7 @@ export async function updateCaseStep(
     stepData: Record<string, any>,
     currentStep?: number
 ): Promise<void> {
-    await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}`, {
+    await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}`, {
         method: 'PATCH',
         body: JSON.stringify({ stepName, stepData, currentStep }),
     });
@@ -885,7 +885,7 @@ export async function reanalyzeCase(
     stepName: 'issueAnalysis' | 'lawAnalysis',
     trigger: 'manual' | 'evidence_added' | 'description_updated' = 'manual'
 ): Promise<ReanalysisResult> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/reanalyze`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}/reanalyze`, {
         method: 'POST',
         body: JSON.stringify({ stepName, trigger }),
     });
@@ -899,7 +899,7 @@ export async function updateCaseDescription(
     newDescription: string,
     reason?: string
 ): Promise<{ previousDescription: string; newDescription: string }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/update-description`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}/update-description`, {
         method: 'POST',
         body: JSON.stringify({ newDescription, reason }),
     });
@@ -909,7 +909,7 @@ export async function updateCaseDescription(
 }
 
 export async function getCaseInsights(caseId: string): Promise<CaseInsight[]> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/insights`);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}/insights`);
     const data = await response.json();
     if (!data.success) throw new Error(data.error || '인사이트 조회 실패');
     return data.data;
@@ -920,7 +920,7 @@ export async function addCaseInsight(
     content: string,
     type: 'ai_extracted' | 'user_memo' = 'user_memo'
 ): Promise<CaseInsight> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/insights`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}/insights`, {
         method: 'POST',
         body: JSON.stringify({ content, type }),
     });
@@ -936,7 +936,7 @@ export async function addCaseUpdate(
     type: 'supplement' | 'progress',
     content: string,
 ): Promise<CaseUpdate> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/cases/${caseId}/updates`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/cases/${caseId}/updates`, {
         method: 'POST',
         body: JSON.stringify({ type, content }),
     });
@@ -962,7 +962,7 @@ export async function uploadEvidence(
     formData.append('file', file);
     if (sourceLabel) formData.append('sourceLabel', sourceLabel);
 
-    const response = await fetch(`${API_BASE_URL}/api/labor/cases/${caseId}/evidence`, {
+    const response = await fetch(`${API_BASE_URL}/api/legal/cases/${caseId}/evidence`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -1000,7 +1000,7 @@ export async function fetchAlternatives(
     issues: IssueInfo[],
     caseType?: string,
 ): Promise<AlternativesResult> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/alternatives`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/alternatives`, {
         method: 'POST',
         body: JSON.stringify({ caseId, description, issues, caseType }),
     });
@@ -1031,7 +1031,7 @@ export async function fetchChecklist(
     resolution: string,
     caseType?: string,
 ): Promise<{ items: ChecklistItem[] }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/checklist`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/checklist`, {
         method: 'POST',
         body: JSON.stringify({ caseId, resolution, caseType }),
     });
@@ -1045,7 +1045,7 @@ export async function fetchTimeline(
     resolution: string,
     caseType?: string,
 ): Promise<{ steps: TimelineStep[]; statute_of_limitations?: string }> {
-    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/timeline`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/legal/timeline`, {
         method: 'POST',
         body: JSON.stringify({ caseId, resolution, caseType }),
     });
