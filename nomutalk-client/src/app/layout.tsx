@@ -3,7 +3,7 @@ import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://nomutalk-889bd.web.app"),
+  metadataBase: new URL("https://legaltech-490706.web.app"),
   title: "Legal Tech - AI 법률 컨설턴트",
   description: "언제 어디서나 내 손안의 AI 법률 전문가, Legal Tech. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
   icons: {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Legal Tech - AI 법률 컨설턴트",
     description: "언제 어디서나 내 손안의 AI 법률 전문가, Legal Tech. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
-    url: "https://nomutalk-889bd.web.app",
+    url: "https://legaltech-490706.web.app",
     siteName: "Legal Tech",
     images: [
       {
