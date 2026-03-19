@@ -8,6 +8,87 @@ import StepNav from '@/components/layout/StepNav';
 import { GraphNode, GraphLink, addCaseUpdate, uploadEvidence } from '@/lib/api';
 import styles from './page.module.css';
 
+/** 단계별 진행 상황 안내 로딩 컴포넌트 */
+function LoadingProgress() {
+    const [elapsed, setElapsed] = useState(0);
+    const [stepIndex, setStepIndex] = useState(0);
+
+    const steps = [
+        { icon: '📖', text: '사건 내용을 분석하고 있습니다...', sub: '핵심 키워드와 사실관계를 파악 중' },
+        { icon: '🔍', text: '법적 쟁점을 추출하고 있습니다...', sub: '관련 법 조항과 판례를 검토 중' },
+        { icon: '⚖️', text: '쟁점별 법령·판례를 매칭하고 있습니다...', sub: '유사 판례의 판결 경향을 분석 중' },
+        { icon: '📊', text: '승소 가능성을 평가하고 있습니다...', sub: '유리·불리 요소를 종합 판단 중' },
+        { icon: '✨', text: '분석 결과를 정리하고 있습니다...', sub: '곧 완료됩니다, 잠시만 기다려 주세요' },
+    ];
+
+    useEffect(() => {
+        const timer = setInterval(() => setElapsed(prev => prev + 1), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        if (elapsed >= 16 && stepIndex < 4) setStepIndex(4);
+        else if (elapsed >= 12 && stepIndex < 3) setStepIndex(3);
+        else if (elapsed >= 7 && stepIndex < 2) setStepIndex(2);
+        else if (elapsed >= 3 && stepIndex < 1) setStepIndex(1);
+    }, [elapsed, stepIndex]);
+
+    const step = steps[stepIndex];
+    const progress = Math.min((elapsed / 20) * 100, 95);
+
+    return (
+        <div className={styles.inputSection}>
+            <h1 className={styles.title}>🔥 핵심 쟁점 분석</h1>
+            <p className={styles.subtitle}>AI가 핵심 법적 쟁점을 분석하고 있습니다</p>
+            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                {/* 프로그레스바 */}
+                <div style={{
+                    width: '100%', height: '6px', borderRadius: '3px',
+                    background: 'var(--toss-bg-secondary)', overflow: 'hidden', marginBottom: '20px',
+                }}>
+                    <div style={{
+                        height: '100%', borderRadius: '3px',
+                        background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                        width: `${progress}%`,
+                        transition: 'width 1s ease',
+                    }} />
+                </div>
+
+                {/* 단계 아이콘 + 텍스트 */}
+                <div style={{ fontSize: '2rem', marginBottom: '12px' }}>{step.icon}</div>
+                <p style={{
+                    margin: '0 0 6px', fontSize: '1rem', fontWeight: 600,
+                    color: 'var(--toss-text-primary)',
+                }}>{step.text}</p>
+                <p style={{
+                    margin: '0 0 16px', fontSize: '0.85rem',
+                    color: 'var(--toss-text-tertiary)',
+                }}>{step.sub}</p>
+
+                {/* 경과 시간 */}
+                <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 14px', borderRadius: '20px',
+                    background: 'rgba(59,130,246,0.08)', fontSize: '0.82rem',
+                    color: '#3b82f6', fontWeight: 500,
+                }}>
+                    <span className={styles.spinner} style={{ width: 14, height: 14, borderWidth: 2, display: 'inline-block' }} />
+                    {elapsed}초 경과 · 약 {Math.max(20 - elapsed, 5)}초 남음
+                </div>
+
+                {elapsed >= 25 && (
+                    <p style={{
+                        margin: '12px 0 0', fontSize: '0.82rem',
+                        color: 'var(--toss-text-disabled)',
+                    }}>
+                        ⏳ 평소보다 시간이 걸리고 있습니다. 조금만 더 기다려 주세요...
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function IssueAnalysisPage() {
     const router = useRouter();
     const { state, runIssueAnalysis, setIssueResult, goToStep, reanalyze } = useCaseFlow();
@@ -257,14 +338,7 @@ export default function IssueAnalysisPage() {
 
             {/* 로딩 */}
             {(state.isAnalyzing || state.isReanalyzing) && !state.issueResult && (
-                <div className={styles.inputSection}>
-                    <h1 className={styles.title}>🔥 핵심 쟁점 분석</h1>
-                    <p className={styles.subtitle}>AI가 핵심 법적 쟁점을 분석하고 있습니다...</p>
-                    <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                        <span className={styles.spinner} style={{ width: 40, height: 40, borderWidth: 3 }} />
-                        <p className={styles.loadingHint}>쟁점 추출 → 쟁점별 법령/판례 검색 중... (약 10~20초 소요)</p>
-                    </div>
-                </div>
+                <LoadingProgress />
             )}
 
             {/* 에러 */}

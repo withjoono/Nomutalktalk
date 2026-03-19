@@ -11,15 +11,15 @@ export interface LegalDomainOption {
     description: string;
 }
 
-/** 지원 법 분야 목록 (laborSchemas.js의 LegalDomains와 동일) */
+/** 지원 법 분야 목록 (한국 법체계 표준 분류 순) */
 export const LEGAL_DOMAINS: LegalDomainOption[] = [
-    { key: 'labor', name: '노동법', icon: '⚖️', color: '#4f46e5', description: '근로계약, 임금, 해고, 산재 등' },
     { key: 'civil', name: '민사법', icon: '📋', color: '#0891b2', description: '계약, 손해배상, 부동산, 채권채무' },
     { key: 'criminal', name: '형사법', icon: '🔒', color: '#dc2626', description: '형사사건, 고소/고발, 수사절차' },
     { key: 'family', name: '가사법', icon: '👨‍👩‍👧', color: '#d946ef', description: '이혼, 양육권, 상속, 가사조정' },
     { key: 'admin', name: '행정법', icon: '🏛️', color: '#ea580c', description: '인허가, 행정처분, 세금, 국가배상' },
-    { key: 'ip', name: '지식재산', icon: '💡', color: '#ca8a04', description: '특허, 상표, 저작권, 영업비밀' },
+    { key: 'labor', name: '노동법', icon: '⚖️', color: '#4f46e5', description: '근로계약, 임금, 해고, 산재 등' },
     { key: 'corporate', name: '기업법', icon: '🏢', color: '#059669', description: '회사설립, 주주분쟁, M&A' },
+    { key: 'ip', name: '지식재산', icon: '💡', color: '#ca8a04', description: '특허, 상표, 저작권, 영업비밀' },
 ];
 
 /** 법 분야별 사건 유형 (laborSchemas.js의 DomainCaseTypes와 동일) */

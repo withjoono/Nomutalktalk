@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import styles from './page.module.css';
 
 export default function LoginPage() {
-    const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+    const { signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, loading } = useAuth();
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -25,10 +25,10 @@ export default function LoginPage() {
         <div className={styles.container}>
             <div className={styles.card}>
                 <div className={styles.logoContainer}>
-                    <img src="/logo.png" alt="NomuTalk Logo" className={styles.logoImage} />
+                    <img src="/logo.png" alt="Legal Tech Logo" className={styles.logoImage} />
                 </div>
                 <h1 className={styles.title}>{isSignUp ? '회원가입' : '로그인'}</h1>
-                <p className={styles.subtitle}>노무 AI 컨설턴트 '노무톡톡'</p>
+                <p className={styles.subtitle}>AI 법률 컨설턴트 Legal Tech</p>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
@@ -63,18 +63,31 @@ export default function LoginPage() {
                     <span>또는</span>
                 </div>
 
-                <button
-                    className={styles.googleButton}
-                    onClick={signInWithGoogle}
-                    disabled={loading}
-                >
-                    <img
-                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                        alt="Google"
-                        className={styles.googleIcon}
-                    />
-                    Google로 계속하기
-                </button>
+                <div className={styles.socialButtons}>
+                    <button
+                        className={styles.googleButton}
+                        onClick={signInWithGoogle}
+                        disabled={loading}
+                    >
+                        <img
+                            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                            alt="Google"
+                            className={styles.socialIcon}
+                        />
+                        Google로 계속하기
+                    </button>
+
+                    <button
+                        className={styles.appleButton}
+                        onClick={signInWithApple}
+                        disabled={loading}
+                    >
+                        <svg className={styles.socialIcon} viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                        </svg>
+                        Apple로 계속하기
+                    </button>
+                </div>
 
                 <p className={styles.toggleText}>
                     {isSignUp ? "이미 계정이 있으신가요? " : "계정이 없으신가요? "}

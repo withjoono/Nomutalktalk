@@ -316,15 +316,15 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                     <h5 style="margin-top:12px">📈 활용 시나리오</h5>
                     <div class="td-row" style="background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.1)">
                         <div class="td-icon">1️⃣</div>
-                        <div><div class="td-title" style="color:#67e8f9">첫 상담</div><div class="td-desc">"50인 사업장 정규직, 취업규칙에 연장근로 수당 150% 규정" → 컨텍스트 축적</div></div>
+                        <div><div class="td-title" style="color:#67e8f9">첫 상담</div><div class="td-desc">"소규모 사업장 운영 중, 임대차 분쟁과 직원 관련 문제" → 컨텍스트 축적</div></div>
                     </div>
                     <div class="td-row" style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.1)">
                         <div class="td-icon">2️⃣</div>
-                        <div><div class="td-title" style="color:#a5b4fc">재상담 (3개월 후)</div><div class="td-desc">"야근수당을 안 줍니다" → AI가 자동으로 50인 사업장 + 150% 기준을 적용하여 답변</div></div>
+                        <div><div class="td-title" style="color:#a5b4fc">재상담 (3개월 후)</div><div class="td-desc">"계약 해지 통보를 받았어요" → AI가 이전 맥락을 자동 반영하여 맞춤형 답변</div></div>
                     </div>
                     <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
                         <div class="td-icon">3️⃣</div>
-                        <div><div class="td-title" style="color:#6ee7b7">리스크 예방</div><div class="td-desc">"귀사 취업규칙의 야간근로 조항에 최근 판례 변경으로 리스크가 있습니다." → 선제적 알림</div></div>
+                        <div><div class="td-title" style="color:#6ee7b7">리스크 예방</div><div class="td-desc">"관련 법률이 최근 개정되어, 귀하의 계약 조건에 영향이 있습니다." → 선제적 알림</div></div>
                     </div>
                 </div>
             </div>
@@ -344,15 +344,15 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <div class="tech-detail-inner">
                     <div class="td-row" style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.1)">
                         <div class="td-icon">🕐</div>
-                        <div><div class="td-title" style="color:#93c5fd">① 시간적 원칙</div><div class="td-desc">사건 발생일~현재까지의 연도별 법령 변화를 추적하여 해당 시점에 적용 가능한 정확한 법률을 특정<br><span style="color:#64748b">예시: "2023년 1월 해고 사건" → 2023년 당시의 근로기준법 조문 적용</span></div></div>
+                        <div><div class="td-title" style="color:#93c5fd">① 시간적 원칙</div><div class="td-desc">사건 발생일~현재까지의 연도별 법령 변화를 추적하여 해당 시점에 적용 가능한 정확한 법률을 특정<br><span style="color:#64748b">예시: "2023년 체결 계약" → 계약 당시 민법·특별법 조문 적용</span></div></div>
                     </div>
                     <div class="td-row" style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.1)">
                         <div class="td-icon">👑</div>
-                        <div><div class="td-title" style="color:#a5b4fc">② 우선법 원칙</div><div class="td-desc">헌법→법률→시행령→시행규칙→행정해석의 위계를 엄격히 준수하고, 특별법 우선·신법 우선 원칙 적용<br><span style="color:#64748b">예시: 근로기준법(일반법) vs 기간제법(특별법) → 기간제법 우선</span></div></div>
+                        <div><div class="td-title" style="color:#a5b4fc">② 우선법 원칙</div><div class="td-desc">헌법→법률→시행령→시행규칙→행정해석의 위계를 엄격히 준수하고, 특별법 우선·신법 우선 원칙 적용<br><span style="color:#64748b">예시: 민법(일반법) vs 주택임대차보호법(특별법) → 특별법 우선</span></div></div>
                     </div>
                     <div class="td-row" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.1)">
                         <div class="td-icon">🔍</div>
-                        <div><div class="td-title" style="color:#6ee7b7">③ 관련성 추론</div><div class="td-desc">사용자 질문에서 핵심 법률 쟁점을 추출하고, Knowledge Graph를 탐색하여 가장 관련성 높은 법령·판례 조합을 도출<br><span style="color:#64748b">예시: "야근수당" → 연장근로(§56) + 5인 미만 적용제외(§11) + 통상임금 판례까지 연쇄 추론</span></div></div>
+                        <div><div class="td-title" style="color:#6ee7b7">③ 관련성 추론</div><div class="td-desc">사용자 질문에서 핵심 법률 쟁점을 추출하고, Knowledge Graph를 탐색하여 가장 관련성 높은 법령·판례 조합을 도출<br><span style="color:#64748b">예시: "보증금 미반환" → 주임법(§3의2) + 대항력(§3) + 우선변제 판례까지 연쇄 추론</span></div></div>
                     </div>
                     <div style="text-align:center;margin-top:12px;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,185,129,0.1));border:1px solid rgba(99,102,241,0.15)">
                         <span style="font-size:11px;font-weight:700;color:#f1f5f9">① + ② + ③ = <span class="grad-text" style="font-size:14px">98% 정확도</span>의 법률 답변</span>
@@ -365,7 +365,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
     <!-- Pipeline -->
     <div class="pipeline">
         <div class="pipeline-node" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15)">
-            <div class="p-icon">📚</div><div class="p-label" style="color:#93c5fd">Data Pipeline</div><div class="p-sub">eLABOR 크롤링</div>
+            <div class="p-icon">📚</div><div class="p-label" style="color:#93c5fd">Data Pipeline</div><div class="p-sub">법령·판례 수집</div>
         </div>
         <div class="pipeline-arrow">→</div>
         <div class="pipeline-node" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.2)">
@@ -447,7 +447,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <p>해결 방법을 <strong style="color:#fcd34d">비용·시간·성공률</strong>로 비교 제시</p>
                 <div class="step-example" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15)">
                     <div class="ex-label">📋 해결 방안</div>
-                    <div class="ex-item" style="color:#fcd34d">① 내용증명 (1주)<br><strong>② 노동청 진정 ⭐</strong><br>③ 민사 소송 (6개월)</div>
+                    <div class="ex-item" style="color:#fcd34d">① 내용증명 (1주)<br><strong>② 조정·중재 신청 ⭐</strong><br>③ 민사 소송 (6개월)</div>
                 </div>
             </div>
         </div>
@@ -461,7 +461,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <p><strong style="color:#fca5a5">법률 서면을 자동 생성</strong>하고 체크리스트까지 안내</p>
                 <div class="step-example" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15)">
                     <div class="ex-label">📄 자동 생성</div>
-                    <div class="ex-item" style="color:#fca5a5">✅ 내용증명 초안<br>✅ 노동청 진정서<br>⏰ 소멸시효 안내</div>
+                    <div class="ex-item" style="color:#fca5a5">✅ 내용증명 초안<br>✅ 소장·답변서 초안<br>⏰ 소멸시효 안내</div>
                 </div>
             </div>
         </div>
@@ -482,8 +482,8 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 <section class="section" id="future" style="background:radial-gradient(ellipse at 20% 70%,rgba(139,92,246,0.06),transparent 60%)">
 <div class="section-inner">
     <div class="section-label">Future Vision</div>
-    <h2 class="section-title">분쟁 해결을 넘어,<br><span class="grad-text">예방</span>과 <span style="color:#c4b5fd">에이전틱 AI</span>로</h2>
-    <p class="section-desc" style="margin-bottom:32px">현재의 분쟁 해결 AI에서 출발하여, 리스크를 사전에 차단하는 <strong style="color:#f1f5f9">예방 AI</strong>와 스스로 사고하고 행동하는 <strong style="color:#f1f5f9">에이전틱 AI</strong>로 진화합니다.</p>
+    <h2 class="section-title">상담을 넘어,<br><span class="grad-text">리스크 예방</span>과 <span style="color:#c4b5fd">자율 AI</span>로</h2>
+    <p class="section-desc" style="margin-bottom:32px">현재의 법률 상담 AI에서 출발하여, 법적 리스크를 사전에 차단하는 <strong style="color:#f1f5f9">예방 AI</strong>와 스스로 사고하고 행동하는 <strong style="color:#f1f5f9">자율 에이전트 AI</strong>로 진화합니다.</p>
 
     <div class="grid2">
         <!-- 예방 AI -->
@@ -496,15 +496,15 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
                 <p>"문제가 터진 후"가 아닌, <strong style="color:#fbbf24">"문제가 터지기 전"</strong>에 리스크를 감지하고 해결합니다.</p>
                 <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
                     <div class="ff-icon">📡</div>
-                    <div><div class="ff-title" style="color:#fbbf24">실시간 법령 모니터링</div><div class="ff-desc">변경된 노동법 고시에 맞춰 취업규칙 개정안 자동 생성</div></div>
+                    <div><div class="ff-title" style="color:#fbbf24">실시간 법령 모니터링</div><div class="ff-desc">관련 법령·판례 변경 시 즉시 알림, 영향받는 계약·규정 자동 분석</div></div>
                 </div>
                 <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
                     <div class="ff-icon">⏰</div>
-                    <div><div class="ff-title" style="color:#fbbf24">근로시간 위반 사전 경고</div><div class="ff-desc">출퇴근 데이터와 급여 명세서를 실시간 연동하여 위반 가능성 사전 감지</div></div>
+                    <div><div class="ff-title" style="color:#fbbf24">기한·시효 사전 경고</div><div class="ff-desc">계약 갱신일, 소멸시효, 법정 기한 등을 추적하여 만기 전 자동 알림</div></div>
                 </div>
                 <div class="future-feature" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.12)">
                     <div class="ff-icon">📋</div>
-                    <div><div class="ff-title" style="color:#fbbf24">취업규칙 자동 점검</div><div class="ff-desc">최신 판례와 비교하여 현행 규정의 법적 리스크를 진단·개선안 제시</div></div>
+                    <div><div class="ff-title" style="color:#fbbf24">계약서·규정 자동 점검</div><div class="ff-desc">최신 판례·법령과 비교하여 기존 계약·규정의 법적 리스크를 진단·개선안 제시</div></div>
                 </div>
             </div>
         </div>
@@ -512,17 +512,17 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
         <div class="card future-card" style="padding:0;border:none">
             <div class="future-header" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">
                 <div class="f-icon">🤖</div>
-                <div><div class="f-phase">PHASE 3 · 2027~2028</div><div class="f-name">에이전틱 노무 AI</div></div>
+                <div><div class="f-phase">PHASE 3 · 2027~2028</div><div class="f-name">에이전틱 법률 AI</div></div>
             </div>
             <div class="future-body">
                 <p>AI가 지시를 기다리는 도구가 아닌, <strong style="color:#c4b5fd">스스로 사고하고 행동하는 자율 에이전트</strong>로 진화합니다.</p>
                 <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
                     <div class="ff-icon">🧠</div>
-                    <div><div class="ff-title" style="color:#c4b5fd">자율적 계획 수립</div><div class="ff-desc">목표만 주면 AI가 단계를 설계·실행 — 퇴직금 점검부터 개정안 도출까지</div></div>
+                    <div><div class="ff-title" style="color:#c4b5fd">자율적 계획 수립</div><div class="ff-desc">목표만 주면 AI가 단계를 설계·실행 — 계약 검토부터 소송 전략 도출까지</div></div>
                 </div>
                 <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
                     <div class="ff-icon">🔄</div>
-                    <div><div class="ff-title" style="color:#c4b5fd">멀티에이전트 시스템</div><div class="ff-desc">법률 분석 + 급여 계산 + 컴플라이언스 에이전트가 협업</div></div>
+                    <div><div class="ff-title" style="color:#c4b5fd">멀티에이전트 시스템</div><div class="ff-desc">법률 분석 + 문서 생성 + 리스크 평가 에이전트가 협업</div></div>
                 </div>
                 <div class="future-feature" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.12)">
                     <div class="ff-icon">💾</div>
@@ -573,7 +573,7 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
 <div class="section-inner">
     <div class="section-label">Technology Roadmap</div>
     <h2 class="section-title">3-Phase <span class="grad-text">기술 진화</span> 로드맵</h2>
-    <p class="section-desc" style="margin-bottom:28px">분쟁 해결에서 출발하여, 리스크 예방과 자율 에이전트로 진화하는 기술 로드맵</p>
+    <p class="section-desc" style="margin-bottom:28px">법률 상담에서 출발하여, 리스크 예방과 자율 에이전트로 진화하는 기술 로드맵</p>
 
     <div class="roadmap-cards">
         <!-- Phase 1 -->
@@ -612,11 +612,11 @@ body{font-family:'Noto Sans KR',system-ui,sans-serif;color:#e2e8f0;background:#0
         <div class="roadmap-card" style="border-top:3px solid #7c3aed">
             <div class="rm-header" style="background:linear-gradient(135deg,rgba(124,58,237,0.15),transparent)">
                 <div class="rm-num" style="background:rgba(124,58,237,0.3)">3</div>
-                <div><div class="rm-phase" style="color:#c4b5fd;font-size:10px">PHASE 3 · 2027~2028</div><div class="rm-name">에이전틱 노무 AI</div></div>
+                <div><div class="rm-phase" style="color:#c4b5fd;font-size:10px">PHASE 3 · 2027~2028</div><div class="rm-name">에이전틱 법률 AI</div></div>
             </div>
             <div class="rm-body">
                 <h5>🤖 자율 에이전트 시스템</h5>
-                <p>AI가 스스로 계획을 수립하고 실행하는 에이전틱 시스템. 멀티에이전트가 협업하여 법률 분석·급여 계산·컴플라이언스를 자율적으로 처리합니다.</p>
+                <p>AI가 스스로 계획을 수립하고 실행하는 에이전틱 시스템. 멀티에이전트가 협업하여 법률 분석·문서 생성·리스크 평가를 자율적으로 처리합니다.</p>
                 <div class="rm-tags">
                     <span style="background:rgba(124,58,237,0.12);color:#c4b5fd;border:1px solid rgba(124,58,237,0.2)">자율 계획 수립</span>
                     <span style="background:rgba(124,58,237,0.12);color:#c4b5fd;border:1px solid rgba(124,58,237,0.2)">멀티에이전트</span>

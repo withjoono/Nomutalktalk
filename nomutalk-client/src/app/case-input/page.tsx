@@ -20,7 +20,7 @@ export default function CaseInputPage() {
     const { state, startNewCase, loadCase, resetFlow, reanalyze, updateDescription, goToStep } = useCaseFlow();
     const { user } = useAuth();
     const [caseType, setCaseType] = useState('');
-    const [legalDomain, setLegalDomain] = useState('labor');
+    const [legalDomain, setLegalDomain] = useState('civil');
     const [caseDescription, setCaseDescription] = useState('');
     const [pastCases, setPastCases] = useState<CaseRecord[]>([]);
     const [loadingCases, setLoadingCases] = useState(false);
@@ -266,7 +266,7 @@ export default function CaseInputPage() {
                 {/* ── 새 사건 시작 링크 ── */}
                 <button
                     className={styles.newCaseLink}
-                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); setLegalDomain('labor'); }}
+                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); setLegalDomain('civil'); }}
                 >
                     ➕ 새 사건 시작하기
                 </button>

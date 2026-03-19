@@ -169,12 +169,15 @@ export default function AppShell({ children }: AppShellProps) {
 
                             {/* Center: Company Info (2 lines) */}
                             <div className={styles.footerCenter}>
-                                <span className={styles.companyName}>(주)청사에이아이</span>
+                                <span className={styles.companyName}>거북닷컴</span>
                                 <p className={styles.footerLine}>
-                                    대표 : 성시웅 | 사업자등록번호 : 512-88-03060 | 법인등록번호 : 160111-0700462
+                                    사업자등록번호 : 297-24-02011 | 업태 : 정보통신업 | 종목 : 응용소프트웨어 개발 및 공급업
                                 </p>
                                 <p className={styles.footerLine}>
-                                    사업장 : 대전광역시 서구 청사로 228, 11층 1110호 | 업태 : 정보통신업 | 연락처 : 070-4448-6960
+                                    사업장 : 대전광역시 서구 한밭대로 707번길 15, 5,6층 501호(월평동, 동명빌딩) | 개업일 : 2024.06.11
+                                </p>
+                                <p className={styles.footerLine}>
+                                    연락처 : 010-2518-7139, 042-484-3356
                                 </p>
                             </div>
 
@@ -194,7 +197,7 @@ export default function AppShell({ children }: AppShellProps) {
                         </div>
 
                         <div className={styles.copyright}>
-                            © 2024 Cheongsa AI Co., Ltd. All rights reserved.
+                            © 2024 거북닷컴. All rights reserved.
                         </div>
                     </div>
                 </footer>
