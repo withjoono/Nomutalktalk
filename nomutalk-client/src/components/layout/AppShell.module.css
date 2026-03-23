@@ -133,6 +133,43 @@
   background: var(--toss-blue-light);
 }
 
+/* ── Auth Button (text + icon) ── */
+.authBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  background: transparent;
+  border: 1.5px solid var(--toss-border);
+  border-radius: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  color: var(--toss-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.authBtn:hover {
+  background: var(--toss-bg-secondary);
+  color: var(--toss-text-primary);
+  border-color: var(--toss-text-tertiary);
+}
+
+.authBtnActive {
+  color: var(--toss-blue);
+  background: var(--toss-blue-light);
+  border-color: var(--toss-blue);
+}
+
+.authLabel {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ═══════════════════════════════════════
    Main Content
    ═══════════════════════════════════════ */
@@ -306,5 +343,18 @@
 
   .content {
     padding: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .authLabel {
+    display: none;
+  }
+
+  .authBtn {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
   }
 }

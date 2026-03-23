@@ -85,6 +85,11 @@ export default function AppShell({ children }: AppShellProps) {
 
     const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
+    // Derive user display name: displayName > email prefix > fallback
+    const displayName = user
+        ? (user.displayName || user.email?.split('@')[0] || '사용자')
+        : null;
+
     return (
         <div className={styles.container}>
             {/* ── Top Navigation Bar ── */}
@@ -131,10 +136,13 @@ export default function AppShell({ children }: AppShellProps) {
                     </button>
                     <a
                         href={user ? "/profile" : "/auth/login"}
-                        className={`${styles.iconBtn} ${isActive('/profile') || isActive('/auth') ? styles.iconBtnActive : ''}`}
+                        className={`${styles.authBtn} ${isActive('/profile') || isActive('/auth') ? styles.authBtnActive : ''}`}
                         title={user ? "프로필" : "로그인"}
                     >
                         {user ? Icons.user : Icons.login}
+                        <span className={styles.authLabel}>
+                            {user ? `${displayName} 님` : '로그인'}
+                        </span>
                     </a>
                     {user && (
                         <button className={styles.iconBtn} title="로그아웃" onClick={async () => {
