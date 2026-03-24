@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 import StepNav from '@/components/layout/StepNav';
 import CaseDetailPanel from '@/components/case/CaseDetailPanel';
-import DomainSelector, { DOMAIN_CASE_TYPES } from '@/components/case/DomainSelector';
+import { DOMAIN_CASE_TYPES } from '@/components/case/DomainSelector';
 import styles from './page.module.css';
 
 
@@ -20,7 +20,7 @@ export default function CaseInputPage() {
     const { state, startNewCase, loadCase, resetFlow, reanalyze, updateDescription, goToStep } = useCaseFlow();
     const { user } = useAuth();
     const [caseType, setCaseType] = useState('');
-    const [legalDomain, setLegalDomain] = useState('civil');
+    const legalDomain = 'labor';
     const [caseDescription, setCaseDescription] = useState('');
     const [pastCases, setPastCases] = useState<CaseRecord[]>([]);
     const [loadingCases, setLoadingCases] = useState(false);
@@ -266,7 +266,7 @@ export default function CaseInputPage() {
                 {/* ── 새 사건 시작 링크 ── */}
                 <button
                     className={styles.newCaseLink}
-                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); setLegalDomain('civil'); }}
+                    onClick={() => { resetFlow(); setCaseDescription(''); setCaseType(''); }}
                 >
                     ➕ 새 사건 시작하기
                 </button>
@@ -352,11 +352,6 @@ export default function CaseInputPage() {
             {/* ═══ 섹션 2: 새 사건 입력 ═══ */}
             <section className={styles.section}>
                 <h2 className={styles.sectionTitle}>✏️ 새 사건 입력</h2>
-
-                <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>법 분야</label>
-                    <DomainSelector selected={legalDomain} onSelect={(d) => { setLegalDomain(d); setCaseType(''); }} />
-                </div>
 
                 <div className={styles.formGroup}>
                     <label className={styles.formLabel}>사건 유형</label>

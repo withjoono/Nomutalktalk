@@ -3,24 +3,24 @@ import "./globals.css";
 import AppShell from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://legaltech-490706.web.app"),
-  title: "Legal Tech - AI 법률 컨설턴트",
-  description: "언제 어디서나 내 손안의 AI 법률 전문가, Legal Tech. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
+  metadataBase: new URL("https://nomutalk.kr"),
+  title: "노무톡톡 - AI 노무 컨설턴트",
+  description: "언제 어디서나 내 손안의 AI 노무 전문가, 노무톡톡. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
   },
   openGraph: {
-    title: "Legal Tech - AI 법률 컨설턴트",
-    description: "언제 어디서나 내 손안의 AI 법률 전문가, Legal Tech. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
-    url: "https://legaltech-490706.web.app",
-    siteName: "Legal Tech",
+    title: "노무톡톡 - AI 노무 컨설턴트",
+    description: "언제 어디서나 내 손안의 AI 노무 전문가, 노무톡톡. 사건 입력부터 판례 분석, 법령 검색까지 한번에.",
+    url: "https://nomutalk.kr",
+    siteName: "노무톡톡",
     images: [
       {
         url: "/og-image.png",
         width: 512,
         height: 512,
-        alt: "Legal Tech 로고",
+        alt: "노무톡톡 로고",
       },
     ],
     locale: "ko_KR",
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "Legal Tech - AI 법률 컨설턴트",
-    description: "언제 어디서나 내 손안의 AI 법률 전문가, Legal Tech",
+    title: "노무톡톡 - AI 노무 컨설턴트",
+    description: "언제 어디서나 내 손안의 AI 노무 전문가, 노무톡톡",
     images: ["/og-image.png"],
   },
 };

@@ -97,8 +97,8 @@ export default function AppShell({ children }: AppShellProps) {
                 {/* Left: Logo + Brand */}
                 <Link href="/" className={styles.headerLogo}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/logo.png" alt="Legal Tech" width={40} height={40} className={styles.headerLogoImage} />
-                    <span className={styles.brandText}>Legal Tech</span>
+                    <img src="/logo.png" alt="노무톡톡" width={40} height={40} className={styles.headerLogoImage} />
+                    <span className={styles.brandText}>노무톡톡</span>
                 </Link>
 
                 {/* Center: Navigation */}
@@ -172,20 +172,20 @@ export default function AppShell({ children }: AppShellProps) {
                             {/* Left: Logo */}
                             <div className={styles.footerLogoArea}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/logo.png" alt="Legal Tech" className={styles.footerLogo} />
+                                <img src="/logo.png" alt="노무톡톡" className={styles.footerLogo} />
                             </div>
 
-                            {/* Center: Company Info (2 lines) */}
+                            {/* Center: Company Info */}
                             <div className={styles.footerCenter}>
-                                <span className={styles.companyName}>거북닷컴</span>
+                                <span className={styles.companyName}>(주)청사에이아이</span>
                                 <p className={styles.footerLine}>
-                                    사업자등록번호 : 297-24-02011 | 업태 : 정보통신업 | 종목 : 응용소프트웨어 개발 및 공급업
+                                    대표 : 성시웅 | 사업자번호 : 512-88-03060
                                 </p>
                                 <p className={styles.footerLine}>
-                                    사업장 : 대전광역시 서구 한밭대로 707번길 15, 5,6층 501호(월평동, 동명빌딩) | 개업일 : 2024.06.11
+                                    사업장 : 대전광역시 서구 청사로 228, 11층 1110호, 우편번호 35209
                                 </p>
                                 <p className={styles.footerLine}>
-                                    연락처 : 010-2518-7139, 042-484-3356
+                                    연락처 : 070-4448-6960
                                 </p>
                             </div>
 
@@ -205,7 +205,7 @@ export default function AppShell({ children }: AppShellProps) {
                         </div>
 
                         <div className={styles.copyright}>
-                            © 2024 거북닷컴. All rights reserved.
+                            © 2025 (주)청사에이아이. All rights reserved.
                         </div>
                     </div>
                 </footer>

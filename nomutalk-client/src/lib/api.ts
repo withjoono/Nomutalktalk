@@ -1,5 +1,5 @@
 /**
- * Legal Tech API Utilities
+ * 노무톡톡 API Utilities
  * 백엔드 API 호출을 위한 유틸리티 함수
  */
 

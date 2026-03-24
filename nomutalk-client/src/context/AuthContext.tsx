@@ -44,9 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
-        console.log('[LegalTech Auth] init - authDomain:', auth.config?.authDomain || 'unknown');
+        console.log('[NomuTalk Auth] init - authDomain:', auth.config?.authDomain || 'unknown');
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            console.log('[LegalTech Auth] state changed:', user ? user.email : 'NO USER');
+            console.log('[NomuTalk Auth] state changed:', user ? user.email : 'NO USER');
             if (user) {
                 const idToken = await user.getIdToken();
                 setUser(user);
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithGoogle = async () => {
-        console.log('[LegalTech Auth] Google signInWithPopup called');
+        console.log('[NomuTalk Auth] Google signInWithPopup called');
         try {
             const result = await signInWithPopup(auth, googleProvider);
             const idToken = await result.user.getIdToken();
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setApiToken(idToken);
             window.location.href = '/case-input';
         } catch (error: any) {
-            console.error("[LegalTech Auth] Google sign-in error:", error);
+            console.error("[NomuTalk Auth] Google sign-in error:", error);
             if (error.code === 'auth/popup-blocked') {
                 alert("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
             } else if (error.code === 'auth/popup-closed-by-user') {
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signInWithApple = async () => {
-        console.log('[LegalTech Auth] Apple signInWithPopup called');
+        console.log('[NomuTalk Auth] Apple signInWithPopup called');
         try {
             const result = await signInWithPopup(auth, appleProvider);
             const idToken = await result.user.getIdToken();
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setApiToken(idToken);
             window.location.href = '/case-input';
         } catch (error: any) {
-            console.error("[LegalTech Auth] Apple sign-in error:", error);
+            console.error("[NomuTalk Auth] Apple sign-in error:", error);
             if (error.code === 'auth/popup-blocked') {
                 alert("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
             } else if (error.code === 'auth/popup-closed-by-user') {
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
-        console.log('[LegalTech Auth] logout called');
+        console.log('[NomuTalk Auth] logout called');
         try {
             await signOut(auth);
             setToken(null);

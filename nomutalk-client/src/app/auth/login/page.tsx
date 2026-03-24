@@ -25,10 +25,10 @@ export default function LoginPage() {
         <div className={styles.container}>
             <div className={styles.card}>
                 <div className={styles.logoContainer}>
-                    <img src="/logo.png" alt="Legal Tech Logo" className={styles.logoImage} />
+                    <img src="/logo.png" alt="노무톡톡 Logo" className={styles.logoImage} />
                 </div>
                 <h1 className={styles.title}>{isSignUp ? '회원가입' : '로그인'}</h1>
-                <p className={styles.subtitle}>AI 법률 컨설턴트 Legal Tech</p>
+                <p className={styles.subtitle}>AI 노무 컨설턴트 노무톡톡</p>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
