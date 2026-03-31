@@ -1,3 +1,81 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:296b84d7744224e5ced7f47e4cb5b12112d9b37dbd5e87f30c6f0ccc5d5bd581
-size 2717
+{
+  "name": "google-filesearch-rag",
+  "version": "1.0.0",
+  "description": "Google Gemini API File Search RAG Agent",
+  "main": "server.js",
+  "scripts": {
+    "postinstall": "npx prisma generate",
+    "prestart": "npx prisma migrate deploy",
+    "build": "echo 'No build step required'",
+    "build:frontend": "tsc -p tsconfig.frontend.json",
+    "start": "node server.js",
+    "start:ts": "node dist/server.js",
+    "dev": "node server.js",
+    "dev:ts": "ts-node src/server.ts",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "example:rag": "node example-rag-agent.js",
+    "example:import": "node example-import-workflow.js import",
+    "example:compare": "node example-import-workflow.js compare",
+    "example:chunking": "node example-chunking.js",
+    "example:store": "node example-store-management.js",
+    "example:metadata": "node example-metadata.js",
+    "example:manager": "node example.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docker:build": "docker build -t filesearch-rag .",
+    "docker:run": "docker run -p 8080:8080 --env-file .env filesearch-rag",
+    "gae:deploy": "gcloud app deploy --project=laborlawtech --quiet",
+    "gae:logs": "gcloud app logs tail --project=laborlawtech",
+    "gae:browse": "gcloud app browse --project=laborlawtech",
+    "firebase:deploy": "cd nomutalk-client && npm run build && firebase deploy --only hosting"
+  },
+  "keywords": [
+    "gemini",
+    "google",
+    "ai",
+    "rag",
+    "file-search",
+    "retrieval-augmented-generation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google-cloud/secret-manager": "^6.1.1",
+    "@google/genai": "^1.29.1",
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^6.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.6.0",
+    "mammoth": "^1.11.0",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^6.10.0",
+    "prisma": "^6.19.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.57.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^25.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.50.0",
+    "@typescript-eslint/parser": "^8.50.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

@@ -1,0 +1,273 @@
+/* ═══════════════════════════════════════
+   Notices Page — Announcements Board
+   Toss Design System (TDS) compliant
+   ═══════════════════════════════════════ */
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 var(--toss-spacing-md) var(--toss-spacing-2xl);
+}
+
+/* ── Hero Section ── */
+.hero {
+    position: relative;
+    margin: 0 calc(var(--toss-spacing-md) * -1);
+    padding: 56px 48px 48px;
+    color: #fff;
+    overflow: hidden;
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -5%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -5%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 65%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.heroSlate {
+    background: linear-gradient(135deg, #334155, #64748b);
+}
+
+.heroTitle {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.heroSubtitle {
+    font-size: 1rem;
+    opacity: 0.88;
+    font-weight: 400;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+}
+
+.heroBadge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Notice List ── */
+.noticeList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--toss-spacing-md);
+}
+
+.noticeCard {
+    background: var(--toss-bg-card);
+    border: 1px solid var(--toss-border-light);
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    box-shadow: var(--toss-shadow-card);
+    transition: box-shadow var(--toss-transition), transform var(--toss-transition);
+    cursor: default;
+    animation: fadeInUp 0.4s ease-out both;
+}
+
+.noticeCard:nth-child(1) { animation-delay: 0.05s; }
+.noticeCard:nth-child(2) { animation-delay: 0.1s; }
+.noticeCard:nth-child(3) { animation-delay: 0.15s; }
+.noticeCard:nth-child(4) { animation-delay: 0.2s; }
+.noticeCard:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.noticeCard:hover {
+    box-shadow: var(--toss-shadow-md);
+    transform: translateY(-2px);
+}
+
+.noticeHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.noticeBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--toss-radius-full);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+.badgeImportant {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.badgeUpdate {
+    background: var(--toss-blue-light);
+    color: var(--toss-blue);
+    border: 1px solid #c7d2fe;
+}
+
+.badgeEvent {
+    background: #fefce8;
+    color: #a16207;
+    border: 1px solid #fde68a;
+}
+
+.badgeGeneral {
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-tertiary);
+    border: 1px solid var(--toss-border-light);
+}
+
+.noticeDate {
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.noticeTitle {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.noticeBody {
+    font-size: 0.88rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+}
+
+.noticeBody p {
+    margin-bottom: 8px;
+}
+
+.noticeBody p:last-child {
+    margin-bottom: 0;
+}
+
+.noticeBody strong {
+    color: var(--toss-text-primary);
+}
+
+/* ── Collapsed / Expand toggle ── */
+.expandBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--toss-blue);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color var(--toss-transition);
+}
+
+.expandBtn:hover {
+    color: #4338ca;
+}
+
+/* ── New badge (red dot) ── */
+.newDot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ── Empty State ── */
+.emptyState {
+    text-align: center;
+    padding: var(--toss-spacing-2xl) var(--toss-spacing-md);
+    color: var(--toss-text-tertiary);
+}
+
+.emptyIcon {
+    font-size: 3rem;
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.emptyText {
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+/* ── Footer Meta ── */
+.docFooter {
+    text-align: center;
+    padding: var(--toss-spacing-xl) 0;
+    margin-top: var(--toss-spacing-xl);
+    border-top: 1px solid var(--toss-border-light);
+    color: var(--toss-text-tertiary);
+    font-size: 0.82rem;
+    line-height: 1.8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .hero {
+        padding: 40px 20px 36px;
+    }
+    .heroTitle {
+        font-size: 1.5rem;
+    }
+    .noticeHeader {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 var(--toss-spacing-sm) var(--toss-spacing-xl);
+    }
+}

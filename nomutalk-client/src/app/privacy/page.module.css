@@ -1,0 +1,381 @@
+/* ═══════════════════════════════════════
+   Privacy Policy Page — Shared Legal Styles
+   (Symlink-free copy from terms/page.module.css)
+   ═══════════════════════════════════════ */
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 var(--toss-spacing-md) var(--toss-spacing-2xl);
+}
+
+/* ── Hero Section ── */
+.hero {
+    position: relative;
+    margin: 0 calc(var(--toss-spacing-md) * -1);
+    padding: 56px 48px 48px;
+    color: #fff;
+    overflow: hidden;
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -5%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -5%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 65%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.heroTeal {
+    background: linear-gradient(135deg, #0f766e, #14b8a6);
+}
+
+.heroTitle {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.heroSubtitle {
+    font-size: 1rem;
+    opacity: 0.88;
+    font-weight: 400;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+}
+
+.heroBadge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Table of Contents ── */
+.toc {
+    background: var(--toss-bg-card);
+    border: 1px solid var(--toss-border-light);
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    margin-bottom: var(--toss-spacing-xl);
+    box-shadow: var(--toss-shadow-sm);
+}
+
+.tocTitle {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--toss-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--toss-spacing-md);
+}
+
+.tocList {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tocItem {
+    background: var(--toss-blue-light);
+    color: var(--toss-blue);
+    padding: 6px 14px;
+    border-radius: var(--toss-radius-full);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--toss-transition);
+    border: none;
+    text-decoration: none;
+}
+
+.tocItem:hover {
+    background: var(--toss-blue);
+    color: #fff;
+}
+
+/* ── Section ── */
+.section {
+    margin-bottom: var(--toss-spacing-xl);
+    animation: fadeInUp 0.4s ease-out both;
+}
+
+.section:nth-child(2) { animation-delay: 0.05s; }
+.section:nth-child(3) { animation-delay: 0.1s; }
+.section:nth-child(4) { animation-delay: 0.15s; }
+.section:nth-child(5) { animation-delay: 0.2s; }
+.section:nth-child(6) { animation-delay: 0.25s; }
+.section:nth-child(7) { animation-delay: 0.3s; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--toss-text-primary);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--toss-spacing-md);
+    padding-bottom: var(--toss-spacing-sm);
+    border-bottom: 2px solid var(--toss-blue);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sectionIcon {
+    font-size: 1.3rem;
+}
+
+/* ── Card ── */
+.card {
+    background: var(--toss-bg-card);
+    border: 1px solid var(--toss-border-light);
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    margin-bottom: var(--toss-spacing-md);
+    box-shadow: var(--toss-shadow-card);
+    transition: box-shadow var(--toss-transition);
+}
+
+.card:hover {
+    box-shadow: var(--toss-shadow-md);
+}
+
+.cardTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+    margin-bottom: var(--toss-spacing-sm);
+}
+
+.cardText {
+    font-size: 0.9rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+}
+
+/* ── Table ── */
+.tableWrapper {
+    overflow-x: auto;
+    margin-bottom: var(--toss-spacing-md);
+    border-radius: var(--toss-radius-md);
+    border: 1px solid var(--toss-border-light);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.table th {
+    background: var(--toss-bg-secondary);
+    color: var(--toss-text-primary);
+    font-weight: 700;
+    padding: 12px 16px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--toss-border);
+}
+
+.table td {
+    padding: 12px 16px;
+    color: var(--toss-text-secondary);
+    border-bottom: 1px solid var(--toss-border-light);
+    vertical-align: top;
+    line-height: 1.6;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table tr:hover td {
+    background: var(--toss-bg-secondary);
+}
+
+/* ── List Items ── */
+.list {
+    list-style: none;
+    padding: 0;
+}
+
+.listItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    font-size: 0.9rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+    border-bottom: 1px solid var(--toss-border-light);
+}
+
+.listItem:last-child {
+    border-bottom: none;
+}
+
+.listBullet {
+    color: var(--toss-blue);
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-top: 2px;
+}
+
+/* ── Alert Boxes ── */
+.alertBox {
+    border-radius: var(--toss-radius-md);
+    padding: var(--toss-spacing-md);
+    margin-bottom: var(--toss-spacing-md);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+
+.alertIcon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.alertWarning {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+}
+
+.alertInfo {
+    background: var(--toss-blue-light);
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+}
+
+.alertDanger {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.alertSuccess {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+
+/* ── Divider ── */
+.divider {
+    border: none;
+    border-top: 1px solid var(--toss-border-light);
+    margin: var(--toss-spacing-lg) 0;
+}
+
+/* ── Footer Meta ── */
+.docFooter {
+    text-align: center;
+    padding: var(--toss-spacing-xl) 0;
+    border-top: 1px solid var(--toss-border-light);
+    color: var(--toss-text-tertiary);
+    font-size: 0.82rem;
+    line-height: 1.8;
+}
+
+/* ── Links Row ── */
+.linksRow {
+    display: flex;
+    gap: var(--toss-spacing-md);
+    flex-wrap: wrap;
+    margin-top: var(--toss-spacing-md);
+}
+
+.linkCard {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--toss-bg-card);
+    border: 1px solid var(--toss-border-light);
+    padding: var(--toss-spacing-md);
+    border-radius: var(--toss-radius-md);
+    text-decoration: none;
+    color: var(--toss-text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all var(--toss-transition);
+}
+
+.linkCard:hover {
+    border-color: var(--toss-blue);
+    color: var(--toss-blue);
+    box-shadow: var(--toss-shadow-sm);
+}
+
+.linkIcon {
+    font-size: 1.3rem;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .hero {
+        padding: 40px 20px 36px;
+    }
+    .heroTitle {
+        font-size: 1.5rem;
+    }
+    .tocList {
+        flex-direction: column;
+    }
+    .tocItem {
+        text-align: center;
+    }
+    .linksRow {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 var(--toss-spacing-sm) var(--toss-spacing-xl);
+    }
+    .table {
+        font-size: 0.8rem;
+    }
+    .table th,
+    .table td {
+        padding: 8px 10px;
+    }
+}

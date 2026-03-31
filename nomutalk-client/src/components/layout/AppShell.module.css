@@ -225,6 +225,38 @@
   text-align: center;
 }
 
+.footerLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.footerLink {
+  color: #8B95A1;
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.2s ease;
+}
+
+.footerLink:hover {
+  color: #E5E8EB;
+}
+
+.footerLinkBold {
+  color: #E5E8EB;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.2s ease;
+}
+
+.footerDivider {
+  color: #2E3338;
+  font-size: 0.8rem;
+}
+
 .companyName {
   display: block;
   font-size: 1.05rem;

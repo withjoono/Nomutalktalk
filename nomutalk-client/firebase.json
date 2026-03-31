@@ -1,3 +1,72 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:35cc1bc85a6246e1ed019edb4a45a7c07f4259f675fe5d337b7e71250a970bdb
-size 2155
+{
+    "hosting": {
+        "public": "out",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "max-age=31536000, immutable"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(js|css)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "max-age=31536000, immutable"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.html",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache, no-store, must-revalidate"
+                    }
+                ]
+            },
+            {
+                "source": "**",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache"
+                    },
+                    {
+                        "key": "X-Content-Type-Options",
+                        "value": "nosniff"
+                    },
+                    {
+                        "key": "X-Frame-Options",
+                        "value": "SAMEORIGIN"
+                    },
+                    {
+                        "key": "X-XSS-Protection",
+                        "value": "1; mode=block"
+                    },
+                    {
+                        "key": "Cross-Origin-Opener-Policy",
+                        "value": "same-origin-allow-popups"
+                    }
+                ]
+            }
+        ],
+        "cleanUrls": true,
+        "trailingSlash": false
+    }
+}

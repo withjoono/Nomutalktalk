@@ -9,7 +9,8 @@ automatic_scaling:
 
 env_variables:
   NODE_ENV: "production"
-  DATABASE_URL: "postgresql://legaltech_user:LegalTech2026!Secure@localhost/legaltech?host=/cloudsql/legaltech-490706:asia-northeast3:legaltech-db"
+  DATABASE_URL: "postgresql://nomutalk_user:NomuTalk2026!Secure@localhost/nomutalk?host=/cloudsql/nomutalk-889bd:asia-northeast3:nomutalk-db"
+  GEMINI_API_KEY: "AIzaSyDlM6IsgRefGjv0oXeynZMOjbB6_5MOgTw"
 
 beta_settings:
-  cloud_sql_instances: "legaltech-490706:asia-northeast3:legaltech-db"
+  cloud_sql_instances: "nomutalk-889bd:asia-northeast3:nomutalk-db"

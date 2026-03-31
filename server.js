@@ -23,7 +23,7 @@ async function loadSecrets() {
 
   try {
     const client = new SecretManagerServiceClient();
-    const projectId = 'legaltech-490706'; // Legal Tech 프로젝트 ID
+    const projectId = 'nomutalk-889bd';
 
     // GEMINI_API_KEY 시크릿 로드
     const [version] = await client.accessSecretVersion({
@@ -182,11 +182,10 @@ const corsOptions = {
         'http://127.0.0.1:4010',
         'http://127.0.0.1:4030',
         'http://127.0.0.1:8080',
-        'https://google-file-search.vercel.app',
-        'https://legaltech-490706.web.app',
-        'https://legaltech-490706.firebaseapp.com',
         'https://nomutalk-889bd.web.app',
         'https://nomutalk-889bd.firebaseapp.com',
+        'https://nomutalk.kr',
+        'https://www.nomutalk.kr',
       ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);

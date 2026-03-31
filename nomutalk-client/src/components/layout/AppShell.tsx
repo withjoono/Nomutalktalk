@@ -131,9 +131,9 @@ export default function AppShell({ children }: AppShellProps) {
                     <Link href="/payment" className={`${styles.iconBtn} ${isActive('/payment') ? styles.iconBtnActive : ''}`} title="결제">
                         {Icons.payment}
                     </Link>
-                    <button className={styles.iconBtn} title="알림">
+                    <Link href="/notices" className={`${styles.iconBtn} ${isActive('/notices') ? styles.iconBtnActive : ''}`} title="공지사항">
                         {Icons.bell}
-                    </button>
+                    </Link>
                     <a
                         href={user ? "/profile" : "/auth/login"}
                         className={`${styles.authBtn} ${isActive('/profile') || isActive('/auth') ? styles.authBtnActive : ''}`}
@@ -177,15 +177,26 @@ export default function AppShell({ children }: AppShellProps) {
 
                             {/* Center: Company Info */}
                             <div className={styles.footerCenter}>
-                                <span className={styles.companyName}>(주)청사에이아이</span>
+                                <div className={styles.footerLinks}>
+                                    <Link href="/terms" className={styles.footerLink}>이용약관</Link>
+                                    <span className={styles.footerDivider}>|</span>
+                                    <Link href="/privacy" className={styles.footerLinkBold}>개인정보처리방침</Link>
+                                    <span className={styles.footerDivider}>|</span>
+                                    <Link href="/pricing" className={styles.footerLink}>가격정책</Link>
+                                    <span className={styles.footerDivider}>|</span>
+                                    <Link href="/refund" className={styles.footerLink}>환불정책</Link>
+                                    <span className={styles.footerDivider}>|</span>
+                                    <Link href="/notices" className={styles.footerLink}>공지사항</Link>
+                                </div>
+                                <span className={styles.companyName}>청사공인노무사</span>
                                 <p className={styles.footerLine}>
-                                    대표 : 성시웅 | 사업자번호 : 512-88-03060
+                                    대표 : 성시웅 | 사업자 : 314-12-25811
                                 </p>
                                 <p className={styles.footerLine}>
-                                    사업장 : 대전광역시 서구 청사로 228, 11층 1110호, 우편번호 35209
+                                    사업장 : 대전광역시 서구 청사로 228, 11층 1110호, 35209
                                 </p>
                                 <p className={styles.footerLine}>
-                                    연락처 : 070-4448-6960
+                                    연락처 : 042-471-1197
                                 </p>
                             </div>
 
@@ -205,7 +216,7 @@ export default function AppShell({ children }: AppShellProps) {
                         </div>
 
                         <div className={styles.copyright}>
-                            © 2025 (주)청사에이아이. All rights reserved.
+                            © 2025 청사공인노무사. All rights reserved.
                         </div>
                     </div>
                 </footer>
