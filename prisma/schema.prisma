@@ -7,11 +7,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==================== 사용자 유형 ====================
+
+enum UserType {
+  PERSONAL   // 개인
+  BUSINESS   // 기업
+}
+
+enum SubscriptionTier {
+  FREE           // 개인 무료
+  PRO            // 개인 유료
+  BIZ_STANDARD   // 기업 스탠다드
+  BIZ_PREMIUM    // 기업 프리미엄
+}
+
+// ==================== 사용자 ====================
+
+model User {
+  id                String           @id  // Firebase UID를 PK로 사용
+  email             String           @unique
+  displayName       String?
+  photoUrl          String?
+  userType          UserType         @default(PERSONAL)
+  subscriptionTier  SubscriptionTier @default(FREE)
+  subscriptionExpiry DateTime?
+
+  // 기업 소속 (기업 사용자인 경우)
+  organizationId    String?
+  role              String?          // 'owner' | 'admin' | 'member'
+
+  // 사용량 추적
+  dailyChatCount    Int              @default(0)
+  dailyChatResetAt  DateTime?
+  monthlyDocCount   Int              @default(0)
+  monthlyEvidenceCount Int           @default(0)
+  monthlyResetAt    DateTime?
+
+  // 온보딩
+  onboardingCompleted Boolean        @default(false)
+  termsAgreedAt     DateTime?
+  privacyAgreedAt   DateTime?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  organization      Organization?    @relation(fields: [organizationId], references: [id])
+  cases             LegalCase[]
+  chatSessions      ChatSession[]
+
+  @@index([organizationId])
+  @@index([userType])
+  @@index([subscriptionTier])
+}
+
+// ==================== 기업/조직 ====================
+
+model Organization {
+  id                String           @id @default(cuid())
+  name              String           // 회사명
+  businessNumber    String?          @unique  // 사업자등록번호
+  industry          String?          // 업종
+  employeeCount     String?          // 직원 규모 ('1-10', '11-50', '51-200', '200+')
+  address           String?
+  contactName       String?          // 담당자 이름
+  contactPhone      String?
+  contactEmail      String?
+
+  // 요금제
+  subscriptionTier  SubscriptionTier @default(BIZ_STANDARD)
+  subscriptionExpiry DateTime?
+  maxSeats          Int              @default(5)  // 최대 팀원 수
+
+  // 사내 규정 RAG
+  companyRulesStoreId String?        // 사내 규정 전용 RAG 스토어 ID
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  members           User[]
+  caseTags          CaseTag[]
+
+  @@index([businessNumber])
+}
+
+// ==================== 기업 사건 태그 ====================
+
+model CaseTag {
+  id              String   @id @default(cuid())
+  organizationId  String
+  caseId          String
+  tag             String           // '진행중' | '완료' | '검토필요' | 커스텀 태그
+  priority        String?  @default("normal")  // 'high' | 'normal' | 'low'
+  assigneeId      String?          // 담당자 User ID
+
+  createdAt       DateTime @default(now())
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case            LegalCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, caseId, tag])
+  @@index([organizationId])
+  @@index([caseId])
+}
+
 // ==================== 사건 관리 ====================
 
 model LegalCase {
   id          String   @id @default(cuid())
   userId      String
+  organizationId String?  // 기업 소속 사건인 경우
   description String   @db.Text
   caseType    String   @default("")
   legalDomain String   @default("labor")  // 법 분야: labor, civil, criminal, family, admin, ip, corporate
@@ -27,6 +131,7 @@ model LegalCase {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  user              User?            @relation(fields: [userId], references: [id])
   issues            CaseIssue[]
   laws              CaseLaw[]
   chatSessions      ChatSession[]
@@ -35,9 +140,11 @@ model LegalCase {
   timeline          CaseTimeline[]
   updates           CaseUpdate[]
   evidence          CaseEvidence[]
+  tags              CaseTag[]
 
   @@map("LaborCase")
   @@index([userId])
+  @@index([organizationId])
   @@index([createdAt])
 }
 
@@ -169,8 +276,9 @@ model ChatSession {
   systemPrompt String   @db.Text
   createdAt    DateTime @default(now())
 
+  user     User?          @relation(fields: [userId], references: [id])
   messages ChatMessage[]
-  case     LegalCase?    @relation(fields: [caseId], references: [id])
+  case     LegalCase?     @relation(fields: [caseId], references: [id])
 
   @@index([userId])
   @@index([caseId])

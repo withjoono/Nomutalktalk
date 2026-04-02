@@ -357,15 +357,19 @@ export default function IssueAnalysisPage() {
                         <h2 className={styles.resultTitle}>🔥 쟁점 분석 결과</h2>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             {state.buildMeta.analysisCount > 0 && (
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: 600 }}>
+                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: 600 }} className="no-print">
                                     v{state.buildMeta.analysisCount}
                                 </span>
                             )}
-                            <button className={styles.resetBtn} onClick={handleReanalyze} disabled={state.isReanalyzing}
+                            <button className={`${styles.resetBtn} no-print`} onClick={() => window.print()}
+                                style={{ background: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db', cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
+                                🖨️ PDF 리포트
+                            </button>
+                            <button className={`${styles.resetBtn} no-print`} onClick={handleReanalyze} disabled={state.isReanalyzing}
                                 style={{ background: 'linear-gradient(135deg,#3b82f6,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
                                 {state.isReanalyzing ? '재분석 중...' : '🔄 재분석'}
                             </button>
-                            <button className={styles.resetBtn} onClick={() => goToStep(0)}>← 사건 입력으로</button>
+                            <button className={`${styles.resetBtn} no-print`} onClick={() => goToStep(0)}>← 사건 입력으로</button>
                         </div>
                     </div>
 

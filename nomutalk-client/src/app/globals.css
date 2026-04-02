@@ -196,3 +196,43 @@ select {
   .page-hero p { font-size: 0.88rem; }
   .page-section { padding: 20px 16px; }
 }
+
+/* ═══════════════════════════════════════
+   Print / PDF Export Styles
+   ═══════════════════════════════════════ */
+@media print {
+  /* 불필요한 UI 숨김 */
+  .no-print, nav, header, footer, aside, .toss-sidebar {
+    display: none !important;
+  }
+  
+  /* 배경색과 텍스트를 인쇄에 적합하게 조정 */
+  body, .page-hero, .page-section, .toss-content {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* 그라데이션, 그림자 등 불필요한 장식 제거 */
+  .page-hero {
+    border-bottom: 2px solid #000;
+  }
+  .page-hero::before, .page-hero::after {
+    display: none;
+  }
+  
+  /* 페이지 잘림 방지 (그래프나 리포트 카드가 페이지 넘김 시 잘리지 않게) */
+  .result-card, .graph-container, .issue-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* 사이드바가 차지하던 여백 제거 */
+  .app-layout-main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+}

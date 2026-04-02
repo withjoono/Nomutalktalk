@@ -107,6 +107,21 @@
   stroke: var(--toss-blue);
 }
 
+/* ── Business-only nav accent ── */
+.navBiz {
+  color: #047857;
+}
+
+.navBiz:hover {
+  color: #047857;
+  background-color: #ecfdf5;
+}
+
+.navBiz.navActive {
+  color: #047857;
+  background-color: #ecfdf5;
+}
+
 /* ── Icon Buttons (right side) ── */
 .iconBtn {
   width: 40px;
@@ -168,6 +183,20 @@
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Subscription Tier Badge ── */
+.tierBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  margin-left: 4px;
 }
 
 /* ═══════════════════════════════════════

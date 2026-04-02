@@ -1,0 +1,202 @@
+.container {
+    padding: var(--toss-spacing-xl) var(--toss-spacing-md);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.loading {
+    text-align: center;
+    padding: 100px 0;
+    color: var(--toss-text-secondary);
+    font-size: 1.1rem;
+}
+
+/* ── Header ── */
+.header {
+    margin-bottom: var(--toss-spacing-xl);
+}
+
+.title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--toss-text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -0.03em;
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: var(--toss-text-secondary);
+}
+
+/* ── Stats Grid ── */
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--toss-spacing-lg);
+    margin-bottom: var(--toss-spacing-2xl);
+}
+
+.statCard {
+    background: #fff;
+    border-radius: var(--toss-radius-lg);
+    padding: var(--toss-spacing-lg);
+    box-shadow: var(--toss-shadow-sm);
+    border: 1px solid var(--toss-border-light);
+    display: flex;
+    flex-direction: column;
+}
+
+.statTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--toss-text-secondary);
+    margin-bottom: 12px;
+}
+
+.statValue {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--toss-text-primary);
+    margin-bottom: 8px;
+}
+
+.statUnit {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-left: 4px;
+    color: var(--toss-text-tertiary);
+}
+
+.statChange {
+    font-size: 0.8rem;
+    color: var(--toss-text-tertiary);
+    margin-top: auto;
+}
+
+.trendUp {
+    color: #e11d48;
+    font-weight: 600;
+}
+
+/* ── Content Grid ── */
+.contentGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--toss-spacing-xl);
+}
+
+.card {
+    background: #fff;
+    border-radius: var(--toss-radius-lg);
+    box-shadow: var(--toss-shadow-sm);
+    border: 1px solid var(--toss-border-light);
+    overflow: hidden;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--toss-spacing-md) var(--toss-spacing-lg);
+    border-bottom: 1px solid var(--toss-border-light);
+    background: var(--toss-bg-secondary);
+}
+
+.cardTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+.actionBtn {
+    background: none;
+    border: none;
+    color: var(--toss-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.actionBtn:hover {
+    text-decoration: underline;
+}
+
+/* Empty State */
+.emptyState {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--toss-text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.emptyIcon {
+    font-size: 3rem;
+    opacity: 0.5;
+}
+
+.primaryBtn {
+    padding: 10px 20px;
+    background: var(--toss-blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--toss-radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 8px;
+}
+
+.primaryBtn:hover {
+    background: #1b64da;
+}
+
+/* Status Box */
+.statusBox {
+    padding: var(--toss-spacing-md) var(--toss-spacing-lg);
+}
+
+.statusItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--toss-border-light);
+}
+
+.statusItem:last-child {
+    border-bottom: none;
+}
+
+.statusLabel {
+    font-weight: 600;
+    color: var(--toss-text-secondary);
+    font-size: 0.95rem;
+}
+
+.statusValueActive {
+    font-size: 0.85rem;
+    color: #047857;
+    background: #ecfdf5;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.statusValueNone {
+    font-size: 0.85rem;
+    color: var(--toss-text-tertiary);
+    background: var(--toss-bg-secondary);
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .contentGrid {
+        grid-template-columns: 1fr;
+    }
+}

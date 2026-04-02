@@ -299,6 +299,95 @@
 }
 
 /* ── Pricing Tier Cards ── */
+/* ── Tab Container (CSS-only toggle) ── */
+.tabContainer {
+    position: relative;
+}
+
+.tabInput {
+    display: none;
+}
+
+.tabLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--toss-text-tertiary);
+    background: var(--toss-bg-secondary);
+    border: 1.5px solid var(--toss-border-light);
+    border-bottom: none;
+    border-radius: var(--toss-radius-md) var(--toss-radius-md) 0 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-right: 4px;
+    position: relative;
+    top: 1px;
+}
+
+.tabLabel:hover {
+    color: var(--toss-text-primary);
+    background: #fff;
+}
+
+.tabLabelBiz {
+    /* Biz tab variant - extends tabLabel */
+    letter-spacing: 0.01em;
+}
+
+/* Active tab states */
+.tabLabelActive {
+    color: var(--toss-blue);
+    background: #fff;
+    border-color: var(--toss-blue);
+    border-bottom: 2px solid #fff;
+    z-index: 2;
+}
+
+.tabLabelActiveBiz {
+    color: #047857;
+    background: #fff;
+    border-color: #047857;
+    border-bottom: 2px solid #fff;
+    z-index: 2;
+}
+
+/* Active tab styling via adjacent sibling selectors */
+#tabPersonal:checked + .tabLabel {
+    color: var(--toss-blue);
+    background: #fff;
+    border-color: var(--toss-blue);
+    border-bottom: 2px solid #fff;
+    z-index: 2;
+}
+
+#tabBusiness:checked + .tabLabel {
+    color: #047857;
+    background: #fff;
+    border-color: #047857;
+    border-bottom: 2px solid #fff;
+    z-index: 2;
+}
+
+.tabPanel {
+    display: none;
+    padding: var(--toss-spacing-lg) 0;
+    border-top: 1.5px solid var(--toss-border-light);
+    margin-top: -1px;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* Show panels based on which tab is checked */
+#tabPersonal:checked ~ #panelPersonal {
+    display: block;
+}
+
+#tabBusiness:checked ~ #panelBusiness {
+    display: block;
+}
+
 .pricingGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

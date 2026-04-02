@@ -1053,3 +1053,201 @@ export async function fetchTimeline(
     if (!data.success) throw new Error(data.error || '타임라인 생성 실패');
     return data.data;
 }
+
+// ==================== User Management API ====================
+
+export type UserType = 'PERSONAL' | 'BUSINESS';
+export type SubscriptionTier = 'FREE' | 'PRO' | 'BIZ_STANDARD' | 'BIZ_PREMIUM';
+
+export interface OrganizationInfo {
+    id: string;
+    name: string;
+    businessNumber: string | null;
+    industry: string | null;
+    employeeCount: string | null;
+    maxSeats: number;
+    subscriptionTier: SubscriptionTier;
+    subscriptionExpiry: string | null;
+    members?: {
+        id: string;
+        email: string;
+        displayName: string | null;
+        role: string | null;
+        createdAt: string;
+    }[];
+}
+
+export interface UserProfile {
+    id: string;
+    email: string;
+    displayName: string | null;
+    photoUrl: string | null;
+    userType: UserType;
+    subscriptionTier: SubscriptionTier;
+    subscriptionExpiry: string | null;
+    organizationId: string | null;
+    role: string | null;
+    organization: OrganizationInfo | null;
+    onboardingCompleted: boolean;
+    usage?: {
+        dailyChatCount: number;
+        monthlyDocCount: number;
+        monthlyEvidenceCount: number;
+    };
+}
+
+export interface RegisterUserRequest {
+    userType: UserType;
+    displayName?: string;
+    photoUrl?: string;
+    organization?: {
+        name: string;
+        businessNumber?: string;
+        industry?: string;
+        employeeCount?: string;
+        address?: string;
+        contactName?: string;
+        contactPhone?: string;
+        contactEmail?: string;
+    };
+}
+
+/**
+ * 사용자 등록 (온보딩 완료 시)
+ */
+export async function registerUser(data: RegisterUserRequest): Promise<UserProfile> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/register`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '사용자 등록 실패');
+    return result.data;
+}
+
+/**
+ * 현재 사용자 프로필 조회
+ * @returns null if user is not registered yet
+ */
+export async function fetchUserProfile(): Promise<{ data: UserProfile | null; registered: boolean }> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/me`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '프로필 조회 실패');
+    return { data: result.data, registered: result.registered };
+}
+
+/**
+ * 프로필 수정
+ */
+export async function updateUserProfile(data: { displayName?: string; photoUrl?: string }): Promise<UserProfile> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/users/me`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '프로필 수정 실패');
+    return result.data;
+}
+
+/**
+ * 기업 정보 조회
+ */
+export async function fetchOrganization(orgId: string): Promise<OrganizationInfo> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '기업 정보 조회 실패');
+    return result.data;
+}
+
+/**
+ * 기업 정보 수정
+ */
+export async function updateOrganization(orgId: string, data: Partial<{
+    name: string;
+    businessNumber: string;
+    industry: string;
+    employeeCount: string;
+    address: string;
+    contactName: string;
+    contactPhone: string;
+    contactEmail: string;
+}>): Promise<OrganizationInfo> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '기업 정보 수정 실패');
+    return result.data;
+}
+
+// ==================== Biz Dashboard & RAG API ====================
+
+export interface BizDashboardStats {
+    activeCaseCount: number;
+    resolvedCaseCount: number;
+    totalAiReports: number;
+    topCaseType: string;
+}
+
+/**
+ * 기업 대시보드 통계 조회
+ */
+export async function fetchBizDashboardStats(orgId: string): Promise<BizDashboardStats> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}/dashboard`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '대시보드 통계 조회 실패');
+    return result.data;
+}
+
+export interface RagDocument {
+    name: string;
+    displayName: string;
+    createTime: string;
+    updateTime: string;
+}
+
+/**
+ * 사내 규정 문서 목록 조회
+ */
+export async function fetchCompanyRules(orgId: string): Promise<RagDocument[]> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}/rag/files`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '사내 규정 조회 실패');
+    return result.data || [];
+}
+
+/**
+ * 사내 규정 파일 업로드
+ */
+export async function uploadCompanyRule(orgId: string, file: File): Promise<any> {
+    const userString = localStorage.getItem('user');
+    const user = userString ? JSON.parse(userString) : null;
+    const token = user?.apiToken || '';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/organizations/${orgId}/rag/upload`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '사내 규정 업로드 실패');
+    return result.data;
+}
+
+/**
+ * 사내 규정 삭제
+ */
+export async function deleteCompanyRule(orgId: string, fileName: string): Promise<void> {
+    const encodedFileName = encodeURIComponent(fileName);
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}/rag/files/${encodedFileName}`, {
+        method: 'DELETE',
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '사내 규정 삭제 실패');
+}

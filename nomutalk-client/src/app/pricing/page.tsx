@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import s from './page.module.css';
 
 export default function PricingPage() {
+    const [activeTab, setActiveTab] = useState<'personal' | 'business'>('personal');
+
     return (
         <div className={s.container}>
             {/* Hero */}
@@ -64,63 +66,110 @@ export default function PricingPage() {
                     요금제 비교
                 </h2>
 
-                {/* Tier Cards */}
-                <div className={s.pricingGrid}>
-                    {/* FREE */}
-                    <div className={s.tierCard}>
-                        <div className={s.tierName}>FREE</div>
-                        <div className={s.tierPrice}>₩0</div>
-                        <div className={s.tierPeriod}>무기한</div>
-                        <ul className={s.tierFeatures}>
-                            <li><span className={s.featureCheck}>✓</span> 사건 관리 최대 3건</li>
-                            <li><span className={s.featureCheck}>✓</span> 일일 AI 상담 5회</li>
-                            <li><span className={s.featureCheck}>✓</span> 기본 쟁점 분석</li>
-                            <li><span className={s.featureCheck}>✓</span> RAG 기본 검색</li>
-                            <li><span className={s.featureCheck}>✓</span> 일반 모드 AI 상담</li>
-                            <li><span className={s.featureCross}>✗</span> 법률 서면 생성</li>
-                            <li><span className={s.featureCross}>✗</span> 증거 분석</li>
-                            <li><span className={s.featureCross}>✗</span> 대안 비교 분석</li>
-                            <li><span className={s.featureCheck}>✓</span> 사건 보관 30일</li>
-                        </ul>
-                    </div>
+                {/* 개인/기업 탭 */}
+                <div className={s.tabContainer}>
+                    <button
+                        className={`${s.tabLabel} ${activeTab === 'personal' ? s.tabLabelActive : ''}`}
+                        onClick={() => setActiveTab('personal')}
+                    >
+                        🧑 개인
+                    </button>
+                    <button
+                        className={`${s.tabLabel} ${s.tabLabelBiz} ${activeTab === 'business' ? s.tabLabelActiveBiz : ''}`}
+                        onClick={() => setActiveTab('business')}
+                    >
+                        🏢 기업
+                    </button>
 
-                    {/* PRO */}
-                    <div className={`${s.tierCard} ${s.tierPopular}`}>
-                        <div className={s.tierBadge}>⭐ 추천</div>
-                        <div className={s.tierName}>PRO</div>
-                        <div className={s.tierPrice}>₩9,900</div>
-                        <div className={s.tierPeriod}>월 / 연간 ₩99,000 (17% 할인)</div>
-                        <ul className={s.tierFeatures}>
-                            <li><span className={s.featureCheck}>✓</span> 사건 관리 <strong>무제한</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> AI 상담 <strong>무제한</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>심층 분석 + 승률 예측</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>2-Pass 검색</strong> (RAG + Gemini)</li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>6가지 전문 모드</strong> 전체</li>
-                            <li><span className={s.featureCheck}>✓</span> 법률 서면 생성 <strong>월 10건</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> 증거 분석 <strong>월 20건</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> 대안 비교 · 체크리스트</li>
-                            <li><span className={s.featureCheck}>✓</span> 사건 재분석 (Build)</li>
-                            <li><span className={s.featureCheck}>✓</span> 인사이트 자동 추출</li>
-                            <li><span className={s.featureCheck}>✓</span> 사건 보관 <strong>365일</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>광고 제거</strong></li>
-                        </ul>
-                    </div>
+                    {/* 개인 요금제 */}
+                    {activeTab === 'personal' && (
+                        <div className={s.pricingGrid} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                            {/* FREE */}
+                            <div className={s.tierCard}>
+                                <div className={s.tierName}>FREE</div>
+                                <div className={s.tierPrice}>₩0</div>
+                                <div className={s.tierPeriod}>무기한</div>
+                                <ul className={s.tierFeatures}>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 관리 최대 3건</li>
+                                    <li><span className={s.featureCheck}>✓</span> 일일 AI 상담 5회</li>
+                                    <li><span className={s.featureCheck}>✓</span> 기본 쟁점 분석</li>
+                                    <li><span className={s.featureCheck}>✓</span> RAG 기본 검색</li>
+                                    <li><span className={s.featureCheck}>✓</span> 일반 모드 AI 상담</li>
+                                    <li><span className={s.featureCross}>✗</span> 법률 서면 생성</li>
+                                    <li><span className={s.featureCross}>✗</span> 증거 분석</li>
+                                    <li><span className={s.featureCross}>✗</span> 대안 비교 분석</li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 보관 30일</li>
+                                </ul>
+                            </div>
 
-                    {/* ENTERPRISE */}
-                    <div className={s.tierCard}>
-                        <div className={s.tierName}>ENTERPRISE</div>
-                        <div className={s.tierPrice}>별도 협의</div>
-                        <div className={s.tierPeriod}>맞춤형</div>
-                        <ul className={s.tierFeatures}>
-                            <li><span className={s.featureCheck}>✓</span> PRO 기능 전체 포함</li>
-                            <li><span className={s.featureCheck}>✓</span> 법률 서면 <strong>무제한</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> 증거 분석 <strong>무제한</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>사내 규정 연동</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>맞춤 AI 모드</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> 사건 보관 <strong>무기한</strong></li>
-                            <li><span className={s.featureCheck}>✓</span> <strong>전담 매니저</strong></li>
-                        </ul>
-                    </div>
+                            {/* PRO */}
+                            <div className={`${s.tierCard} ${s.tierPopular}`}>
+                                <div className={s.tierBadge}>⭐ 추천</div>
+                                <div className={s.tierName}>PRO</div>
+                                <div className={s.tierPrice}>₩9,900</div>
+                                <div className={s.tierPeriod}>월 / 연간 ₩99,000 (17% 할인)</div>
+                                <ul className={s.tierFeatures}>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 관리 <strong>무제한</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> AI 상담 <strong>무제한</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>심층 분석 + 승률 예측</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>2-Pass 검색</strong> (RAG + Gemini)</li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>6가지 전문 모드</strong> 전체</li>
+                                    <li><span className={s.featureCheck}>✓</span> 법률 서면 생성 <strong>월 10건</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 증거 분석 <strong>월 20건</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 대안 비교 · 체크리스트</li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 재분석 (Build)</li>
+                                    <li><span className={s.featureCheck}>✓</span> 인사이트 자동 추출</li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 보관 <strong>365일</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>광고 제거</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 기업 요금제 */}
+                    {activeTab === 'business' && (
+                        <div className={s.pricingGrid} style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                            {/* BIZ STANDARD */}
+                            <div className={`${s.tierCard} ${s.tierPopular}`}>
+                                <div className={s.tierBadge} style={{ background: 'linear-gradient(135deg, #047857, #10b981)' }}>🏢 기업 추천</div>
+                                <div className={s.tierName}>BIZ STANDARD</div>
+                                <div className={s.tierPrice}>₩49,000</div>
+                                <div className={s.tierPeriod}>월 / 연간 ₩490,000 (17% 할인)</div>
+                                <ul className={s.tierFeatures}>
+                                    <li><span className={s.featureCheck}>✓</span> PRO 기능 <strong>전체 포함</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 팀원 <strong>5명</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 법률 서면 <strong>월 50건</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 증거 분석 <strong>월 100건</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>사내 규정 AI 연동</strong> (무제한)</li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>기업 대시보드</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 분류/태그</li>
+                                    <li><span className={s.featureCheck}>✓</span> 기본 통계 리포트</li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 보관 <strong>무기한</strong></li>
+                                    <li><span className={s.featureCross}>✗</span> API 연동</li>
+                                    <li><span className={s.featureCross}>✗</span> 전담 매니저</li>
+                                </ul>
+                            </div>
+
+                            {/* BIZ PREMIUM */}
+                            <div className={s.tierCard}>
+                                <div className={s.tierName}>BIZ PREMIUM</div>
+                                <div className={s.tierPrice}>₩199,000</div>
+                                <div className={s.tierPeriod}>월 / 연간 ₩1,990,000 (17% 할인)</div>
+                                <ul className={s.tierFeatures}>
+                                    <li><span className={s.featureCheck}>✓</span> STANDARD 기능 <strong>전체 포함</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 팀원 <strong>무제한</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 법률 서면 <strong>무제한</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 증거 분석 <strong>무제한</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>사내 규정 AI 연동</strong> (무제한)</li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>상세 대시보드</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>PDF 리포트 내보내기</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>API 연동</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> <strong>전담 매니저</strong></li>
+                                    <li><span className={s.featureCheck}>✓</span> 사건 보관 <strong>무기한</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

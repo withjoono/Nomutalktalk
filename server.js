@@ -208,6 +208,7 @@ app.use(express.static('public'));
 
 /**
  * Firebase ID Token 검증 미들웨어
+ * Custom Claims에서 userType, subscriptionTier, organizationId를 추출하여 req에 주입
  */
 async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -221,11 +222,52 @@ async function verifyToken(req, res, next) {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
+
+    // Custom Claims에서 확장 사용자 정보 주입
+    req.userType = decodedToken.userType || 'PERSONAL';
+    req.subscriptionTier = decodedToken.subscriptionTier || 'FREE';
+    req.organizationId = decodedToken.organizationId || null;
+    req.userRole = decodedToken.role || null;
+
     next();
   } catch (error) {
     console.error('Token verification error:', error.message);
     res.status(401).json({ success: false, error: '유효하지 않은 토큰입니다.' });
   }
+}
+
+/**
+ * 기업 전용 미들웨어 — userType이 'BUSINESS'인 경우만 허용
+ */
+function requireBusiness(req, res, next) {
+  if (req.userType !== 'BUSINESS') {
+    return res.status(403).json({
+      success: false,
+      error: '기업 사용자만 이용 가능합니다.',
+    });
+  }
+  next();
+}
+
+/**
+ * 구독 등급 체크 미들웨어
+ * @param {string} minTier - 최소 필요 등급 ('FREE' | 'PRO' | 'BIZ_STANDARD' | 'BIZ_PREMIUM')
+ */
+function requireTier(minTier) {
+  const tierOrder = ['FREE', 'PRO', 'BIZ_STANDARD', 'BIZ_PREMIUM'];
+  return (req, res, next) => {
+    const currentIndex = tierOrder.indexOf(req.subscriptionTier);
+    const requiredIndex = tierOrder.indexOf(minTier);
+    if (currentIndex < requiredIndex) {
+      return res.status(403).json({
+        success: false,
+        error: '요금제를 업그레이드해 주세요.',
+        requiredTier: minTier,
+        currentTier: req.subscriptionTier,
+      });
+    }
+    next();
+  };
 }
 
 // RAG Agent 인스턴스 관리
@@ -1193,6 +1235,23 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
 
     console.log(`[법령 분석] 시작: ${description.substring(0, 50)}...`);
 
+    let orgRulesContext = '';
+    const orgId = req.organizationId;
+    if (orgId) {
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: orgId }});
+        if (org && org.companyRulesStoreId) {
+          const orgAgent = new RAGAgent(process.env.GEMINI_API_KEY);
+          await orgAgent.initialize(org.companyRulesStoreId);
+          console.log(`[사내규정 검토] 스토어 질의: ${org.companyRulesStoreId}`);
+          const orgRulesCheck = await orgAgent.ask(`다음 노동 사건과 관련하여 사내 규정(취업규칙, 근로계약서, 단체협약 등) 위반 소지가 있거나, 적용될 만한 조항이 있는지 찾아 구체적인 근거와 함께 제시해주세요.\n사건 내용: ${description}`);
+          orgRulesContext = `\n\n[★사내 규정 특별 검토 결과]\n${orgRulesCheck}\n※ 이 기업의 내부 규정은 노동법과 함께 사건의 핵심 근거가 됩니다. 요약 내용에 해당 규정 위반 또는 적용 여부를 반드시 최우선적으로 포함하여 작성하세요.`;
+        }
+      } catch (err) {
+        console.error('[사내규정 검토] 오류:', err.message);
+      }
+    }
+
     const nodes = [];
     const links = [];
     const seenTitles = new Set();
@@ -1297,7 +1356,8 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
 }
 
 사건 내용:
-${description.substring(0, 3000)}`;
+${description.substring(0, 3000)}
+${orgRulesContext}`;
 
         const response = await genai.models.generateContent({
           model: 'gemini-2.5-pro',
@@ -1390,6 +1450,23 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
 
     console.log(`[쟁점 분석] 시작: ${description.substring(0, 50)}...`);
 
+    let orgRulesContext = '';
+    const orgId = req.organizationId;
+    if (orgId) {
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: orgId }});
+        if (org && org.companyRulesStoreId) {
+          const orgAgent = new RAGAgent(process.env.GEMINI_API_KEY);
+          await orgAgent.initialize(org.companyRulesStoreId);
+          console.log(`[사내규정 검토] 스토어 질의: ${org.companyRulesStoreId}`);
+          const orgRulesCheck = await orgAgent.ask(`다음 노동 사건과 관련하여 사내 규정(취업규칙, 근로계약서, 단체협약 등) 위반 소지가 있거나, 적용될 만한 법적/계약적 조항이 있는지 분석해주세요.\n사건 내용: ${description}`);
+          orgRulesContext = `\n\n[사내 규정 검토 결과 (필수 참조!)]\n${orgRulesCheck}\n※ 이 기업의 내부 규정 검토 결과를 사건 분석 시 최우선으로 반영하여 쟁점과 승소 가능성을 판단하세요.`;
+        }
+      } catch (err) {
+        console.error('[사내규정 검토] 오류:', err.message);
+      }
+    }
+
     const agent = await getLaborAgent();
 
     // 1단계: Gemini로 핵심 쟁점 추출
@@ -1430,7 +1507,8 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
 }
 
 사건 내용:
-${description.substring(0, 3000)}`;
+${description.substring(0, 3000)}
+${orgRulesContext}`;
 
     const issueResponse = await genai.models.generateContent({
       model: 'gemini-2.5-pro',
@@ -2813,12 +2891,19 @@ app.post('/api/labor/cases', verifyToken, async (req, res) => {
 app.get('/api/labor/cases', verifyToken, async (req, res) => {
   try {
     const userId = req.user.uid;
+    const isBusiness = req.userType === 'BUSINESS';
+    const orgId = req.organizationId;
+
+    const whereClause = (isBusiness && orgId) ? { organizationId: orgId } : { userId };
+
     const cases = await prisma.legalCase.findMany({
-      where: { userId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { issues: true, laws: true, chatSessions: true, timeline: true } },
         analysisVersions: { where: { stepName: 'issueAnalysis' }, take: 1, orderBy: { version: 'desc' } },
+        tags: true,
+        user: { select: { displayName: true, email: true } },
       },
     });
 
@@ -2840,6 +2925,8 @@ app.get('/api/labor/cases', verifyToken, async (req, res) => {
         lastAnalyzedAt: c.lastAnalyzedAt ? c.lastAnalyzedAt.toISOString() : null,
       },
       timelineCount: c._count.timeline,
+      tags: c.tags || [],
+      ownerName: c.user?.displayName || c.user?.email || 'Unknown',
     }));
 
     res.json({ success: true, data: result });
@@ -2975,6 +3062,255 @@ app.get('/api/labor/cases/:id', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('[사건관리] 상세 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 기업 사건 관리 (태그 / 담당자) ====================
+
+/**
+ * 사건 담당자 지정
+ * PATCH /api/labor/cases/:id/assign
+ */
+app.patch('/api/labor/cases/:id/assign', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assigneeId } = req.body;
+    
+    // Check if case belongs to user's organization
+    const orgId = req.organizationId;
+    const laborCase = await prisma.legalCase.findFirst({
+      where: { id, organizationId: orgId }
+    });
+
+    if (!laborCase) return res.status(404).json({ success: false, error: '권한이 없거나 사건을 찾을 수 없습니다.' });
+
+    // Assuming we manage assignee through a specific tag or a dedicated field in LegalCase
+    // Let's create an "assignee" tag or update LegalCase model. Wait, LegalCase doesn't have assigneeId.
+    // CaseTag has assigneeId. Let's create or update a tag for it.
+    // Or normally we add a tag type: "assignee"
+    const assigneeTag = await prisma.caseTag.findFirst({
+      where: { caseId: id, organizationId: orgId, tag: { startsWith: 'assignee:' } }
+    });
+
+    if (assigneeId) {
+      if (assigneeTag) {
+        await prisma.caseTag.update({ where: { id: assigneeTag.id }, data: { assigneeId, tag: `assignee:${assigneeId}` } });
+      } else {
+        await prisma.caseTag.create({
+          data: { caseId: id, organizationId: orgId, tag: `assignee:${assigneeId}`, assigneeId }
+        });
+      }
+    } else if (assigneeTag) {
+      await prisma.caseTag.delete({ where: { id: assigneeTag.id } });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[사건관리] 담당자 지정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사건 태그 추가
+ * POST /api/labor/cases/:id/tags
+ */
+app.post('/api/labor/cases/:id/tags', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tag, priority } = req.body;
+    const orgId = req.organizationId;
+
+    const newTag = await prisma.caseTag.create({
+      data: {
+        organizationId: orgId,
+        caseId: id,
+        tag,
+        priority: priority || 'normal'
+      }
+    });
+
+    res.json({ success: true, data: newTag });
+  } catch (error) {
+    console.error('[사건관리] 태그 추가 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사건 태그 삭제
+ * DELETE /api/labor/cases/:id/tags/:tagId
+ */
+app.delete('/api/labor/cases/:id/tags/:tagId', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id, tagId } = req.params;
+    const orgId = req.organizationId;
+
+    await prisma.caseTag.deleteMany({
+      where: { id: tagId, caseId: id, organizationId: orgId }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[사건관리] 태그 삭제 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 기업 RAG 및 대시보드 API ====================
+
+/**
+ * 기업 데이터 대시보드 통계 파악
+ * GET /api/organizations/:id/dashboard
+ */
+app.get('/api/organizations/:id/dashboard', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.organizationId !== id) return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+
+    // 통계 조회 (사건들)
+    const cases = await prisma.legalCase.findMany({
+      where: { organizationId: id },
+      include: {
+        tags: true
+      }
+    });
+
+    const activeCases = cases.filter(c => c.currentStep < 4);
+    const resolvedCases = cases.filter(c => c.currentStep >= 4);
+    
+    // AI 리포트 생성 수 (모든 사건의 analysisCount 합계)
+    const totalAiReports = cases.reduce((acc, curr) => acc + curr.analysisCount, 0);
+
+    // 주요 쟁점 추출 (CaseType 빈도)
+    const caseTypeCounts = {};
+    cases.forEach(c => {
+      if (c.caseType) {
+        caseTypeCounts[c.caseType] = (caseTypeCounts[c.caseType] || 0) + 1;
+      }
+    });
+
+    let topCaseType = '데이터 없음';
+    if (Object.keys(caseTypeCounts).length > 0) {
+       topCaseType = Object.keys(caseTypeCounts).reduce((a, b) => caseTypeCounts[a] > caseTypeCounts[b] ? a : b);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        activeCaseCount: activeCases.length,
+        resolvedCaseCount: resolvedCases.length,
+        totalAiReports,
+        topCaseType
+      }
+    });
+  } catch (err) {
+    console.error('대시보드 통계 조회 오류:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * 사내 규정 파일 업로드
+ * POST /api/organizations/:id/rag/upload
+ */
+app.post('/api/organizations/:id/rag/upload', verifyToken, requireBusiness, upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.organizationId !== id) return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: '업로드된 파일이 없습니다.' });
+    }
+
+    const org = await prisma.organization.findUnique({ where: { id } });
+    if (!org) return res.status(404).json({ success: false, error: '기업을 찾을 수 없습니다.' });
+
+    // 에이전트 가져오기
+    const agent = new RAGAgent(process.env.GEMINI_API_KEY);
+    
+    let storeId = org.companyRulesStoreId;
+    if (!storeId) {
+       // 스토어 신규 생성
+       storeId = await agent.initialize(`nomutalk_biz_${id}_rules`);
+       await prisma.organization.update({
+         where: { id },
+         data: { companyRulesStoreId: storeId }
+       });
+    } else {
+       // 기존 스토어 사용
+       await agent.initialize(storeId);
+    }
+
+    // 파일 업로드
+    const uploadResult = await agent.uploadFile(req.file.path, {
+      displayName: req.file.originalname,
+    });
+
+    // 임시 파일 삭제
+    fs.unlinkSync(req.file.path);
+
+    res.json({ success: true, data: uploadResult });
+  } catch (error) {
+    console.error('사내 규정 업로드 오류:', error);
+    if (req.file && fs.existsSync(req.file.path)) {
+       fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사내 규정 리스트 조회
+ * GET /api/organizations/:id/rag/files
+ */
+app.get('/api/organizations/:id/rag/files', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.organizationId !== id) return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+
+    const org = await prisma.organization.findUnique({ where: { id } });
+    if (!org || !org.companyRulesStoreId) {
+      return res.json({ success: true, data: [] }); // 아직 업로드된 규정 없음
+    }
+
+    const agent = new RAGAgent(process.env.GEMINI_API_KEY);
+    await agent.initialize(org.companyRulesStoreId);
+
+    const docs = await agent.listDocuments();
+    res.json({ success: true, data: docs });
+  } catch (error) {
+    console.error('사내 규정 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * 사내 규정 삭제
+ * DELETE /api/organizations/:id/rag/files/:fileName
+ */
+app.delete('/api/organizations/:id/rag/files/:fileName', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id, fileName } = req.params;
+    // URL 인코딩되었으므로 디코딩 처리
+    const decodedFileName = decodeURIComponent(fileName);
+
+    if (req.organizationId !== id) return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+
+    const org = await prisma.organization.findUnique({ where: { id } });
+    if (!org || !org.companyRulesStoreId) {
+       return res.status(404).json({ success: false, error: '스토어를 찾을 수 없습니다.' });
+    }
+
+    const agent = new RAGAgent(process.env.GEMINI_API_KEY);
+    await agent.initialize(org.companyRulesStoreId);
+
+    await agent.deleteDocument(decodedFileName);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('사내 규정 삭제 오류:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -4260,6 +4596,411 @@ JSON만 출력하세요.`;
     res.json({ success: true, data: parsed });
   } catch (error) {
     console.error('타임라인 생성 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 사용자 관리 API ====================
+
+/**
+ * POST /api/users/register
+ * 사용자 등록 (온보딩 완료 시)
+ */
+app.post('/api/users/register', verifyToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const email = req.user.email || '';
+    const { userType, displayName, photoUrl, organization } = req.body;
+
+    // userType 검증
+    if (!['PERSONAL', 'BUSINESS'].includes(userType)) {
+      return res.status(400).json({ success: false, error: '유효하지 않은 사용자 유형입니다.' });
+    }
+
+    // 이미 등록된 사용자 확인
+    const existing = await prisma.user.findUnique({ where: { id: uid } });
+    if (existing && existing.onboardingCompleted) {
+      return res.status(409).json({ success: false, error: '이미 등록된 사용자입니다.' });
+    }
+
+    let organizationId = null;
+    let subscriptionTier = userType === 'BUSINESS' ? 'BIZ_STANDARD' : 'FREE';
+
+    // 기업 사용자인 경우 Organization 생성
+    if (userType === 'BUSINESS' && organization) {
+      const org = await prisma.organization.create({
+        data: {
+          name: organization.name,
+          businessNumber: organization.businessNumber || null,
+          industry: organization.industry || null,
+          employeeCount: organization.employeeCount || null,
+          address: organization.address || null,
+          contactName: organization.contactName || displayName || null,
+          contactPhone: organization.contactPhone || null,
+          contactEmail: organization.contactEmail || email,
+          subscriptionTier: 'BIZ_STANDARD',
+          maxSeats: 5,
+        },
+      });
+      organizationId = org.id;
+    }
+
+    // User 레코드 upsert
+    const user = await prisma.user.upsert({
+      where: { id: uid },
+      update: {
+        email,
+        displayName: displayName || null,
+        photoUrl: photoUrl || null,
+        userType,
+        subscriptionTier,
+        organizationId,
+        role: userType === 'BUSINESS' ? 'owner' : null,
+        onboardingCompleted: true,
+        termsAgreedAt: new Date(),
+        privacyAgreedAt: new Date(),
+      },
+      create: {
+        id: uid,
+        email,
+        displayName: displayName || null,
+        photoUrl: photoUrl || null,
+        userType,
+        subscriptionTier,
+        organizationId,
+        role: userType === 'BUSINESS' ? 'owner' : null,
+        onboardingCompleted: true,
+        termsAgreedAt: new Date(),
+        privacyAgreedAt: new Date(),
+      },
+      include: {
+        organization: true,
+      },
+    });
+
+    // Firebase Custom Claims 설정
+    await admin.auth().setCustomUserClaims(uid, {
+      userType,
+      subscriptionTier,
+      organizationId,
+      role: userType === 'BUSINESS' ? 'owner' : null,
+    });
+
+    console.log(`✅ 사용자 등록 완료: ${email} (${userType})`);
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        userType: user.userType,
+        subscriptionTier: user.subscriptionTier,
+        organizationId: user.organizationId,
+        role: user.role,
+        organization: user.organization,
+        onboardingCompleted: user.onboardingCompleted,
+      },
+    });
+  } catch (error) {
+    console.error('사용자 등록 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/users/me
+ * 현재 사용자 프로필 조회
+ */
+app.get('/api/users/me', verifyToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+
+    const user = await prisma.user.findUnique({
+      where: { id: uid },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!user) {
+      return res.json({
+        success: true,
+        data: null,
+        registered: false,
+      });
+    }
+
+    // 사용량 리셋 체크 (일/월초 기준)
+    const now = new Date();
+    let needsUpdate = false;
+    const updateData = {};
+
+    // 일일 채팅 카운트 리셋
+    if (!user.dailyChatResetAt || user.dailyChatResetAt.toDateString() !== now.toDateString()) {
+      updateData.dailyChatCount = 0;
+      updateData.dailyChatResetAt = now;
+      needsUpdate = true;
+    }
+
+    // 월간 카운트 리셋
+    if (!user.monthlyResetAt || user.monthlyResetAt.getMonth() !== now.getMonth()) {
+      updateData.monthlyDocCount = 0;
+      updateData.monthlyEvidenceCount = 0;
+      updateData.monthlyResetAt = now;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      await prisma.user.update({ where: { id: uid }, data: updateData });
+      Object.assign(user, updateData);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        photoUrl: user.photoUrl,
+        userType: user.userType,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionExpiry: user.subscriptionExpiry,
+        organizationId: user.organizationId,
+        role: user.role,
+        organization: user.organization ? {
+          id: user.organization.id,
+          name: user.organization.name,
+          businessNumber: user.organization.businessNumber,
+          industry: user.organization.industry,
+          employeeCount: user.organization.employeeCount,
+          maxSeats: user.organization.maxSeats,
+          subscriptionTier: user.organization.subscriptionTier,
+        } : null,
+        onboardingCompleted: user.onboardingCompleted,
+        usage: {
+          dailyChatCount: user.dailyChatCount,
+          monthlyDocCount: user.monthlyDocCount,
+          monthlyEvidenceCount: user.monthlyEvidenceCount,
+        },
+      },
+      registered: true,
+    });
+  } catch (error) {
+    console.error('프로필 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PATCH /api/users/me
+ * 프로필 수정
+ */
+app.patch('/api/users/me', verifyToken, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const { displayName, photoUrl } = req.body;
+
+    const updateData = {};
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
+
+    const user = await prisma.user.update({
+      where: { id: uid },
+      data: updateData,
+    });
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    console.error('프로필 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/organizations/:id
+ * 기업 정보 조회
+ */
+app.get('/api/organizations/:id', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 소속 기업만 조회 가능
+    if (req.organizationId !== id) {
+      return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id },
+      include: {
+        members: {
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            role: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!org) {
+      return res.status(404).json({ success: false, error: '기업을 찾을 수 없습니다.' });
+    }
+
+    res.json({ success: true, data: org });
+  } catch (error) {
+    console.error('기업 정보 조회 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PATCH /api/organizations/:id
+ * 기업 정보 수정 (owner/admin만)
+ */
+app.patch('/api/organizations/:id', verifyToken, requireBusiness, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.organizationId !== id) {
+      return res.status(403).json({ success: false, error: '접근 권한이 없습니다.' });
+    }
+
+    if (!['owner', 'admin'].includes(req.userRole)) {
+      return res.status(403).json({ success: false, error: '관리자 권한이 필요합니다.' });
+    }
+
+    const { name, businessNumber, industry, employeeCount, address, contactName, contactPhone, contactEmail } = req.body;
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (businessNumber !== undefined) updateData.businessNumber = businessNumber;
+    if (industry !== undefined) updateData.industry = industry;
+    if (employeeCount !== undefined) updateData.employeeCount = employeeCount;
+    if (address !== undefined) updateData.address = address;
+    if (contactName !== undefined) updateData.contactName = contactName;
+    if (contactPhone !== undefined) updateData.contactPhone = contactPhone;
+    if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
+
+    const org = await prisma.organization.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({ success: true, data: org });
+  } catch (error) {
+    console.error('기업 정보 수정 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 결제 (Payments) ====================
+
+const PAYMENT_PRODUCTS = [
+  { id: 1, name: 'PRO (월간)', price: 9900, period: 30, type: 'PRO' },
+  { id: 2, name: 'PRO (연간)', price: 99000, period: 365, type: 'PRO' },
+  { id: 3, name: 'BIZ STANDARD', price: 49000, period: 30, type: 'BIZ_STANDARD' },
+  { id: 4, name: 'BIZ PREMIUM', price: 199000, period: 30, type: 'BIZ_PREMIUM' },
+];
+
+app.get('/api/payments/store-code', (req, res) => {
+  res.json({ success: true, data: { storeCode: process.env.IMP_STORE_CODE || 'imp12345678' } });
+});
+
+app.get('/api/payments/products', (req, res) => {
+  res.json({ success: true, data: PAYMENT_PRODUCTS });
+});
+
+// 테스트 환경이므로 임시 주문 DB 역할
+const MOCK_ORDERS = [];
+
+app.post('/api/payments/prepare', verifyToken, async (req, res) => {
+  try {
+    const { productId, userId } = req.body;
+    const product = PAYMENT_PRODUCTS.find(p => p.id === productId);
+    if (!product) return res.status(404).json({ success: false, error: '상품을 찾을 수 없습니다.' });
+
+    const merchantUid = `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const storeCode = process.env.IMP_STORE_CODE || 'imp12345678';
+    
+    MOCK_ORDERS.push({ merchantUid, productId, userId, status: '주문됨' });
+
+    res.json({
+      success: true,
+      data: {
+        merchantUid,
+        amount: product.price,
+        productName: product.name,
+        storeCode
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/payments/verify', verifyToken, async (req, res) => {
+  try {
+    const { impUid, merchantUid } = req.body;
+    
+    // MVP: PG사 토큰 발급 및 실 결제 금액 대조 대신, 무조건 성공 처리
+    const order = MOCK_ORDERS.find(o => o.merchantUid === merchantUid);
+    if (!order) return res.status(404).json({ success: false, error: '결제 내역이 없습니다.' });
+    
+    const product = PAYMENT_PRODUCTS.find(p => p.id === order.productId);
+    order.status = '결제완료';
+
+    const expireDate = new Date();
+    expireDate.setDate(expireDate.getDate() + (product.period || 30));
+
+    if (product.type.startsWith('BIZ_')) {
+      // 기업 요금제 업그레이드
+      if (!req.organizationId) throw new Error('소속된 기업이 없습니다.');
+      await prisma.organization.update({
+        where: { id: req.organizationId },
+        data: {
+          subscriptionTier: product.type,
+          subscriptionExpiry: expireDate
+        }
+      });
+    } else {
+      // 개인 요금제 업그레이드
+      await prisma.user.update({
+        where: { id: req.user.uid },
+        data: {
+          subscriptionTier: product.type,
+          subscriptionExpiry: expireDate
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { orderId: merchantUid, status: '결제완료' }
+    });
+  } catch (error) {
+    console.error('결제 검증 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/payments/history', verifyToken, (req, res) => {
+  try {
+    const history = MOCK_ORDERS.filter(o => o.userId === req.user.uid).map(o => {
+      const prod = PAYMENT_PRODUCTS.find(p => p.id === o.productId);
+      return {
+        id: o.merchantUid,
+        productName: prod ? prod.name : '알 수 없음',
+        amount: prod ? prod.price : 0,
+        createdAt: new Date().toISOString(),
+        status: o.status === '결제완료' ? 'COMPLETE' : 'PENDING'
+      }
+    });
+
+    res.json({ success: true, data: history });
+  } catch(error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });

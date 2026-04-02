@@ -68,20 +68,33 @@ const Icons = {
             <line x1="15" y1="12" x2="3" y2="12" />
         </svg>
     ),
-    promo: (
+    dashboard: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.2 8.4c.5.38.8.97.8 1.6v0a2 2 0 0 1-1 1.73" />
-            <path d="M11 2a1 1 0 0 1 .96.73L17.8 18.5a1 1 0 0 1-.96 1.27H4.16a1 1 0 0 1-.96-1.27L9.04 2.73A1 1 0 0 1 10 2z" />
-            <path d="M13.6 14H7.4" />
-            <path d="M14.4 11H6.6" />
-            <path d="M15.2 8H5.8" />
+            <rect x="3" y="3" width="7" height="9" rx="1" />
+            <rect x="14" y="3" width="7" height="5" rx="1" />
+            <rect x="14" y="12" width="7" height="9" rx="1" />
+            <rect x="3" y="16" width="7" height="5" rx="1" />
+        </svg>
+    ),
+    team: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+    ),
+    settings: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
         </svg>
     ),
 };
 
 export default function AppShell({ children }: AppShellProps) {
     const pathname = usePathname();
-    const { user, logout } = useAuth();
+    const { user, logout, isBusinessUser, userProfile, subscriptionTier } = useAuth();
 
     const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
@@ -89,6 +102,16 @@ export default function AppShell({ children }: AppShellProps) {
     const displayName = user
         ? (user.displayName || user.email?.split('@')[0] || '사용자')
         : null;
+
+    // 사용자 유형에 따른 구독 배지
+    const tierBadge = (() => {
+        switch (subscriptionTier) {
+            case 'PRO': return { label: 'PRO', color: '#6366f1' };
+            case 'BIZ_STANDARD': return { label: 'BIZ', color: '#047857' };
+            case 'BIZ_PREMIUM': return { label: 'PREMIUM', color: '#b45309' };
+            default: return null;
+        }
+    })();
 
     return (
         <div className={styles.container}>
@@ -101,33 +124,68 @@ export default function AppShell({ children }: AppShellProps) {
                     <span className={styles.brandText}>노무톡톡</span>
                 </Link>
 
-                {/* Center: Navigation */}
+                {/* Center: Navigation — 사용자 유형에 따라 분기 */}
                 <nav className={styles.topNav}>
-                    <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
-                        내 사건
-                    </Link>
-                    <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
-                        핵심 쟁점
-                    </Link>
-                    <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
-                        관련 법령
-                    </Link>
-                    <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
-                        대안 제안
-                    </Link>
-                    <Link href="/follow-up" className={`${styles.navLink} ${isActive('/follow-up') ? styles.navActive : ''}`}>
-                        후속 지원
-                    </Link>
-                    <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
-                        법령 검색
-                    </Link>
-                    <Link href="/intro" className={`${styles.navLink} ${isActive('/intro') ? styles.navActive : ''}`}>
-                        소개
-                    </Link>
+                    {isBusinessUser ? (
+                        /* ── 기업 사용자 네비게이션 ── */
+                        <>
+                            <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
+                                사건 관리
+                            </Link>
+                            <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
+                                핵심 쟁점
+                            </Link>
+                            <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
+                                관련 법령
+                            </Link>
+                            <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
+                                대안 제안
+                            </Link>
+                            <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
+                                법령 검색
+                            </Link>
+                            <Link href="/biz/dashboard" className={`${styles.navLink} ${styles.navBiz} ${isActive('/biz/dashboard') ? styles.navActive : ''}`}>
+                                대시보드
+                            </Link>
+                            <Link href="/biz/team" className={`${styles.navLink} ${styles.navBiz} ${isActive('/biz/team') ? styles.navActive : ''}`}>
+                                팀
+                            </Link>
+                        </>
+                    ) : (
+                        /* ── 개인 사용자 네비게이션 ── */
+                        <>
+                            <Link href="/case-input" className={`${styles.navLink} ${isActive('/case-input') ? styles.navActive : ''}`}>
+                                내 사건
+                            </Link>
+                            <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
+                                핵심 쟁점
+                            </Link>
+                            <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
+                                관련 법령
+                            </Link>
+                            <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
+                                대안 제안
+                            </Link>
+                            <Link href="/follow-up" className={`${styles.navLink} ${isActive('/follow-up') ? styles.navActive : ''}`}>
+                                후속 지원
+                            </Link>
+                            <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
+                                법령 검색
+                            </Link>
+                            <Link href="/intro" className={`${styles.navLink} ${isActive('/intro') ? styles.navActive : ''}`}>
+                                소개
+                            </Link>
+                        </>
+                    )}
                 </nav>
 
                 {/* Right: Action Icons */}
                 <div className={styles.headerRight}>
+                    {isBusinessUser && (
+                        <Link href="/biz/settings" className={`${styles.iconBtn} ${isActive('/biz/settings') ? styles.iconBtnActive : ''}`} title="기업 설정">
+                            {Icons.settings}
+                        </Link>
+                    )}
                     <Link href="/payment" className={`${styles.iconBtn} ${isActive('/payment') ? styles.iconBtnActive : ''}`} title="결제">
                         {Icons.payment}
                     </Link>
@@ -143,6 +201,11 @@ export default function AppShell({ children }: AppShellProps) {
                         <span className={styles.authLabel}>
                             {user ? `${displayName} 님` : '로그인'}
                         </span>
+                        {tierBadge && (
+                            <span className={styles.tierBadge} style={{ background: tierBadge.color }}>
+                                {tierBadge.label}
+                            </span>
+                        )}
                     </a>
                     {user && (
                         <button className={styles.iconBtn} title="로그아웃" onClick={async () => {
@@ -222,32 +285,61 @@ export default function AppShell({ children }: AppShellProps) {
                 </footer>
             </main>
 
-            {/* ── Bottom Tabs (Mobile) ── */}
+            {/* ── Bottom Tabs (Mobile) — 사용자 유형별 분기 ── */}
             <nav className={styles.bottomTabs}>
-                <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
-                    {Icons.caseInput}
-                    <span>내 사건</span>
-                </Link>
-                <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
-                    {Icons.caseSearch}
-                    <span>쟁점</span>
-                </Link>
-                <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
-                    {Icons.laws}
-                    <span>법령</span>
-                </Link>
-                <Link href="/alternatives" className={`${styles.tabItem} ${isActive('/alternatives') ? styles.activeTab : ''}`}>
-                    {Icons.chat}
-                    <span>대안</span>
-                </Link>
-                <Link href="/follow-up" className={`${styles.tabItem} ${isActive('/follow-up') ? styles.activeTab : ''}`}>
-                    {Icons.caseInput}
-                    <span>후속</span>
-                </Link>
-                <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
-                    {Icons.laws}
-                    <span>검색</span>
-                </Link>
+                {isBusinessUser ? (
+                    /* ── 기업 모바일 탭 ── */
+                    <>
+                        <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
+                            {Icons.caseInput}
+                            <span>사건</span>
+                        </Link>
+                        <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
+                            {Icons.caseSearch}
+                            <span>쟁점</span>
+                        </Link>
+                        <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
+                            {Icons.laws}
+                            <span>법령</span>
+                        </Link>
+                        <Link href="/biz/dashboard" className={`${styles.tabItem} ${isActive('/biz/dashboard') ? styles.activeTab : ''}`}>
+                            {Icons.dashboard}
+                            <span>대시보드</span>
+                        </Link>
+                        <Link href="/biz/team" className={`${styles.tabItem} ${isActive('/biz/team') ? styles.activeTab : ''}`}>
+                            {Icons.team}
+                            <span>팀</span>
+                        </Link>
+                    </>
+                ) : (
+                    /* ── 개인 모바일 탭 ── */
+                    <>
+                        <Link href="/case-input" className={`${styles.tabItem} ${isActive('/case-input') ? styles.activeTab : ''}`}>
+                            {Icons.caseInput}
+                            <span>내 사건</span>
+                        </Link>
+                        <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
+                            {Icons.caseSearch}
+                            <span>쟁점</span>
+                        </Link>
+                        <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
+                            {Icons.laws}
+                            <span>법령</span>
+                        </Link>
+                        <Link href="/alternatives" className={`${styles.tabItem} ${isActive('/alternatives') ? styles.activeTab : ''}`}>
+                            {Icons.chat}
+                            <span>대안</span>
+                        </Link>
+                        <Link href="/follow-up" className={`${styles.tabItem} ${isActive('/follow-up') ? styles.activeTab : ''}`}>
+                            {Icons.caseInput}
+                            <span>후속</span>
+                        </Link>
+                        <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
+                            {Icons.laws}
+                            <span>검색</span>
+                        </Link>
+                    </>
+                )}
             </nav>
         </div>
     );
