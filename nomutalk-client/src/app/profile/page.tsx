@@ -42,6 +42,30 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
+                    {/* 정책 및 안내 링크 추가 */}
+                    <div className={styles.menuList} style={{ marginTop: '20px' }}>
+                        <a href="/pricing" className={styles.menuItem} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <span>💰 가격/구독 정책</span>
+                            <span className={styles.chevron}>›</span>
+                        </a>
+                        <a href="/notices" className={styles.menuItem} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <span>📢 공지사항</span>
+                            <span className={styles.chevron}>›</span>
+                        </a>
+                        <a href="/terms" className={styles.menuItem} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <span>📋 이용약관</span>
+                            <span className={styles.chevron}>›</span>
+                        </a>
+                        <a href="/privacy" className={styles.menuItem} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <span>🔒 개인정보처리방침</span>
+                            <span className={styles.chevron}>›</span>
+                        </a>
+                        <a href="/refund" className={styles.menuItem} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <span>↩️ 환불정책</span>
+                            <span className={styles.chevron}>›</span>
+                        </a>
+                    </div>
+
                     <button className={styles.logoutButton} onClick={logout}>
                         로그아웃
                     </button>

@@ -167,46 +167,171 @@ export default function PaymentPage() {
                         <div className={styles.productPrice}>₩0</div>
                         <p className={styles.productPeriod}>무기한</p>
                         <ul className={styles.featureList}>
-                            <li>기본 AI 상담</li>
-                            <li>일일 질문 5회 제한</li>
-                            <li>커뮤니티 열람</li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                기본 AI 상담 (일일 5회)
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                사건 관리 최대 3건
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                일반 모드 AI 상담
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                사건 보관 30일
+                            </li>
                         </ul>
                         <button className={styles.currentButton} disabled>
-                            현재 사용 중
+                            기본 제공 옵션
                         </button>
                     </div>
 
-                    {/* 유료 상품들 */}
-                    {products.map(product => (
-                        <div key={product.id} className={`${styles.productCard} ${styles.popularCard}`}>
-                            <div className={styles.popularBadge}>추천</div>
-                            <h3 className={styles.productTitle}>{product.name}</h3>
-                            <div className={styles.productPrice}>
-                                ₩{formatPrice(product.price)}
-                            </div>
-                            <p className={styles.productPeriod}>{product.period}일</p>
-                            <ul className={styles.featureList}>
-                                {product.features.map((f, i) => (
-                                    <li key={i}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                        {f}
-                                    </li>
-                                ))}
-                            </ul>
+                    {/* PRO 월간 */}
+                    <div className={`${styles.productCard} ${styles.popularCard}`}>
+                        <div className={styles.popularBadge}>⭐ 추천</div>
+                        <h3 className={styles.productTitle}>PRO (월간)</h3>
+                        <div className={styles.productPrice}>₩9,900</div>
+                        <p className={styles.productPeriod}>1개월</p>
+                        <ul className={styles.featureList}>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                사건/AI 상담 <strong>무제한</strong>
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                심층 분석 + 승률 예측
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                법률 서면 10건, 증거 20건
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                광고 제거 / 365일 보관
+                            </li>
+                        </ul>
+                        <button
+                            className={styles.purchaseButton}
+                            onClick={() => {
+                                const prod = products.find(p => p.name.includes('PRO') && p.period === 30) || products.find(p => p.name.includes('PRO'));
+                                if (prod) handlePurchase(prod);
+                                else alert('상품을 준비 중입니다.');
+                            }}
+                            disabled={!user || paymentStatus !== 'idle'}
+                        >
+                            {paymentStatus !== 'idle' ? '진행 중...' : '구독하기'}
+                        </button>
+                    </div>
+
+                    {/* PRO 연간 */}
+                    <div className={`${styles.productCard} ${styles.popularCard}`}>
+                        <div className={styles.popularBadge}>👑 17% 특별할인</div>
+                        <h3 className={styles.productTitle}>PRO (연간)</h3>
+                        <div className={styles.productPrice}>₩99,000</div>
+                        <p className={styles.productPeriod}>12개월 (월 8,250원)</p>
+                        <ul className={styles.featureList}>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                PRO 월간 기능 모두 포함
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                <strong>17% 특별 할인</strong> (2달치 무료)
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                연간 일시불 결제
+                            </li>
+                        </ul>
+                        <button
+                            className={styles.purchaseButton}
+                            style={{ background: '#1b64da' }}
+                            onClick={() => {
+                                const prod = products.find(p => p.period === 365 || p.name.includes('연간'));
+                                if (prod) handlePurchase(prod);
+                                else alert('상품을 준비 중입니다.');
+                            }}
+                            disabled={!user || paymentStatus !== 'idle'}
+                        >
+                            {paymentStatus !== 'idle' ? '진행 중...' : '연간 구독하기'}
+                        </button>
+                    </div>
+
+                    {/* ENTERPRISE */}
+                    <div className={styles.productCard}>
+                        <h3 className={styles.productTitle}>ENTERPRISE</h3>
+                        <div className={styles.productPrice}>별도 협의</div>
+                        <p className={styles.productPeriod}>맞춤형 사업장 규정 연동</p>
+                        <ul className={styles.featureList}>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                법률 서면/증거 무제한
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                <strong>사내 규정 및 단체협약 연동</strong>
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                기업 맞춤형 AI 모델
+                            </li>
+                            <li>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                전담 매니저 1:1 배치
+                            </li>
+                        </ul>
+                        <button
+                            className={styles.currentButton}
+                            onClick={() => alert('기업 도입은 고객센터 (070-4448-6960) 로 문의해주세요.')}
+                        >
+                            도입 문의하기
+                        </button>
+                    </div>
+                </div>
+
+                {/* 부가 서비스 */}
+                <div className={styles.historySection} style={{ marginTop: '0', marginBottom: '24px' }}>
+                    <h2>➕ 부가 서비스 추가</h2>
+                    <p style={{ fontSize: '14px', color: 'var(--toss-text-secondary)', marginBottom: '16px' }}>
+                        PRO 이상 구독 중 월 기본 제공량을 초과한 경우 이용 가능합니다.
+                    </p>
+                    <div className={styles.productGrid}>
+                        <div className={styles.productCard} style={{ padding: '24px 20px' }}>
+                            <h4 style={{ fontSize: '18px', marginBottom: '8px' }}>📜 법률 서면 1건 추가</h4>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--toss-blue)', margin: '12px 0' }}>₩1,000</div>
                             <button
                                 className={styles.purchaseButton}
-                                onClick={() => handlePurchase(product)}
-                                disabled={!user || paymentStatus === 'preparing' || paymentStatus === 'paying' || paymentStatus === 'verifying'}
+                                style={{ padding: '10px' }}
+                                onClick={() => {
+                                    const prod = products.find(p => p.name.includes('서면') || p.price === 1000);
+                                    if(prod) handlePurchase(prod);
+                                    else alert('부가서비스 상품이 등록되지 않았습니다.');
+                                }}
+                                disabled={!user || paymentStatus !== 'idle'}
                             >
-                                {paymentStatus === 'preparing' ? '준비 중...'
-                                    : paymentStatus === 'paying' ? '결제 중...'
-                                        : paymentStatus === 'verifying' ? '검증 중...'
-                                            : '구독하기'}
+                                추가 결제
                             </button>
                         </div>
-                    ))}
+                        <div className={styles.productCard} style={{ padding: '24px 20px' }}>
+                            <h4 style={{ fontSize: '18px', marginBottom: '8px' }}>📎 증거 분석 1건 추가</h4>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--toss-blue)', margin: '12px 0' }}>₩500</div>
+                            <button
+                                className={styles.purchaseButton}
+                                style={{ padding: '10px' }}
+                                onClick={() => {
+                                    const prod = products.find(p => p.name.includes('증거') || p.price === 500);
+                                    if(prod) handlePurchase(prod);
+                                    else alert('부가서비스 상품이 등록되지 않았습니다.');
+                                }}
+                                disabled={!user || paymentStatus !== 'idle'}
+                            >
+                                추가 결제
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* 결제 내역 */}
