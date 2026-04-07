@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!result.registered || !result.data?.onboardingCompleted) {
             window.location.href = '/onboarding';
         } else if (result.data?.userType === 'BUSINESS') {
-            window.location.href = '/case-input'; // 추후 /biz/dashboard로 변경
+            window.location.href = '/biz/dashboard';
         } else {
             window.location.href = '/case-input';
         }

@@ -270,6 +270,100 @@ function requireTier(minTier) {
   };
 }
 
+// ==================== 사용량 제한 시스템 ====================
+
+/**
+ * 티어별 일일 사용 한도
+ */
+const DAILY_LIMITS = {
+  FREE:          { analysis: 3,   chat: 10,  document: 1,  evidence: 1  },
+  PRO:           { analysis: 30,  chat: 100, document: 20, evidence: 20 },
+  BIZ_STANDARD:  { analysis: 100, chat: 500, document: 50, evidence: 50 },
+  BIZ_PREMIUM:   { analysis: -1,  chat: -1,  document: -1, evidence: -1 }, // -1 = 무제한
+};
+
+/**
+ * 인메모리 사용량 저장소
+ * 구조: { "userId:YYYY-MM-DD": { analysis: number, chat: number, document: number, evidence: number } }
+ */
+const usageStore = new Map();
+
+/** 오늘 날짜 키 (KST) */
+function getTodayKey(userId) {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dateStr = kst.toISOString().slice(0, 10);
+  return `${userId}:${dateStr}`;
+}
+
+/** 사용량 조회 */
+function getUsage(userId) {
+  const key = getTodayKey(userId);
+  if (!usageStore.has(key)) {
+    usageStore.set(key, { analysis: 0, chat: 0, document: 0, evidence: 0 });
+  }
+  return usageStore.get(key);
+}
+
+/** 사용량 증가 */
+function incrementUsage(userId, type) {
+  const usage = getUsage(userId);
+  usage[type] = (usage[type] || 0) + 1;
+}
+
+/**
+ * 사용량 제한 미들웨어
+ * @param {string} usageType - 'analysis' | 'chat' | 'document' | 'evidence'
+ */
+function checkUsageLimit(usageType) {
+  return (req, res, next) => {
+    const userId = req.user?.uid;
+    if (!userId) return next(); // 인증 안 된 경우 다른 미들웨어에서 처리
+
+    const tier = req.subscriptionTier || 'FREE';
+    const limits = DAILY_LIMITS[tier] || DAILY_LIMITS.FREE;
+    const limit = limits[usageType];
+
+    // -1 = 무제한
+    if (limit === -1) {
+      incrementUsage(userId, usageType);
+      return next();
+    }
+
+    const usage = getUsage(userId);
+    const current = usage[usageType] || 0;
+
+    if (current >= limit) {
+      return res.status(429).json({
+        success: false,
+        error: `일일 사용 한도를 초과했습니다. (${usageType}: ${current}/${limit})`,
+        usageType,
+        current,
+        limit,
+        tier,
+        upgradeMessage: tier === 'FREE'
+          ? 'PRO 플랜으로 업그레이드하면 더 많이 사용할 수 있습니다.'
+          : tier === 'PRO'
+            ? 'BIZ 플랜으로 업그레이드하면 더 많이 사용할 수 있습니다.'
+            : '내일 다시 시도해 주세요.',
+      });
+    }
+
+    incrementUsage(userId, usageType);
+    next();
+  };
+}
+
+// 24시간마다 오래된 사용량 데이터 정리
+setInterval(() => {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const todayStr = kst.toISOString().slice(0, 10);
+  for (const key of usageStore.keys()) {
+    if (!key.endsWith(todayStr)) {
+      usageStore.delete(key);
+    }
+  }
+}, 60 * 60 * 1000); // 매 시간 정리
+
 // RAG Agent 인스턴스 관리
 let agentInstance = null;
 let currentStoreName = null;
@@ -1437,7 +1531,7 @@ ${orgRulesContext}`;
  * 2단계: 각 쟁점별 RAG 검색 (관련 법령/판례/행정해석)
  * 3단계: Issue-centric 그래프 구조 반환
  */
-app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
+app.post('/api/labor/analyze-issues', verifyToken, checkUsageLimit('analysis'), async (req, res) => {
   try {
     const { description } = req.body;
 
@@ -1450,6 +1544,8 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
 
     console.log(`[쟁점 분석] 시작: ${description.substring(0, 50)}...`);
 
+    const userType = req.userType || 'PERSONAL';
+    const isBiz = userType === 'BUSINESS';
     let orgRulesContext = '';
     const orgId = req.organizationId;
     if (orgId) {
@@ -1473,7 +1569,44 @@ app.post('/api/labor/analyze-issues', verifyToken, async (req, res) => {
     const { GoogleGenAI } = require('@google/genai');
     const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const issueExtractionPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 근로자의 승소 가능성을 예측해주세요.
+    const issueExtractionPrompt = isBiz
+      ? `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 **사업주/인사담당자 관점**에서 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 사업주의 패소 리스크를 예측해주세요.
+
+규칙:
+- 최소 2개, 최대 5개의 핵심 쟁점을 추출하세요
+- 각 쟁점은 노동법상 실질적인 법적 쟁점이어야 합니다
+- severity는 사건에서의 중요도입니다 (high: 핵심 쟁점, medium: 주요 쟁점, low: 부수적 쟁점)
+- winRate는 사업주의 패소 리스크를 0~100 사이의 정수로 제시하세요 (높을수록 사업주에게 불리)
+- winRateReason은 해당 리스크를 판단한 구체적 근거를 1~2문장으로 설명하세요
+- favorableFactors는 사업주에게 유리한 요소 목록 (최소 1개)
+- unfavorableFactors는 사업주에게 불리한 요소 목록 (없으면 빈 배열)
+- overallWinRate는 모든 쟁점을 종합한 사업주 패소 리스크 (0~100 정수)
+- overallAssessment는 전체적인 리스크 전망을 2~3문장으로 서술하세요
+- 반드시 아래 JSON 형식으로만 응답하세요
+
+응답 형식:
+{
+  "issues": [
+    {
+      "title": "해고 절차 하자",
+      "summary": "해고 절차에서 서면통지 등 법정 요건을 충족하지 못한 하자 여부",
+      "severity": "high",
+      "searchQuery": "해고 절차 서면통지 근로기준법 제27조",
+      "winRate": 72,
+      "winRateReason": "서면통지 의무 미이행이 확인되어 사업주 패소 리스크가 72%로 판단",
+      "favorableFactors": ["징계 사유의 실질적 정당성"],
+      "unfavorableFactors": ["서면통지 절차 미이행", "노동위 진정 가능성"]
+    }
+  ],
+  "overallSummary": "이 사건의 전체적인 리스크 요약",
+  "overallWinRate": 65,
+  "overallAssessment": "절차적 하자로 인해 사업주 패소 리스크가 높으며, 합의 방안 검토가 필요합니다."
+}
+
+사건 내용:
+${description.substring(0, 3000)}
+${orgRulesContext}`
+      : `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 근로자의 승소 가능성을 예측해주세요.
 
 규칙:
 - 최소 2개, 최대 5개의 핵심 쟁점을 추출하세요
@@ -3202,13 +3335,65 @@ app.get('/api/organizations/:id/dashboard', verifyToken, requireBusiness, async 
         activeCaseCount: activeCases.length,
         resolvedCaseCount: resolvedCases.length,
         totalAiReports,
-        topCaseType
+        topCaseType,
+        // ── 고도화 데이터 ──
+        recentCases: cases.slice(0, 5).map(c => ({
+          id: c.id,
+          title: c.description?.substring(0, 50) + (c.description?.length > 50 ? '...' : ''),
+          caseType: c.caseType || '미분류',
+          currentStep: c.currentStep,
+          createdAt: c.createdAt.toISOString(),
+          overallWinRate: c.overallWinRate,
+          analysisCount: c.analysisCount,
+        })),
+        caseTypeDistribution: Object.entries(caseTypeCounts).map(([type, count]) => ({
+          name: type,
+          value: count,
+        })),
+        monthlyCaseTrend: (() => {
+          const trend = {};
+          cases.forEach(c => {
+            const month = c.createdAt.toISOString().slice(0, 7); // YYYY-MM
+            trend[month] = (trend[month] || 0) + 1;
+          });
+          return Object.entries(trend)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-6)
+            .map(([month, count]) => ({ month, count }));
+        })(),
+        totalCaseCount: cases.length,
       }
     });
   } catch (err) {
     console.error('대시보드 통계 조회 오류:', err);
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+/**
+ * 사용량 조회 API
+ * GET /api/user/usage
+ */
+app.get('/api/user/usage', verifyToken, (req, res) => {
+  const userId = req.user.uid;
+  const tier = req.subscriptionTier || 'FREE';
+  const usage = getUsage(userId);
+  const limits = DAILY_LIMITS[tier] || DAILY_LIMITS.FREE;
+
+  res.json({
+    success: true,
+    data: {
+      tier,
+      usage,
+      limits,
+      remaining: {
+        analysis: limits.analysis === -1 ? -1 : Math.max(0, limits.analysis - (usage.analysis || 0)),
+        chat: limits.chat === -1 ? -1 : Math.max(0, limits.chat - (usage.chat || 0)),
+        document: limits.document === -1 ? -1 : Math.max(0, limits.document - (usage.document || 0)),
+        evidence: limits.evidence === -1 ? -1 : Math.max(0, limits.evidence - (usage.evidence || 0)),
+      }
+    }
+  });
 });
 
 /**
@@ -3808,7 +3993,7 @@ const contextualSessions = new Map();
  * POST /api/labor/chat/contextual
  * Body: { caseDescription, issues, laws, summary }
  */
-app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
+app.post('/api/labor/chat/contextual', verifyToken, checkUsageLimit('chat'), async (req, res) => {
   try {
     const { caseDescription, issues, laws, summary, caseId, consultMode } = req.body;
 
@@ -3822,8 +4007,10 @@ app.post('/api/labor/chat/contextual', verifyToken, async (req, res) => {
     const sessionId = `ctx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const userId = req.user?.uid || 'anonymous';
     const mode = consultMode || 'general';
+    const userType = req.userType || 'PERSONAL'; // 개인/기업 관점 분기
+    const isBiz = userType === 'BUSINESS';
 
-    console.log(`[맥락 상담] 세션 생성: ${sessionId} (모드: ${mode})`);
+    console.log(`[맥락 상담] 세션 생성: ${sessionId} (모드: ${mode}, 유형: ${userType})`);
 
     // ── 시스템 프롬프트 구성 ──
     const issuesList = (issues || []).map((iss, i) => {
@@ -3863,14 +4050,29 @@ ${lawsList || '(분석된 법령 없음)'}
 ═══════════════ AI 분석 요약 ═══════════════
 ${summary || '(요약 없음)'}${insightsSection}`;
 
+    // ── 관점별 지시어 ──
+    const perspectiveDirective = isBiz
+      ? `\n\n═══════════════ 사용자 유형: 기업(사업주/인사담당자) ═══════════════\n※ 이 사용자는 **사업주 또는 인사담당자**입니다. 반드시 아래 관점으로 답변하세요:\n- 사업주/회사의 입장에서 적법한 절차와 리스크를 안내합니다.\n- "패소 리스크"와 "예상 배상 비용" 관점으로 분석합니다.\n- 합법적인 해결 방법과 절차적 하자를 미리 방지하는 조언을 합니다.\n- 사내 규정/취업규칙의 적법성 관점에서 검토합니다.\n- 용어: "리스크", "컴플라이언스", "적법 절차", "비용" 등 경영 관점 용어를 사용합니다.`
+      : `\n\n═══════════════ 사용자 유형: 개인(근로자) ═══════════════\n※ 이 사용자는 **근로자/일반인**입니다. 반드시 아래 관점으로 답변하세요:\n- 근로자의 권리 보호와 피해 구제 관점에서 안내합니다.\n- "승소 가능성"과 "받을 수 있는 보상" 관점으로 분석합니다.\n- 노동위원회 진정, 고용노동부 신고 등 구제 절차를 안내합니다.\n- 근로자에게 유리한 증거와 법적 근거를 강조합니다.\n- 용어: "권리", "구제", "보호", "보상" 등 근로자 보호 관점 용어를 사용합니다.`;
+
     // ── 모드별 전문 시스템 프롬프트 ──
     const modePrompts = {
-      prediction: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **사건 예측 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사건의 결과를 예측하고 분석합니다.\n\n${baseContext}\n\n═══════════════ 예측 전문가 규칙 ═══════════════\n1. 각 쟁점별 승소 가능성을 구체적 근거와 함께 분석합니다.\n2. "이기면?" 시나리오: 예상 복직, 금전 보상 등 구체적 결과를 제시합니다.\n3. "지면?" 시나리오: 최악의 경우와 대안을 제시합니다.\n4. 예상 소요 기간을 단계별로 안내합니다 (노동위원회, 행정소송, 민사소송 등).\n5. 유사 판례의 결과를 인용하며 예측 근거를 강화합니다.\n6. 승률에 영향을 미칠 수 있는 변수들을 설명합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.\n8. 예측은 참고용이며 법적 구속력이 없음을 안내합니다.`,
-      response: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **대응 전략 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 실질적인 행동 전략과 대응 방안을 제시합니다.\n\n${baseContext}\n\n═══════════════ 대응 전략 전문가 규칙 ═══════════════\n1. 우선순위별 액션 플랜을 제시합니다 (즉시/1주 내/1개월 내/3개월 내).\n2. 쟁점별 맞춤 대응 전략을 구체적으로 안내합니다.\n3. 노동위원회 진정, 고용노동부 신고, 소송 등 구체적인 절차를 단계별로 안내합니다.\n4. 사용자와 대화 시 주의사항 (녹음, 문서화, 서면 통보 등)을 안내합니다.\n5. 협상·조정·합의 전략도 제시합니다.\n6. 감정 관리와 직장 내 대처 방법도 포함합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
-      evidence: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **증거 분석 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 증거 수집과 증거력 분석을 전문적으로 수행합니다.\n\n${baseContext}\n\n═══════════════ 증거 분석 전문가 규칙 ═══════════════\n1. 쟁점별 필요 증거 체크리스트를 구체적으로 제시합니다.\n2. 각 증거의 증거력 등급을 평가합니다 (핵심 증거/보조 증거/참고 자료).\n3. 증거 확보 방법과 적법한 수집 절차를 안내합니다.\n4. 디지털 증거(카톡, 이메일, 녹음)의 법적 유효성을 설명합니다.\n5. 증거 보전 방법과 시효를 안내합니다.\n6. "이 증거가 있으면 승률이 어떻게 변하는지" 분석합니다.\n7. 증거가 부족한 경우 대안적 입증 방법을 제시합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
-      compensation: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **보상금 산정 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 예상 보상금과 청구 가능 금액을 산정합니다.\n\n${baseContext}\n\n═══════════════ 보상금 산정 전문가 규칙 ═══════════════\n1. 체불임금, 퇴직금, 연차수당 등 법정 청구 항목별 예상 금액을 산정합니다.\n2. 부당해고 시 복직 + 임금상당액(해고기간 중 임금)을 계산합니다.\n3. 지연이자(근로기준법 제37조, 14.6% 연이율)를 포함한 총 청구액을 안내합니다.\n4. 합의금 협상 시 적정 범위를 제시합니다 (최소/적정/최대).\n5. 산정에 필요한 정보(월급, 근속기간, 근무시간 등)를 구체적으로 질문합니다.\n6. 세금·공제 등 실수령액 관련 사항도 안내합니다.\n7. 관련 법령 조항을 인용하며 산정 근거를 명확히 합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
-      document: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **법률 서면 작성 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 법률 서면 작성을 도와줍니다.\n\n${baseContext}\n\n═══════════════ 법률 서면 작성 전문가 규칙 ═══════════════\n1. 진정서, 탄원서, 답변서, 이의신청서, 재심신청서, 증거설명서 등을 작성합니다.\n2. 사건 내용과 분석된 쟁점/법령을 기반으로 실전 서면을 생성합니다.\n3. 법률 서면 형식과 필수 기재사항을 정확히 포함합니다.\n4. 개인정보(이름, 주소, 전화번호)는 빈칸(_____)으로 표시합니다.\n5. 사용자가 원하는 서면 유형을 먼저 파악한 후 작성합니다.\n6. 작성 후 수정이 필요한 부분을 안내합니다.\n7. 한국어로 작성하며, 법률 용어는 괄호 안에 쉬운 설명을 추가합니다.\n8. 마크다운 형식으로 서면을 정리합니다.`,
-      general: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"입니다.\n\n아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.\n이 맥락을 완전히 이해한 상태에서 상담을 진행하세요.\n\n${baseContext}\n\n═══════════════ 상담 규칙 ═══════════════\n1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.\n2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.\n3. 사용자의 권리와 의무를 명확히 설명합니다.\n4. 실질적인 대응 방안과 절차를 안내합니다.\n5. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.\n6. 한국어로 친절하고 이해하기 쉽게 답변합니다.\n7. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`
+      prediction: isBiz
+        ? `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **리스크 예측 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사업주 관점의 리스크를 예측하고 분석합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 리스크 예측 규칙 ═══════════════\n1. 각 쟁점별 사업주의 **패소 리스크**를 구체적 근거와 함께 분석합니다.\n2. "패소 시" 시나리오: 예상 배상액, 복직명령 등 사업주가 부담할 구체적 비용을 제시합니다.\n3. "승소 시" 시나리오: 절차적 정당성 확보 방법을 제시합니다.\n4. 노동위원회, 행정소송 등 단계별 예상 기간과 비용을 안내합니다.\n5. 유사 판례에서 사업주의 패소 사례를 인용하며 리스크 근거를 강화합니다.\n6. 리스크를 줄이기 위한 사전 조치를 제안합니다.\n7. 한국어로 전문적이면서도 이해하기 쉽게, 마크다운 형식으로 답변합니다.\n8. 예측은 참고용이며 법적 구속력이 없음을 안내합니다.`
+        : `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **사건 예측 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사건의 결과를 예측하고 분석합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 예측 전문가 규칙 ═══════════════\n1. 각 쟁점별 승소 가능성을 구체적 근거와 함께 분석합니다.\n2. "이기면?" 시나리오: 예상 복직, 금전 보상 등 구체적 결과를 제시합니다.\n3. "지면?" 시나리오: 최악의 경우와 대안을 제시합니다.\n4. 예상 소요 기간을 단계별로 안내합니다 (노동위원회, 행정소송, 민사소송 등).\n5. 유사 판례의 결과를 인용하며 예측 근거를 강화합니다.\n6. 승률에 영향을 미칠 수 있는 변수들을 설명합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.\n8. 예측은 참고용이며 법적 구속력이 없음을 안내합니다.`,
+      response: isBiz
+        ? `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **리스크 대응 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사업주의 합법적인 대응 방안을 제시합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 리스크 대응 규칙 ═══════════════\n1. 우선순위별 액션 플랜을 제시합니다 (즉시/1주 내/1개월 내).\n2. 절차적 하자를 보완할 수 있는 구체적 방법을 안내합니다.\n3. 합의·조정 전략과 적정 합의금 범위를 제시합니다.\n4. 노동위원회/법원 대응 시 준비해야 할 서류와 증거를 안내합니다.\n5. 향후 유사 사건 재발 방지를 위한 제도 개선안을 제안합니다.\n6. 사내 규정 보완/취업규칙 변경 등 예방 조치를 포함합니다.\n7. 한국어로 전문적이면서도 이해하기 쉽게, 마크다운 형식으로 답변합니다.`
+        : `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **대응 전략 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 실질적인 행동 전략과 대응 방안을 제시합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 대응 전략 전문가 규칙 ═══════════════\n1. 우선순위별 액션 플랜을 제시합니다 (즉시/1주 내/1개월 내/3개월 내).\n2. 쟁점별 맞춤 대응 전략을 구체적으로 안내합니다.\n3. 노동위원회 진정, 고용노동부 신고, 소송 등 구체적인 절차를 단계별로 안내합니다.\n4. 사용자와 대화 시 주의사항 (녹음, 문서화, 서면 통보 등)을 안내합니다.\n5. 협상·조정·합의 전략도 제시합니다.\n6. 감정 관리와 직장 내 대처 방법도 포함합니다.\n7. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      evidence: `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **증거 분석 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 증거 수집과 증거력 분석을 전문적으로 수행합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 증거 분석 전문가 규칙 ═══════════════\n1. 쟁점별 필요 증거 체크리스트를 구체적으로 제시합니다.\n2. 각 증거의 증거력 등급을 평가합니다 (핵심 증거/보조 증거/참고 자료).\n3. 증거 확보 방법과 적법한 수집 절차를 안내합니다.\n4. 디지털 증거(카톡, 이메일, 녹음)의 법적 유효성을 설명합니다.\n5. 증거 보전 방법과 시효를 안내합니다.\n6. "이 증거가 있으면 승률이 어떻게 변하는지" 분석합니다.\n7. 증거가 부족한 경우 대안적 입증 방법을 제시합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      compensation: isBiz
+        ? `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **비용 산정 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사업주가 부담해야 할 비용과 리스크 금액을 산정합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 비용 산정 규칙 ═══════════════\n1. 체불임금, 퇴직금, 연차수당 등 사업주가 지급해야 할 항목별 금액을 산정합니다.\n2. 부당해고 시 복직 + 임금상당액 등 사업주 부담 비용을 계산합니다.\n3. 지연이자(근로기준법 제37조, 14.6% 연이율)를 포함한 총 부담액을 안내합니다.\n4. 합의금 협상 시 적정 범위를 제시합니다 (최소/적정/최대).\n5. 소송 비용, 변호사 비용 등 부대비용도 안내합니다.\n6. 세금/4대보험 등 사업주 부담 사항도 안내합니다.\n7. 관련 법령 조항을 인용하며 산정 근거를 명확히 합니다.\n8. 한국어로 전문적이면서도 이해하기 쉽게, 마크다운 형식으로 답변합니다.`
+        : `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **보상금 산정 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 예상 보상금과 청구 가능 금액을 산정합니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 보상금 산정 전문가 규칙 ═══════════════\n1. 체불임금, 퇴직금, 연차수당 등 법정 청구 항목별 예상 금액을 산정합니다.\n2. 부당해고 시 복직 + 임금상당액(해고기간 중 임금)을 계산합니다.\n3. 지연이자(근로기준법 제37조, 14.6% 연이율)를 포함한 총 청구액을 안내합니다.\n4. 합의금 협상 시 적정 범위를 제시합니다 (최소/적정/최대).\n5. 산정에 필요한 정보(월급, 근속기간, 근무시간 등)를 구체적으로 질문합니다.\n6. 세금·공제 등 실수령액 관련 사항도 안내합니다.\n7. 관련 법령 조항을 인용하며 산정 근거를 명확히 합니다.\n8. 한국어로 친절하고 이해하기 쉽게, 마크다운 형식으로 답변합니다.`,
+      document: isBiz
+        ? `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **법률 서면 작성 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 사업주 측 법률 서면 작성을 도와줍니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 법률 서면 작성 규칙 (사업주용) ═══════════════\n1. 경위서, 소명서, 답변서, 징계위원회 의결서, 해고통지서 등 사업주용 서면을 작성합니다.\n2. 사건 내용과 분석된 쟁점/법령을 기반으로 적법한 서면을 생성합니다.\n3. 법률 서면 형식과 필수 기재사항을 정확히 포함합니다.\n4. 절차적 정당성을 확보할 수 있는 내용으로 작성합니다.\n5. 사용자가 원하는 서면 유형을 먼저 파악한 후 작성합니다.\n6. 작성 후 법적 검토가 필요한 부분을 안내합니다.\n7. 한국어로 작성하며, 법률 용어는 괄호 안에 쉬운 설명을 추가합니다.\n8. 마크다운 형식으로 서면을 정리합니다.`
+        : `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"의 **법률 서면 작성 전문가**입니다.\n\n아래 사건 맥락을 완전히 이해한 상태에서, 법률 서면 작성을 도와줍니다.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 법률 서면 작성 전문가 규칙 ═══════════════\n1. 진정서, 탄원서, 답변서, 이의신청서, 재심신청서, 증거설명서 등을 작성합니다.\n2. 사건 내용과 분석된 쟁점/법령을 기반으로 실전 서면을 생성합니다.\n3. 법률 서면 형식과 필수 기재사항을 정확히 포함합니다.\n4. 개인정보(이름, 주소, 전화번호)는 빈칸(_____)으로 표시합니다.\n5. 사용자가 원하는 서면 유형을 먼저 파악한 후 작성합니다.\n6. 작성 후 수정이 필요한 부분을 안내합니다.\n7. 한국어로 작성하며, 법률 용어는 괄호 안에 쉬운 설명을 추가합니다.\n8. 마크다운 형식으로 서면을 정리합니다.`,
+      general: isBiz
+        ? `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"입니다.\n\n아래는 기업 사용자의 노무 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.\n이 맥락을 완전히 이해한 상태에서 사업주/인사담당자를 위한 상담을 진행하세요.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 기업 상담 규칙 ═══════════════\n1. 사업주/회사의 입장에서 적법한 절차와 리스크를 안내합니다.\n2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.\n3. 사업주의 의무와 합법적 권한을 명확히 설명합니다.\n4. 절차적 하자 방지, 분쟁 예방을 위한 실질적 대응 방안을 안내합니다.\n5. 사내 규정·취업규칙 관점에서의 검토 의견을 포함합니다.\n6. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.\n7. 한국어로 전문적이면서도 이해하기 쉽게 답변합니다.\n8. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`
+        : `당신은 한국 노동법 전문 AI 상담사 "노무톡톡"입니다.\n\n아래는 사용자의 사건과 이미 분석된 핵심 쟁점, 관련 법령/판례입니다.\n이 맥락을 완전히 이해한 상태에서 상담을 진행하세요.\n\n${baseContext}${perspectiveDirective}\n\n═══════════════ 상담 규칙 ═══════════════\n1. 위 사건의 맥락을 기반으로 전문적이고 구체적인 상담을 제공합니다.\n2. 관련 법령 조항과 판례를 구체적으로 인용하며 답변합니다.\n3. 사용자의 권리와 의무를 명확히 설명합니다.\n4. 실질적인 대응 방안과 절차를 안내합니다.\n5. 법적 조언의 한계를 인지하고, 복잡한 사안은 전문가 상담을 권합니다.\n6. 한국어로 친절하고 이해하기 쉽게 답변합니다.\n7. 답변 시 마크다운 형식을 활용합니다 (**굵은 글씨**, *기울임*, 번호 목록 등).`
     };
 
     const systemPrompt = modePrompts[mode] || modePrompts.general;
@@ -3942,7 +4144,7 @@ ${summary || '(요약 없음)'}${insightsSection}`;
  * POST /api/labor/chat/message
  * Body: { sessionId, message }
  */
-app.post('/api/labor/chat/message', verifyToken, async (req, res) => {
+app.post('/api/labor/chat/message', verifyToken, checkUsageLimit('chat'), async (req, res) => {
   try {
     const { sessionId, message } = req.body;
 

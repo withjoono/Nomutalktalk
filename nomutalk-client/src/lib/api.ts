@@ -1188,6 +1188,18 @@ export interface BizDashboardStats {
     resolvedCaseCount: number;
     totalAiReports: number;
     topCaseType: string;
+    totalCaseCount: number;
+    recentCases: {
+        id: string;
+        title: string;
+        caseType: string;
+        currentStep: number;
+        createdAt: string;
+        overallWinRate: number | null;
+        analysisCount: number;
+    }[];
+    caseTypeDistribution: { name: string; value: number }[];
+    monthlyCaseTrend: { month: string; count: number }[];
 }
 
 /**
@@ -1197,6 +1209,22 @@ export async function fetchBizDashboardStats(orgId: string): Promise<BizDashboar
     const response = await fetchWithAuth(`${API_BASE_URL}/api/organizations/${orgId}/dashboard`);
     const result = await response.json();
     if (!result.success) throw new Error(result.error || '대시보드 통계 조회 실패');
+    return result.data;
+}
+
+/** 사용량 정보 */
+export interface UsageInfo {
+    tier: string;
+    usage: { analysis: number; chat: number; document: number; evidence: number };
+    limits: { analysis: number; chat: number; document: number; evidence: number };
+    remaining: { analysis: number; chat: number; document: number; evidence: number };
+}
+
+/** 사용량 조회 */
+export async function fetchUsage(): Promise<UsageInfo> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/user/usage`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '사용량 조회 실패');
     return result.data;
 }
 

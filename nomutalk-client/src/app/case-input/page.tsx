@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 import StepNav from '@/components/layout/StepNav';
 import CaseDetailPanel from '@/components/case/CaseDetailPanel';
-import { DOMAIN_CASE_TYPES } from '@/components/case/DomainSelector';
+import { getCaseTypesForUser } from '@/components/case/DomainSelector';
 import styles from './page.module.css';
 
 
@@ -18,7 +18,7 @@ const STEP_LABELS = ['입력', '쟁점', '법령', '대안', '후속'];
 
 export default function CaseInputPage() {
     const { state, startNewCase, loadCase, resetFlow, reanalyze, updateDescription, goToStep } = useCaseFlow();
-    const { user } = useAuth();
+    const { user, userProfile, isBusinessUser } = useAuth();
     const [caseType, setCaseType] = useState('');
     const legalDomain = 'labor';
     const [caseDescription, setCaseDescription] = useState('');
@@ -116,9 +116,9 @@ export default function CaseInputPage() {
 
         return (
             <div className={styles.container}>
-                <div className="page-hero hero-indigo">
-                    <h1>🩺 내 사건</h1>
-                    <p>사건을 보충하고 AI가 자동 재분석합니다.</p>
+                <div className={`page-hero ${isBusinessUser ? 'hero-emerald' : 'hero-indigo'}`}>
+                    <h1>{isBusinessUser ? '🏢 사내 노무 사건' : '🩺 내 사건'}</h1>
+                    <p>{isBusinessUser ? '사건을 보충하고 AI가 리스크를 재분석합니다.' : '사건을 보충하고 AI가 자동 재분석합니다.'}</p>
                 </div>
 
                 {/* ── 사건 요약 카드 ── */}
@@ -279,9 +279,11 @@ export default function CaseInputPage() {
     // ═══════ 입력 뷰 (새 사건 / 사건 미로드) ═══════
     return (
         <div className={styles.container}>
-            <div className="page-hero hero-indigo">
-                <h1>🩺 내 사건</h1>
-                <p>새 사건을 입력하거나, 이전 분석 내역을 클릭해 상세 이력을 확인하세요.</p>
+            <div className={`page-hero ${isBusinessUser ? 'hero-emerald' : 'hero-indigo'}`}>
+                <h1>{isBusinessUser ? '🏢 사내 노무 관리' : '🩺 내 사건'}</h1>
+                <p>{isBusinessUser
+                    ? '새 노무 사건을 등록하거나, 이전 사건의 진행 상황을 확인하세요.'
+                    : '새 사건을 입력하거나, 이전 분석 내역을 클릭해 상세 이력을 확인하세요.'}</p>
             </div>
 
             {/* ═══ 섹션 1: 이전 사건 목록 ═══ */}
@@ -356,7 +358,7 @@ export default function CaseInputPage() {
                 <div className={styles.formGroup}>
                     <label className={styles.formLabel}>사건 유형</label>
                     <select className={styles.select} value={caseType} onChange={(e) => setCaseType(e.target.value)}>
-                        {(DOMAIN_CASE_TYPES[legalDomain] || DOMAIN_CASE_TYPES.labor).map((t) => (
+                        {getCaseTypesForUser(userProfile?.userType, legalDomain).map((t) => (
                             <option key={t.value} value={t.value}>{t.label}</option>
                         ))}
                     </select>
@@ -368,7 +370,9 @@ export default function CaseInputPage() {
                         className={styles.textarea}
                         value={caseDescription}
                         onChange={(e) => setCaseDescription(e.target.value)}
-                        placeholder={"사건 내용을 상세히 작성해주세요.\n\n예시:\n- 근무 기간, 사업장 규모\n- 어떤 일이 발생했는지\n- 현재 상황 및 원하는 결과"}
+                        placeholder={isBusinessUser
+                            ? "사건 내용을 상세히 작성해주세요.\n\n예시:\n- 해당 직원의 근속기간, 직급\n- 사건 경위 (해고/징계 사유, 규정 위반 내용)\n- 이미 취한 조치 및 원하는 결과"
+                            : "사건 내용을 상세히 작성해주세요.\n\n예시:\n- 근무 기간, 사업장 규모\n- 어떤 일이 발생했는지\n- 현재 상황 및 원하는 결과"}
                         rows={8}
                     />
                     <span className={styles.charCount}>{caseDescription.length}자</span>
@@ -379,7 +383,7 @@ export default function CaseInputPage() {
                     onClick={handleStart}
                     disabled={!caseDescription.trim() || state.isAnalyzing}
                 >
-                    {state.isAnalyzing ? '사건 등록 중...' : '🔥 분석 시작 → 핵심 쟁점으로'}
+                    {state.isAnalyzing ? '사건 등록 중...' : isBusinessUser ? '🔥 리스크 분석 시작' : '🔥 분석 시작 → 핵심 쟁점으로'}
                 </button>
 
                 {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
