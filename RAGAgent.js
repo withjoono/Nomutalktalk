@@ -1,6 +1,7 @@
 const FileSearchManager = require('./FileSearchManager');
 const fs = require('fs');
 const path = require('path');
+const LawVerificationService = require('./services/LawVerificationService');
 
 /**
  * Google File Search RAG (Retrieval-Augmented Generation) Agent
@@ -826,6 +827,19 @@ class RAGAgent {
 
     const model = options.model || this.model;
     const answer = await this.manager.search(enhancedQuery, this.storeName, model);
+
+    // AI 환각(Hallucination) 검증
+    if (answer && answer.text) {
+      console.log(`🔍 [LawVerificationService] 생성된 답변의 판례 존재 여부 검증 시작...`);
+      const hallucinations = await LawVerificationService.checkHallucinations(answer.text);
+      if (hallucinations.length > 0) {
+        console.warn(`⚠️  환각 의심 판례 발견: ${hallucinations.join(', ')}`);
+        const warningMessage = `\n\n> ⚠️ **[AI 검증 알림]**\n> 위 답변에 인용된 판례 중 다음 판례 번호는 국가법령정보센터 검색 결과 존재하지 않는 판례(Open API 검증 실패)로 확인되었습니다. AI 환각(Hallucination)일 가능성이 높으므로 실무 적용 전 반드시 교차 확인하시기 바랍니다.\n> - 의심 판례: **${hallucinations.join(', ')}**`;
+        answer.text += warningMessage;
+        // 메타데이터에도 환각 정보 추가
+        answer.hallucinations = hallucinations;
+      }
+    }
 
     console.log(`✓ 노무 답변 생성 완료`);
     return answer;

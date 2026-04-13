@@ -232,7 +232,19 @@ async function verifyToken(req, res, next) {
     next();
   } catch (error) {
     console.error('Token verification error:', error.message);
-    res.status(401).json({ success: false, error: '유효하지 않은 토큰입니다.' });
+    
+    // Provide a more user-friendly error message based on the error type
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({ 
+        success: false, 
+        error: '보안을 위해 세션이 만료되었습니다. 안전한 이용을 위해 페이지를 새로고침(F5)하거나 다시 로그인해 주세요.' 
+      });
+    }
+    
+    res.status(401).json({ 
+      success: false, 
+      error: '인증 정보가 유효하지 않습니다. 다시 로그인해 주세요.' 
+    });
   }
 }
 
