@@ -799,6 +799,7 @@ class RAGAgent {
    * @param {boolean} options.includeCases - 판례 포함 여부 (기본: true)
    * @param {boolean} options.includeInterpretations - 행정해석 포함 여부 (기본: true)
    * @param {string} options.model - 사용할 모델
+   * @param {boolean} options.skipLegalContext - 공식 법적 근거 수집 생략 여부 (기본: false)
    * @returns {Promise<string>} 구조화된 답변
    */
   async askLabor(query, options = {}) {
@@ -818,19 +819,34 @@ class RAGAgent {
     console.log(`🔍 노무 질의 처리: "${query.substring(0, 50)}..."`);
     console.log(`   카테고리: ${category}`);
 
-    // 노무 전문가 프롬프트 적용
+    // ====== Lv.2: 공식 법적 근거 사전 수집 (Pre-fetch RAG) ======
+    let officialLegalContext = '';
+    if (!options.skipLegalContext) {
+      try {
+        const legalData = await LawVerificationService.gatherLegalContext(query);
+        officialLegalContext = legalData.contextText || '';
+        if (officialLegalContext) {
+          console.log(`📚 공식 법적 근거 ${officialLegalContext.length}자 프롬프트에 주입`);
+        }
+      } catch (err) {
+        console.warn('⚠️  법적 근거 수집 실패 (계속 진행):', err.message);
+      }
+    }
+
+    // 노무 전문가 프롬프트 적용 (공식 근거 포함)
     const enhancedQuery = this.buildLaborPrompt(query, {
       category,
       includeCases,
-      includeInterpretations
+      includeInterpretations,
+      officialLegalContext
     });
 
     const model = options.model || this.model;
     const answer = await this.manager.search(enhancedQuery, this.storeName, model);
 
-    // AI 환각(Hallucination) 검증
+    // ====== Lv.1: AI 환각(Hallucination) 사후 검증 ======
     if (answer && answer.text) {
-      console.log(`🔍 [LawVerificationService] 생성된 답변의 판례 존재 여부 검증 시작...`);
+      console.log(`🔍 [LawOpenAPI] 생성된 답변의 판례 존재 여부 검증 시작...`);
       const hallucinations = await LawVerificationService.checkHallucinations(answer.text);
       if (hallucinations.length > 0) {
         console.warn(`⚠️  환각 의심 판례 발견: ${hallucinations.join(', ')}`);
@@ -1019,7 +1035,7 @@ ${lawName} ${article}에 대해 다음 사항을 상세히 설명해주세요:
    * @returns {string} 향상된 프롬프트
    */
   buildLaborPrompt(query, options = {}) {
-    const { category, includeCases, includeInterpretations } = options;
+    const { category, includeCases, includeInterpretations, officialLegalContext } = options;
 
     const systemPrompt = `당신은 대한민국 노동법 전문가입니다. 다음 원칙을 준수하여 답변하세요:
 
@@ -1030,6 +1046,7 @@ ${lawName} ${article}에 대해 다음 사항을 상세히 설명해주세요:
 4. 구조화: 명확한 구조로 답변
 5. 한계 인정: 확실하지 않은 경우 명시
 6. 최신성: 법령 개정 가능성 안내
+${officialLegalContext ? '7. 공식 근거 우선: 아래 제공되는 [공식 법적 근거]에 포함된 법령·판례·행정해석만 인용하세요. 공식 근거에 없는 법조문 번호나 판례번호를 임의로 생성하지 마세요.' : ''}
 
 【답변 구조】
 💡 결론
@@ -1048,14 +1065,16 @@ ${includeInterpretations ? '\n📋 행정해석\n[관련 행정해석 또는 지
 
 ---`;
 
-    return `${systemPrompt}
+    const legalContextSection = officialLegalContext || '';
 
+    return `${systemPrompt}
+${legalContextSection}
 【질문 카테고리】 ${category}
 
 【질문 내용】
 ${query}
 
-위 질문에 대해 구조화된 형식으로 상세히 답변해주세요.`;
+위 질문에 대해 구조화된 형식으로 상세히 답변해주세요.${officialLegalContext ? ' 반드시 위에 제공된 [공식 법적 근거]를 우선 활용하여 답변하세요.' : ''}`;
   }
 
   /**
