@@ -14,3 +14,7 @@ env_variables:
 
 beta_settings:
   cloud_sql_instances: "nomutalk-889bd:asia-northeast3:nomutalk-db"
+
+vpc_access_connector:
+  name: "projects/nomutalk-889bd/locations/asia-northeast3/connectors/nomutalk-connector"
+  egress_setting: all-traffic
