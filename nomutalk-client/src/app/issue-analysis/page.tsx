@@ -166,7 +166,7 @@ export default function IssueAnalysisPage() {
                     <p style={{ margin: 0 }}>AI가 사건의 핵심 쟁점을 식별하고 법적 근거를 분석합니다.</p>
                 </div>
                 <button
-                    onClick={() => window.print()}
+                    onClick={() => router.push('/report')}
                     style={{
                         padding: '8px 16px', borderRadius: '10px', border: '1px solid currentColor',
                         background: 'rgba(255,255,255,0.2)', color: 'inherit', cursor: 'pointer',
@@ -174,7 +174,7 @@ export default function IssueAnalysisPage() {
                     }}
                     className="no-print"
                 >
-                    📄 PDF 다운로드
+                    🖨️ 전체 리포트 PDF
                 </button>
             </div>
 
@@ -429,9 +429,9 @@ export default function IssueAnalysisPage() {
                                     v{state.buildMeta.analysisCount}
                                 </span>
                             )}
-                            <button className={`${styles.resetBtn} no-print`} onClick={() => window.print()}
+                            <button className={`${styles.resetBtn} no-print`} onClick={() => router.push('/report')}
                                 style={{ background: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db', cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
-                                🖨️ PDF 리포트
+                                🖨️ 전체 리포트 PDF
                             </button>
                             <button className={`${styles.resetBtn} no-print`} onClick={handleReanalyze} disabled={state.isReanalyzing}
                                 style={{ background: 'linear-gradient(135deg,#3b82f6,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}>

@@ -239,6 +239,7 @@ export interface SufficiencyResult {
     sufficient: boolean;
     intent: RequestIntent;
     intentReason?: string;
+    confidence: number;
     message: string;
     confidenceNote?: string;
     questions: SufficiencyQuestion[];
@@ -291,6 +292,43 @@ export async function fetchQuickAssist(description: string, intent: RequestInten
     return data.data;
 }
 
+// ==================== Conversational Question API ====================
+
+export interface ConversationMessage {
+    role: 'assistant' | 'user';
+    content: string;
+}
+
+export interface NextQuestionResult {
+    sufficient: boolean;
+    question: string | null;
+    placeholder: string;
+    reason: string;
+    gathered: string;
+}
+
+/**
+ * 대화형 단계별 질문 — 하나씩 물어보기
+ */
+export async function fetchNextQuestion(
+    description: string,
+    conversation: ConversationMessage[],
+    caseType?: string
+): Promise<NextQuestionResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/next-question`, {
+        method: 'POST',
+        body: JSON.stringify({ description, conversation, caseType })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '질문 생성 실패');
+    }
+
+    return data.data;
+}
+
 /**
  * 핵심 쟁점 분석 (사건 → 쟁점 → 관련 법령/판례)
  */
@@ -304,6 +342,44 @@ export async function analyzeIssues(description: string): Promise<IssueAnalysisR
 
     if (!data.success) {
         throw new Error(data.error || '쟁점 분석 실패');
+    }
+
+    return data.data;
+}
+
+// ==================== Citation Verification API ====================
+
+export interface VerifyCitationItem {
+    title: string;
+    type: string;
+    detail?: string;
+}
+
+export interface VerifiedCitation extends VerifyCitationItem {
+    verifyStatus: 'verified' | 'corrected' | 'similar_found' | 'content_only' | 'error' | 'skipped';
+    verified: boolean;
+    correctedTitle?: string | null;
+    matchedCase?: { caseNo: string; caseName: string; courtName: string; judgementDate: string } | null;
+}
+
+export interface VerifyCitationsResult {
+    results: VerifiedCitation[];
+    stats: { verified: number; corrected: number; similarFound: number; contentOnly: number };
+}
+
+/**
+ * 법령/판례 인용 딥 검증 (백그라운드 호출)
+ */
+export async function verifyCitations(citations: VerifyCitationItem[]): Promise<VerifyCitationsResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/verify-citations`, {
+        method: 'POST',
+        body: JSON.stringify({ citations })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '인용 검증 실패');
     }
 
     return data.data;

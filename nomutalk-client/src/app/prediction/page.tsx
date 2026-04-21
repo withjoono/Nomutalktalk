@@ -40,9 +40,22 @@ export default function PredictionPage() {
 
     return (
         <div className={styles.page}>
-            <div className="page-hero hero-blue">
-                <h1>📊 예상 결과</h1>
-                <p>AI가 유사 판례와 법률을 분석하여 예상 결과를 제시합니다.</p>
+            <div className="page-hero hero-blue" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h1 style={{ margin: '0 0 6px' }}>📊 예상 결과</h1>
+                    <p style={{ margin: 0 }}>AI가 유사 판례와 법률을 분석하여 예상 결과를 제시합니다.</p>
+                </div>
+                <button
+                    onClick={() => router.push('/report')}
+                    style={{
+                        padding: '8px 16px', borderRadius: '10px', border: '1px solid currentColor',
+                        background: 'rgba(255,255,255,0.2)', color: 'inherit', cursor: 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px'
+                    }}
+                    className="no-print"
+                >
+                    🖨️ 전체 리포트 PDF
+                </button>
             </div>
 
             {/* ═══ 종합 판정 ═══ */}

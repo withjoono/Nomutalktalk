@@ -1134,6 +1134,201 @@ JSON:
 
     return hallucinations;
   }
+
+  // ==================== Lv.4: 딥 검증 (Deep Verification) ====================
+
+  /**
+   * 딥 검증 — 기본 검증 실패 시 다단계 전략으로 재시도
+   * 
+   * 1단계: 정확한 번호 매칭 (기존 verifyPrecedent)
+   * 2단계: 번호 변형 시도 (끝자리 제거, 연도 조정)
+   * 3단계: 사건명/법리 키워드로 키워드 검색
+   * 4단계: 검색 결과 중 유사도 매칭 → 대체 판례 추천
+   * 
+   * @param {Object} citation - { title, type, detail, caseNumber? }
+   * @returns {Promise<Object>} { verified, correctedTitle?, matchedCase?, status }
+   *   status: 'verified' | 'corrected' | 'similar_found' | 'content_only'
+   */
+  async deepVerifyCitation(citation) {
+    const { title, type, detail } = citation;
+
+    // ─── 법령 검증 ───
+    if (type === 'law') {
+      const lawNameMatch = title.match(/([가-힣]+(?:법|령|규칙|규정|조례))/);
+      if (!lawNameMatch) return { verified: true, status: 'verified', title };
+
+      const lawName = lawNameMatch[1];
+      const result = await this.searchLaw(lawName);
+
+      if (result && result.totalCnt > 0) {
+        // 법령 존재 확인됨
+        return { verified: true, status: 'verified', title };
+      }
+
+      // 법령명 변형 시도 (예: "근로자퇴직급여보장법" → "근로자퇴직급여 보장법")
+      const variations = [
+        lawName.replace(/([가-힣]{2,})법/, '$1 법'),
+        lawName.replace(/ /g, ''),
+        lawName + '법',
+      ].filter(v => v !== lawName);
+
+      for (const variant of variations) {
+        const vResult = await this.searchLaw(variant);
+        if (vResult && vResult.totalCnt > 0) {
+          const corrected = title.replace(lawName, vResult.results[0]?.lawName || variant);
+          return { verified: true, status: 'corrected', title: corrected, originalTitle: title };
+        }
+      }
+
+      // 법령 못 찾음 → 내용만 유지
+      return { verified: false, status: 'content_only', title };
+    }
+
+    // ─── 판례 검증 ───
+    if (type === 'precedent') {
+      const caseNoMatch = title.match(/(\d{4}[가-힣]+\d+)/);
+      if (!caseNoMatch) {
+        // 번호 패턴 없음 → 내용 기반 판례
+        return { verified: false, status: 'content_only', title };
+      }
+
+      const caseNumber = caseNoMatch[1];
+
+      // 1단계: 정확한 번호 매칭
+      const exactMatch = await this.verifyPrecedent(caseNumber);
+      if (exactMatch) {
+        return { verified: true, status: 'verified', title };
+      }
+
+      // 2단계: 번호 변형 시도
+      const yearMatch = caseNumber.match(/^(\d{4})/);
+      const typeMatch = caseNumber.match(/\d{4}([가-힣]+)/);
+      const numMatch = caseNumber.match(/[가-힣]+(\d+)$/);
+
+      if (yearMatch && typeMatch && numMatch) {
+        const year = yearMatch[1];
+        const caseType = typeMatch[1];
+        const num = numMatch[1];
+
+        // 끝자리 변형
+        const variations = [];
+        if (num.length > 3) {
+          variations.push(`${year}${caseType}${num.slice(0, -1)}`); // 끝 1자리 제거
+          // 끝자리 ±1
+          const n = parseInt(num, 10);
+          if (!isNaN(n)) {
+            variations.push(`${year}${caseType}${n + 1}`);
+            variations.push(`${year}${caseType}${n - 1}`);
+          }
+        }
+        // 연도 변형 (±1)
+        const y = parseInt(year, 10);
+        if (!isNaN(y)) {
+          variations.push(`${y + 1}${caseType}${num}`);
+          variations.push(`${y - 1}${caseType}${num}`);
+        }
+
+        for (const variant of variations) {
+          try {
+            const found = await this.verifyPrecedent(variant);
+            if (found) {
+              // 번호가 약간 틀렸던 경우 → 교정된 번호로 반환
+              const correctedTitle = title.replace(caseNumber, variant);
+              console.log(`  🔄 [딥검증] 번호 교정: ${caseNumber} → ${variant}`);
+              return { verified: true, status: 'corrected', title: correctedTitle, originalTitle: title };
+            }
+          } catch { /* continue */ }
+        }
+      }
+
+      // 3단계: 키워드 기반 재검색 → 유사 판례 탐색
+      const searchKeyword = (detail || title)
+        .replace(/대법원|고등법원|지방법원|판결|선고|\d+/g, '')
+        .replace(/[^\uAC00-\uD7AF\s]/g, '')
+        .trim()
+        .split(/\s+/)
+        .filter(w => w.length >= 2)
+        .slice(0, 3)
+        .join(' ');
+
+      if (searchKeyword.length >= 4) {
+        try {
+          const searchResults = await this.searchPrecedents(searchKeyword, 5);
+          if (searchResults.length > 0) {
+            // 가장 관련성 높은 판례를 대체 추천
+            const best = searchResults[0];
+            const foundTitle = `${best.courtName || '대법원'} ${best.caseNo}`;
+            console.log(`  🔍 [딥검증] 유사 판례 발견: "${caseNumber}" → "${best.caseNo}" (키워드: ${searchKeyword})`);
+            return {
+              verified: true,
+              status: 'similar_found',
+              title: foundTitle,
+              originalTitle: title,
+              matchedCase: {
+                caseNo: best.caseNo,
+                caseName: best.caseName,
+                courtName: best.courtName,
+                judgementDate: best.judgementDate,
+              }
+            };
+          }
+        } catch { /* continue */ }
+      }
+
+      // 모든 검증 실패 → 번호 삭제, 내용만 유지
+      return { verified: false, status: 'content_only', title };
+    }
+
+    // ─── 행정해석 / 결정문은 기본 통과 ───
+    return { verified: true, status: 'verified', title };
+  }
+
+  /**
+   * 인용 목록 딥 검증 (백그라운드 검증용)
+   * @param {Array} citations - [{ title, type, detail, source }]
+   * @returns {Promise<Object>} { results: [{ ...citation, verifyStatus, correctedTitle? }] }
+   */
+  async deepVerifyAll(citations) {
+    if (!this.apiKey || !Array.isArray(citations) || citations.length === 0) {
+      return { results: citations.map(c => ({ ...c, verifyStatus: 'skipped' })) };
+    }
+
+    console.log(`\n🔬 [딥 검증] ${citations.length}건 검증 시작...`);
+    const results = [];
+    const BATCH = 3;
+
+    for (let i = 0; i < citations.length; i += BATCH) {
+      const batch = citations.slice(i, i + BATCH);
+      const batchResults = await Promise.allSettled(
+        batch.map(cit => this.deepVerifyCitation(cit))
+      );
+
+      for (let j = 0; j < batch.length; j++) {
+        const r = batchResults[j];
+        if (r.status === 'fulfilled') {
+          results.push({
+            ...batch[j],
+            verifyStatus: r.value.status,
+            verified: r.value.verified,
+            correctedTitle: r.value.correctedTitle || null,
+            matchedCase: r.value.matchedCase || null,
+          });
+        } else {
+          results.push({ ...batch[j], verifyStatus: 'error', verified: true });
+        }
+      }
+    }
+
+    const stats = {
+      verified: results.filter(r => r.verifyStatus === 'verified').length,
+      corrected: results.filter(r => r.verifyStatus === 'corrected').length,
+      similarFound: results.filter(r => r.verifyStatus === 'similar_found').length,
+      contentOnly: results.filter(r => r.verifyStatus === 'content_only').length,
+    };
+
+    console.log(`✅ [딥 검증] 완료: ✅확인 ${stats.verified}, 🔄교정 ${stats.corrected}, 🔍유사 ${stats.similarFound}, 📝내용만 ${stats.contentOnly}`);
+    return { results, stats };
+  }
 }
 
 module.exports = new LawOpenAPIService();

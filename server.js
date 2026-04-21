@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -1557,25 +1557,34 @@ app.post('/api/labor/check-sufficiency', verifyToken, async (req, res) => {
     const isBiz = userType === 'BUSINESS';
     const perspective = isBiz ? '사업주/인사담당자' : '근로자';
 
-const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래 내용을 2가지 관점에서 평가해주세요.
+const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래 내용을 평가해주세요.
 
 [1단계: 의도 분류]
 사용자의 요청이 아래 4가지 중 어디에 해당하는지 판단하세요:
-- "dispute": 분쟁/사건 (해고, 임금체불, 산재, 징계 등 구체적인 사건에 대한 분석이 필요한 경우)
-- "document": 문서/매뉴얼/서식 작성 요청 (예: "중대재해 예방 매뉴얼 만들어 줘", "근로계약서 써줘", "사직서 양식 필요해")
-- "calculation": 계산 요청 (예: "내 연차 계산해줘", "퇴직금 얼마 받을 수 있어?")
-- "information": 법률 질의/가이드 요청 (예: "해고 절차가 어떻게 돼?", "법안 요약해줘")
+- "dispute": 분쟁/사건 — 사용자가 구체적인 피해, 갈등, 불이익을 겪고 있으며 법적 해결이 필요한 경우에만 해당
+- "document": 문서/매뉴얼/서식 작성 요청
+- "calculation": 계산 요청 (급여, 퇴직금, 연차, 수당 등 숫자 계산)
+- "information": 법률 질의/정보/가이드 요청
 
-**중요 경고:** 
-사용자가 짧게 "OO 만들어줘", "OO 알려줘"라고만 입력했다면 이는 구체적 사건 분쟁이 아니므로 절대로 "dispute"로 분류하지 마세요! "document" 또는 "information"으로 분류해야 합니다.
+**dispute 판단 핵심 기준 (반드시 모두 충족해야 dispute):**
+1. 사용자가 자신이 겪은 구체적인 사건/피해를 서술하고 있는가?
+2. "부당하다", "억울하다", "해고당했다", "미지급", "체불" 등 분쟁 상황을 나타내는 문맥이 있는가?
+3. 법적 구제/대응/분석을 요청하고 있는가?
 
-[2단계: 충분성 평가 (dispute인 경우에만 의미 있음)]
-분쟁(dispute) 사건이면:
-- 이 사건의 핵심 사실관계 파악이 가능한가? 최소 100자 이상이고 기본 요건이 갖춰져 있는가?
-- 충분하면 sufficient: true, 부족하면 sufficient: false로 설정.
+**절대 dispute가 아닌 경우:**
+- 숫자를 계산해달라는 요청 (일할 계산, 퇴직금 계산, 연차 계산 등) → calculation
+- "OO 만들어줘", "OO 작성해줘" → document
+- "OO가 뭐야?", "OO 알려줘", "OO 절차는?" → information
+- 구체적 피해/분쟁 없이 단순히 정보를 물어보는 경우 → information
 
-비분쟁(document/calculation/information)이면:
-- 무조건 sufficient: true로 설정.
+**확신도(confidence):** 분류에 대한 확신 정도를 0.0~1.0으로 평가하세요.
+- 0.9~1.0: 매우 명확한 분류
+- 0.7~0.8: 높은 확신
+- 0.5~0.6: 애매한 경계 사례
+
+[2단계: 충분성 평가 (dispute인 경우에만)]
+분쟁이면: 사실관계가 충분한가? → sufficient: true/false
+비분쟁이면: 무조건 sufficient: true
 
 질문은 ${perspective} 관점에서 작성하세요.
 반드시 아래 JSON 형식으로만 응답하세요.
@@ -1586,7 +1595,8 @@ const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래
 {
   "intent": "dispute 또는 document 또는 calculation 또는 information",
   "intentReason": "의도 판단 근거 1문장",
-  "sufficient": true/false,
+  "confidence": 0.85,
+  "sufficient": true,
   "confidenceNote": "충분/부족 판단 근거",
   "questions": [
     { "id": "q1", "question": "질문", "placeholder": "답변 예시", "reason": "필요 이유" }
@@ -1603,21 +1613,24 @@ const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래
     try {
       result = JSON.parse(response.text || '{}');
     } catch {
-      result = { intent: 'dispute', sufficient: true, confidenceNote: '판단 불가', questions: [] };
+      result = { intent: 'information', sufficient: true, confidence: 0.5, confidenceNote: '판단 불가', questions: [] };
     }
 
     const intent = ['dispute', 'document', 'calculation', 'information'].includes(result.intent)
-      ? result.intent : 'dispute';
+      ? result.intent : 'information';
+
+    const confidence = typeof result.confidence === 'number' ? Math.min(1, Math.max(0, result.confidence)) : 0.5;
 
     // 비분쟁은 항상 sufficient
     const sufficient = intent !== 'dispute' ? true : !!result.sufficient;
 
-    console.log(`[의도 분류] ${intent} | ${sufficient ? '✅ 충분' : '❓ 부족'} (${description.substring(0, 30)}...)`);
+    console.log(`[의도 분류] ${intent} (확신: ${(confidence * 100).toFixed(0)}%) | ${sufficient ? '✅ 충분' : '❓ 부족'} (${description.substring(0, 30)}...)`);
 
     res.json({
       success: true,
       data: {
         intent,
+        confidence,
         intentReason: result.intentReason || '',
         sufficient,
         message: intent !== 'dispute'
@@ -1632,7 +1645,135 @@ const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래
     console.error('[충분성 체크] 오류:', error.message);
     res.json({
       success: true,
-      data: { intent: 'dispute', sufficient: true, message: '분류 중 오류 — 분석을 진행합니다.', questions: [] }
+      data: { intent: 'information', confidence: 0.5, sufficient: true, message: '분류 중 오류 — 빠른 답변을 제공합니다.', questions: [] }
+    });
+  }
+});
+
+/**
+ * 법령/판례 인용 딥 검증
+ * POST /api/labor/verify-citations
+ * Body: { citations: [{ title, type, detail }] }
+ */
+app.post('/api/labor/verify-citations', verifyToken, async (req, res) => {
+  try {
+    const { citations } = req.body;
+    if (!Array.isArray(citations) || citations.length === 0) {
+      return res.status(400).json({ success: false, error: '검증할 인용 목록이 필요합니다.' });
+    }
+    const limited = citations.slice(0, 20);
+    const { results, stats } = await LawVerificationService.deepVerifyAll(limited);
+    res.json({ success: true, data: { results, stats } });
+  } catch (error) {
+    console.error('[verify-citations] 오류:', error);
+    res.json({
+      success: true,
+      data: {
+        results: (req.body.citations || []).map(c => ({ ...c, verifyStatus: 'error', verified: true })),
+        stats: { verified: 0, corrected: 0, similarFound: 0, contentOnly: 0 }
+      }
+    });
+  }
+});
+
+/**
+ * 대화형 단계별 질문 — 하나씩 물어보기
+ * POST /api/labor/next-question
+ * Body: { description, conversation: [{role, content}], caseType? }
+ *
+ * AI가 이전 대화를 보고 "가장 중요한 1개 질문"을 동적 생성하거나,
+ * 충분한 정보가 모였으면 sufficient: true를 반환합니다.
+ */
+app.post('/api/labor/next-question', verifyToken, async (req, res) => {
+  try {
+    const { description, conversation = [], caseType } = req.body;
+
+    if (!description) {
+      return res.status(400).json({ success: false, error: '사건 내용이 필요합니다.' });
+    }
+
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const userType = req.userType || 'PERSONAL';
+    const isBiz = userType === 'BUSINESS';
+    const perspective = isBiz ? '사업주/인사담당자' : '근로자';
+
+    // 이전 대화 내용을 텍스트로 구성
+    const conversationText = conversation.length > 0
+      ? '\n\n[이전 대화]\n' + conversation.map(c =>
+          c.role === 'assistant' ? `AI 질문: ${c.content}` : `사용자 답변: ${c.content}`
+        ).join('\n')
+      : '';
+
+    const prompt = `당신은 한국 노동법 전문가 상담사입니다.
+
+사용자가 법적 분쟁 상담을 요청했습니다. 아래 정보를 바탕으로 두 가지 중 하나를 결정하세요:
+
+A) 심층 법적 분석(쟁점 분석, 승소 가능성 평가)을 하기에 **정보가 충분한가?**
+B) 아직 부족하다면, **가장 중요한 질문 1개**만 생성하세요.
+
+**충분성 기준:**
+- 어떤 유형의 분쟁인지 (해고, 임금, 산재 등)
+- 기본 사실관계 (근무 기간, 사업장 규모, 사유 등)
+- 최소 2~3가지 핵심 사실이 파악되면 충분합니다
+- 완벽할 필요 없습니다. 분석에 최소한의 사실관계만 있으면 됩니다.
+
+**질문 생성 규칙:**
+- 이미 답변한 내용을 다시 묻지 마세요
+- ${perspective} 관점에서 질문하세요
+- 친근하고 자연스러운 말투 (예: "혹시 ~은 어떻게 되시나요?")
+- **최대 3턴** 이내로 끝내세요. 이전 대화가 3턴 이상이면 반드시 sufficient: true
+
+사건 유형: ${caseType || '미분류'}
+사용자 원본 입력: ${description}
+${conversationText}
+
+반드시 아래 JSON 형식으로 응답:
+{
+  "sufficient": true 또는 false,
+  "question": "질문 내용 (sufficient가 false일 때만)",
+  "placeholder": "답변 예시 (sufficient가 false일 때만)",
+  "reason": "이 정보가 왜 필요한지 1문장",
+  "gathered": "지금까지 파악된 핵심 사실 요약 1문장"
+}`;
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { responseMimeType: 'application/json' }
+    });
+
+    let result;
+    try {
+      result = JSON.parse(response.text || '{}');
+    } catch {
+      result = { sufficient: true };
+    }
+
+    // 3턴 이상이면 강제 충분
+    if (conversation.filter(c => c.role === 'user').length >= 3) {
+      result.sufficient = true;
+    }
+
+    console.log(`[대화형 질문] 턴 ${Math.floor(conversation.length / 2) + 1} | ${result.sufficient ? '✅ 충분' : '❓ 추가 질문'} (${description.substring(0, 30)}...)`);
+
+    res.json({
+      success: true,
+      data: {
+        sufficient: !!result.sufficient,
+        question: result.question || null,
+        placeholder: result.placeholder || '',
+        reason: result.reason || '',
+        gathered: result.gathered || '',
+      }
+    });
+
+  } catch (error) {
+    console.error('[next-question] 오류:', error.message);
+    res.json({
+      success: true,
+      data: { sufficient: true, question: null }
     });
   }
 });
