@@ -374,107 +374,27 @@ export default function CaseInputPage() {
 
     // ═══════ 입력 뷰 (새 사건 / 사건 미로드) ═══════
     return (
-        <div className={styles.container}>
-            <div className={`page-hero ${isBusinessUser ? 'hero-emerald' : 'hero-indigo'}`}>
-                <h1>{isBusinessUser ? '🏢 사내 노무 관리' : '🩺 내 사건'}</h1>
-                <p>{isBusinessUser
-                    ? '새 노무 사건을 등록하거나, 이전 사건의 진행 상황을 확인하세요.'
-                    : '새 사건을 입력하거나, 이전 분석 내역을 클릭해 상세 이력을 확인하세요.'}</p>
-            </div>
-
-            {user && (
-                <section className={styles.section}>
-                    <h2 className={styles.sectionTitle}>📋 이전 분석 내역</h2>
-                    {loadingCases && <p className={styles.status}>불러오는 중...</p>}
-                    {!loadingCases && pastCases.length === 0 && (
-                        <p className={styles.emptyMsg}>아직 분석한 사건이 없습니다.</p>
-                    )}
-                    {pastCases.length > 0 && (
-                        <div className={styles.caseList}>
-                            {pastCases.map(c => (
-                                <div key={c.id} className={styles.caseCard} style={{ cursor: 'pointer' }}
-                                    onClick={() => setSelectedCaseId(c.id)}>
-                                    <div className={styles.caseCardTop}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span className={styles.caseType}>{c.caseType || '일반'}</span>
-                                            {c.updatedAt && Math.floor((Date.now() - new Date(c.updatedAt).getTime()) / (1000 * 60 * 60 * 24)) >= 3 && (
-                                                <span style={{ fontSize: '0.72rem', padding: '2px 6px', background: 'rgba(245,158,11,0.1)', color: '#b45309', borderRadius: '4px', fontWeight: 600 }}>
-                                                    ⏰ 진행 현황 확인 요망
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className={styles.caseDate}>{formatDate(c.createdAt)}</span>
-                                    </div>
-                                    <p className={styles.caseDesc}>
-                                        {c.description.length > 80 ? c.description.substring(0, 80) + '...' : c.description}
-                                    </p>
-                                    <div className={styles.caseSteps}>
-                                        {STEP_LABELS.map((label, i) => (
-                                            <span key={i}
-                                                className={`${styles.stepBadge} ${i <= c.currentStep ? styles.stepDone : ''}`}>
-                                                {label}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    {c.buildMeta && (c.buildMeta.analysisCount > 0 || c.buildMeta.insightCount > 0) && (
-                                        <div style={{
-                                            display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px',
-                                            paddingTop: '8px', borderTop: '1px solid var(--toss-border)',
-                                            fontSize: '0.72rem', color: 'var(--toss-text-tertiary)',
-                                        }}>
-                                            {c.buildMeta.analysisCount > 0 && <span>🔄 분석 {c.buildMeta.analysisCount}회</span>}
-                                            {c.buildMeta.insightCount > 0 && <span>💡 인사이트 {c.buildMeta.insightCount}건</span>}
-                                            <span style={{ marginLeft: 'auto', color: '#3b82f6', fontWeight: 600 }}>상세 보기 →</span>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            )}
-
-            {selectedCaseId && (
-                <CaseDetailPanel caseId={selectedCaseId}
-                    onClose={() => setSelectedCaseId(null)} onContinue={handleContinue} />
-            )}
-
-            <section className={styles.section} style={{ background: 'transparent', border: 'none', padding: 0 }}>
-                <div style={{ marginBottom: '16px' }}>
-                    <p style={{ fontSize: '1.05rem', fontWeight: 800, margin: '0 0 8px', color: 'var(--toss-text-primary)' }}>
-                        💬 어떤 도움이 필요하신가요?
-                    </p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--toss-text-secondary)', margin: '0 0 16px', lineHeight: 1.5 }}>
+        <div className={styles.container} style={{ display: 'flex', flexDirection: 'column', minHeight: '80vh', justifyContent: 'center' }}>
+            
+            {/* ── 1. Hero & 메인 검색창 ── */}
+            <div className={styles.heroInputContainer}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--toss-text-primary)', marginBottom: '12px' }}>
+                        어떤 법률 도움이 필요하신가요?
+                    </h1>
+                    <p style={{ fontSize: '1rem', color: 'var(--toss-text-secondary)' }}>
                         채팅하듯 편하게 말씀해주세요. AI가 의도를 파악해 최적의 도움을 드립니다.
                     </p>
-                    
-                    {/* 빠른 예시 버블 */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
-                        {[
-                            '부당해고 당했어요', 
-                            '연차수당 계산해줘', 
-                            '계약직인데 퇴직금 받을 수 있나요?', 
-                            '근로계약서 양식 필요해'
-                        ].map((ex, i) => (
-                            <button key={i} onClick={() => setCaseDescription(ex)} style={{
-                                padding: '8px 14px', borderRadius: '20px', border: '1px solid var(--toss-border)',
-                                background: 'white', color: 'var(--toss-text-secondary)', fontSize: '0.8rem',
-                                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-                            }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--toss-blue)'}
-                               onMouseOut={e => e.currentTarget.style.borderColor = 'var(--toss-border)'}>
-                                {ex}
-                            </button>
-                        ))}
-                    </div>
                 </div>
 
-                <div style={{ position: 'relative' }}>
+                <div className={styles.mainSearchWrapper}>
                     <textarea 
+                        className={styles.mainSearchInput}
                         value={caseDescription}
                         onChange={(e) => {
                             setCaseDescription(e.target.value);
                             e.target.style.height = 'auto';
-                            e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                         }}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -484,31 +404,79 @@ export default function CaseInputPage() {
                         }}
                         placeholder="상황을 입력하세요 (예: 5일 전에 갑자기 해고 통보를 받았어요)"
                         rows={1}
-                        style={{
-                            width: '100%', padding: '16px 50px 16px 20px', borderRadius: '24px',
-                            border: '2px solid var(--toss-blue)', outline: 'none', fontSize: '0.95rem',
-                            resize: 'none', overflow: 'hidden', minHeight: '56px', background: 'var(--toss-bg-card)',
-                            boxShadow: '0 4px 14px rgba(49,130,246,0.12)', fontFamily: 'inherit',
-                            transition: 'height 0.2s', lineHeight: 1.5,
-                        }}
+                        autoFocus
                     />
                     <button 
+                        className={`${styles.mainSearchButton} ${(!caseDescription.trim() || state.isAnalyzing) ? styles.mainSearchButtonDisabled : styles.mainSearchButtonActive}`}
                         onClick={handleStart}
                         disabled={!caseDescription.trim() || state.isAnalyzing}
-                        style={{
-                            position: 'absolute', right: '10px', bottom: '10px',
-                            width: '36px', height: '36px', borderRadius: '50%', border: 'none',
-                            background: (!caseDescription.trim() || state.isAnalyzing) ? 'var(--toss-bg-tertiary)' : 'var(--toss-blue)', 
-                            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: (!caseDescription.trim() || state.isAnalyzing) ? 'default' : 'pointer',
-                            transition: 'all 0.2s', fontSize: '1.2rem',
-                        }}
                     >
-                        {state.isAnalyzing ? <span className={styles.spinner} style={{ width: 16, height: 16, borderWidth: 2 }} /> : '↑'}
+                        {state.isAnalyzing ? <span className={styles.spinner} style={{ width: 20, height: 20, borderWidth: 3 }} /> : '↑'}
                     </button>
                 </div>
-                {state.error && <p className={styles.errorText} style={{ marginTop: '14px', textAlign: 'center' }}>⚠️ {state.error}</p>}
-            </section>
+                {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
+
+                {/* ── 2. 추천 칩 (예시 해시태그) ── */}
+                <div className={styles.suggestionChips}>
+                    {[
+                        '부당해고 당했어요', 
+                        '연차수당 계산해줘', 
+                        '계약직인데 퇴직금 받을 수 있나요?', 
+                        '근로계약서 양식 필요해'
+                    ].map((ex, i) => (
+                        <button key={i} className={styles.suggestionChip} onClick={() => setCaseDescription(ex)}>
+                            # {ex}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── 3. 이전 분석 내역 (간소화) ── */}
+            {user && (
+                <div style={{ marginTop: 'auto', paddingTop: '40px' }}>
+                    <div style={{ maxWidth: '768px', margin: '0 auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 8px' }}>
+                            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--toss-text-tertiary)', margin: 0 }}>
+                                최근 분석 내역
+                            </h3>
+                            {pastCases.length > 5 && (
+                                <span style={{ fontSize: '0.8rem', color: 'var(--toss-blue)', cursor: 'pointer', fontWeight: 500 }}>
+                                    전체 보기
+                                </span>
+                            )}
+                        </div>
+
+                        {loadingCases && <p className={styles.emptyMsg}>이력을 불러오는 중...</p>}
+                        {!loadingCases && pastCases.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '24px', background: 'var(--toss-bg-secondary)', borderRadius: '16px', border: '1px dashed var(--toss-border)' }}>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--toss-text-tertiary)', margin: 0 }}>
+                                    아직 분석한 사건이 없습니다. 첫 질문을 입력해 보세요.
+                                </p>
+                            </div>
+                        )}
+                        {pastCases.length > 0 && (
+                            <div className={styles.compactCaseList}>
+                                {pastCases.slice(0, 5).map(c => (
+                                    <div key={c.id} className={styles.compactCaseItem} onClick={() => setSelectedCaseId(c.id)}>
+                                        <div className={styles.compactCaseInfo}>
+                                            <span className={styles.compactCaseDate}>{formatDate(c.createdAt)}</span>
+                                            <span className={styles.compactCaseDesc}>
+                                                {c.description}
+                                            </span>
+                                        </div>
+                                        <div className={styles.compactCaseArrow}>→</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {selectedCaseId && (
+                <CaseDetailPanel caseId={selectedCaseId}
+                    onClose={() => setSelectedCaseId(null)} onContinue={handleContinue} />
+            )}
 
             <StepNav currentStep={0} />
         </div>

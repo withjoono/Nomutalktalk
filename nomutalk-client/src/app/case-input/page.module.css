@@ -229,74 +229,171 @@
     box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3) !important;
 }
 
-/* Case list */
-.caseList {
+/* ── 간소화된 Case List (Archive) ── */
+.compactCaseList {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 300px;
-    overflow-y: auto;
+    max-width: 768px;
+    margin: 0 auto;
 }
 
-.caseCard {
-    text-align: left;
-    padding: 14px 16px;
-    border: 1px solid var(--toss-border);
-    border-radius: var(--toss-radius-md);
-    background: var(--toss-bg-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.caseCard:hover {
-    border-color: var(--toss-blue);
-    background: var(--toss-bg-primary);
-}
-
-.caseCardTop {
+.compactCaseItem {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: transparent;
+    border-radius: var(--toss-radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
 }
 
-.caseType {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--toss-blue);
-    background: rgba(49, 130, 246, 0.1);
-    padding: 2px 8px;
-    border-radius: 12px;
+.compactCaseItem:hover {
+    background: var(--toss-bg-secondary);
+    border-color: var(--toss-border);
+    transform: translateX(4px);
 }
 
-.caseDate {
-    font-size: 0.75rem;
-    color: var(--toss-text-tertiary);
-}
-
-.caseDesc {
-    font-size: 0.85rem;
-    color: var(--toss-text-primary);
-    margin: 0 0 8px 0;
-    line-height: 1.4;
-}
-
-.caseSteps {
+.compactCaseInfo {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
 }
 
-.stepBadge {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: var(--toss-bg-tertiary, #334155);
+.compactCaseDate {
+    font-size: 0.8rem;
+    color: var(--toss-text-tertiary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.compactCaseDesc {
+    font-size: 0.95rem;
+    color: var(--toss-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.compactCaseArrow {
+    color: var(--toss-blue);
+    font-weight: 700;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.2s ease;
+}
+
+.compactCaseItem:hover .compactCaseArrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* ── 중앙 집중형 Hero 입력을 위한 추가 스타일 ── */
+.heroInputContainer {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+.mainSearchWrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: 24px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mainSearchWrapper:focus-within {
+    transform: translateY(-2px);
+}
+
+.mainSearchInput {
+    width: 100%;
+    padding: 24px 60px 24px 28px;
+    border-radius: 32px;
+    border: 1px solid var(--toss-border);
+    outline: none;
+    font-size: 1.15rem;
+    resize: none;
+    overflow: hidden;
+    min-height: 76px;
+    background: var(--toss-bg-card);
+    box-shadow: 0 12px 40px rgba(49, 130, 246, 0.08);
+    font-family: inherit;
+    transition: all 0.3s ease;
+    line-height: 1.6;
+    color: var(--toss-text-primary);
+}
+
+.mainSearchInput:focus {
+    border-color: var(--toss-blue);
+    box-shadow: 0 16px 50px rgba(49, 130, 246, 0.16);
+}
+
+.mainSearchInput::placeholder {
     color: var(--toss-text-disabled);
+    font-weight: 400;
 }
 
-.stepDone {
-    background: rgba(34, 197, 94, 0.2);
-    color: #22c55e;
+.mainSearchButton {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    font-size: 1.4rem;
+}
+
+.mainSearchButtonActive {
+    background: var(--toss-blue);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(49, 130, 246, 0.3);
+}
+
+.mainSearchButtonActive:hover {
+    transform: scale(1.05);
+    background: var(--toss-blue-hover);
+}
+
+.mainSearchButtonDisabled {
+    background: var(--toss-bg-tertiary);
+    cursor: default;
+}
+
+.suggestionChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 40px;
+}
+
+.suggestionChip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background: rgba(49, 130, 246, 0.06);
+    color: var(--toss-blue);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.suggestionChip:hover {
+    background: rgba(49, 130, 246, 0.12);
+    transform: translateY(-1px);
 }
 
 .errorText {
