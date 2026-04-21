@@ -160,10 +160,78 @@ export default function IssueAnalysisPage() {
 
     return (
         <div className={styles.page}>
-            <div className="page-hero hero-blue">
-                <h1>🔍 핵심 쟁점 분석</h1>
-                <p>AI가 사건의 핵심 쟁점을 식별하고 법적 근거를 분석합니다.</p>
+            <div className="page-hero hero-blue" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h1 style={{ margin: '0 0 6px' }}>📊 분석 결과</h1>
+                    <p style={{ margin: 0 }}>AI가 사건의 핵심 쟁점을 식별하고 법적 근거를 분석합니다.</p>
+                </div>
+                <button
+                    onClick={() => window.print()}
+                    style={{
+                        padding: '8px 16px', borderRadius: '10px', border: '1px solid currentColor',
+                        background: 'rgba(255,255,255,0.2)', color: 'inherit', cursor: 'pointer',
+                        fontSize: '0.85rem', fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px'
+                    }}
+                    className="no-print"
+                >
+                    📄 PDF 다운로드
+                </button>
             </div>
+
+            {/* ═══ 결론 먼저: 승소율 + 한줄 평가 ═══ */}
+            {state.issueResult && !state.isAnalyzing && (() => {
+                const rate = state.issueResult.overallWinRate ?? 50;
+                const color = rate >= 70 ? '#3b82f6' : rate >= 50 ? '#10b981' : rate >= 30 ? '#f59e0b' : '#ef4444';
+                return (
+                    <div style={{
+                        padding: '20px', borderRadius: '18px', marginBottom: '16px',
+                        background: `linear-gradient(135deg, ${color}08, ${color}04)`,
+                        border: `1.5px solid ${color}25`,
+                        textAlign: 'center',
+                    }}>
+                        {/* 승소율 */}
+                        <div style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 80, height: 80, borderRadius: '50%',
+                            border: `3px solid ${color}`, background: 'var(--toss-bg-primary)',
+                            marginBottom: '10px',
+                        }}>
+                            <span style={{ fontSize: '1.8rem', fontWeight: 800, color, lineHeight: 1 }}>
+                                {rate}%
+                            </span>
+                        </div>
+                        <p style={{
+                            margin: '0 0 4px', fontSize: '0.78rem', fontWeight: 600,
+                            color: 'var(--toss-text-tertiary)',
+                        }}>
+                            종합 승소 가능성
+                        </p>
+                        <p style={{
+                            margin: '0 0 12px', fontSize: '0.88rem', lineHeight: 1.6,
+                            color: 'var(--toss-text-secondary)',
+                        }}>
+                            {state.issueResult.overallAssessment || '분석 결과를 확인하세요.'}
+                        </p>
+                        {/* 빠른 네비게이션 */}
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => goToStep(3)} style={{
+                                padding: '8px 16px', borderRadius: '10px', border: 'none',
+                                background: `${color}15`, color, cursor: 'pointer',
+                                fontSize: '0.82rem', fontWeight: 600, fontFamily: 'inherit',
+                            }}>
+                                📊 예상 결과 보기
+                            </button>
+                            <button onClick={() => goToStep(4)} style={{
+                                padding: '8px 16px', borderRadius: '10px', border: 'none',
+                                background: 'rgba(139,92,246,0.1)', color: '#8b5cf6', cursor: 'pointer',
+                                fontSize: '0.82rem', fontWeight: 600, fontFamily: 'inherit',
+                            }}>
+                                💡 해결 방법
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
             {/* ═══ 추가 정보 입력 ═══ */}
             {state.issueResult && !state.isAnalyzing && !submitted && (
                 <div style={{

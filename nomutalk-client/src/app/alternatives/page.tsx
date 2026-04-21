@@ -29,7 +29,7 @@ export default function AlternativesPage() {
 
     const handleSelectMethod = (method: AlternativeMethod) => {
         setSelectedMethod(method);
-        goToStep(4); // → 후속 지원
+        goToStep(5); // → 후속 지원
     };
 
     const toggleExpand = (id: string, e: React.MouseEvent) => {
@@ -210,7 +210,7 @@ export default function AlternativesPage() {
                 </>
             )}
 
-            <StepNav currentStep={3} />
+            <StepNav currentStep={4} />
         </div>
     );
 }

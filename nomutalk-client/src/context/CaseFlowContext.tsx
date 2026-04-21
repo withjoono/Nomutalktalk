@@ -4,9 +4,11 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     GraphNode, GraphLink, IssueInfo, CaseDetail, BuildMeta, TimelineEvent, CaseInsight,
+    PredictionResult, SufficiencyQuestion, SufficiencyResult, RequestIntent, QuickAssistResult,
     createCase, getCase, updateCaseStep, analyzeIssues, analyzeCaseGraph,
     reanalyzeCase, updateCaseDescription as apiUpdateDescription, ReanalysisResult,
-    AlternativeMethod, fetchAlternatives,
+    AlternativeMethod, fetchAlternatives, checkSufficiency as apiCheckSufficiency,
+    fetchQuickAssist,
 } from '@/lib/api';
 
 // ==================== Types ====================
@@ -16,7 +18,7 @@ export interface CaseFlowState {
     description: string;
     caseType: string;
     legalDomain: string; // 법 분야: labor, civil, criminal, family, admin, ip, corporate
-    currentStep: number; // 0=입력, 1=쟁점, 2=법령, 3=대안, 4=후속
+    currentStep: number; // 0=입력, 1=쟁점, 2=법령, 3=예상결과, 4=대안, 5=후속
 
     // Step 1: 쟁점 분석 결과
     issueResult: {
@@ -35,7 +37,10 @@ export interface CaseFlowState {
         summary: string;
     } | null;
 
-    // Step 3: 대안 제안 결과
+    // Step 3: 예상 결과
+    predictionResult: PredictionResult | null;
+
+    // Step 4: 대안 제안 결과
     alternativesResult: {
         methods: AlternativeMethod[];
         recommendation: string;
@@ -58,6 +63,15 @@ export interface CaseFlowState {
     isAnalyzing: boolean;
     isReanalyzing: boolean;
     error: string | null;
+
+    // 충분성 체크
+    sufficiencyQuestions: SufficiencyQuestion[];
+    sufficiencyMessage: string | null;
+    isCheckingSufficiency: boolean;
+
+    // 빠른 도움 (비분쟁)
+    quickAssistResult: QuickAssistResult | null;
+    detectedIntent: RequestIntent | null;
 }
 
 interface CaseFlowContextType {
@@ -76,6 +90,10 @@ interface CaseFlowContextType {
     reanalyze: (stepName: 'issueAnalysis' | 'lawAnalysis', trigger?: 'manual' | 'evidence_added' | 'description_updated') => Promise<void>;
     /** 상황 업데이트 (빌드) */
     updateDescription: (newDescription: string, reason?: string) => Promise<void>;
+    /** 추가 답변 후 분석 진행 */
+    appendAndRecheck: (additionalInfo: string) => Promise<void>;
+    /** 충분성 무시하고 분석 진행 */
+    skipSufficiencyCheck: () => void;
 }
 
 const defaultBuildMeta: BuildMeta = { analysisCount: 0, chatCount: 0, evidenceCount: 0, insightCount: 0, lastAnalyzedAt: null };
@@ -89,6 +107,7 @@ const initialState: CaseFlowState = {
     issueResult: null,
     lawResult: null,
     alternativesResult: null,
+    predictionResult: null,
     selectedMethod: null,
     chatSessionId: null,
     buildMeta: defaultBuildMeta,
@@ -98,6 +117,11 @@ const initialState: CaseFlowState = {
     isAnalyzing: false,
     isReanalyzing: false,
     error: null,
+    sufficiencyQuestions: [],
+    sufficiencyMessage: null,
+    isCheckingSufficiency: false,
+    quickAssistResult: null,
+    detectedIntent: null,
 };
 
 const CaseFlowContext = createContext<CaseFlowContextType | null>(null);
@@ -110,30 +134,87 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
 
     const resetFlow = useCallback(() => setState(initialState), []);
 
-    // 새 사건 시작
+    // 새 사건 시작 — 의도 분류 + 충분성 체크
     const startNewCase = useCallback(async (description: string, caseType?: string, legalDomain?: string) => {
-        setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
+        setState(prev => ({ ...prev, isCheckingSufficiency: true, isAnalyzing: true, error: null, sufficiencyQuestions: [], sufficiencyMessage: null, quickAssistResult: null, detectedIntent: null }));
         try {
+            // 1) 의도 분류 + 충분성 체크
+            const suffResult = await apiCheckSufficiency(description, caseType);
+            const intent = suffResult.intent || 'dispute';
+
+            // 2) 비분쟁 → 빠른 도움 플로우
+            if (intent !== 'dispute') {
+                setState(prev => ({
+                    ...prev,
+                    description,
+                    caseType: caseType || '',
+                    detectedIntent: intent,
+                    isAnalyzing: true,
+                    isCheckingSufficiency: false,
+                }));
+                // quick-assist API 호출
+                const quickResult = await fetchQuickAssist(description, intent, caseType);
+                setState(prev => ({
+                    ...prev,
+                    quickAssistResult: quickResult,
+                    isAnalyzing: false,
+                }));
+                router.push('/quick-result');
+                return;
+            }
+
+            // 3) 분쟁 → 사건 등록
             const { caseId } = await createCase(description, caseType);
-            setState(prev => ({
-                ...prev,
-                caseId,
-                description,
-                caseType: caseType || '',
-                legalDomain: legalDomain || 'labor',
-                currentStep: 1,
-                issueResult: null,
-                lawResult: null,
-                chatSessionId: null,
-                buildMeta: { ...defaultBuildMeta },
-                timeline: [{ type: 'case_created', timestamp: new Date().toISOString(), detail: `사건 등록` }],
-                insights: [],
-                lastDiff: null,
-                isAnalyzing: false,
-            }));
-            router.push('/issue-analysis');
+
+            if (suffResult.sufficient) {
+                // 충분 → 바로 쟁점 분석으로
+                setState(prev => ({
+                    ...prev,
+                    caseId,
+                    description,
+                    caseType: caseType || '',
+                    legalDomain: legalDomain || 'labor',
+                    currentStep: 1,
+                    detectedIntent: 'dispute',
+                    issueResult: null,
+                    lawResult: null,
+                    chatSessionId: null,
+                    buildMeta: { ...defaultBuildMeta },
+                    timeline: [{ type: 'case_created', timestamp: new Date().toISOString(), detail: '사건 등록' }],
+                    insights: [],
+                    lastDiff: null,
+                    isAnalyzing: false,
+                    isCheckingSufficiency: false,
+                    sufficiencyQuestions: [],
+                    sufficiencyMessage: null,
+                }));
+                router.push('/issue-analysis');
+            } else {
+                // 부족 → case-input에 머무르며 질문 표시
+                setState(prev => ({
+                    ...prev,
+                    caseId,
+                    description,
+                    caseType: caseType || '',
+                    legalDomain: legalDomain || 'labor',
+                    currentStep: 0,
+                    detectedIntent: 'dispute',
+                    issueResult: null,
+                    lawResult: null,
+                    chatSessionId: null,
+                    buildMeta: { ...defaultBuildMeta },
+                    timeline: [{ type: 'case_created', timestamp: new Date().toISOString(), detail: '사건 등록 (추가 정보 요청)' }],
+                    insights: [],
+                    lastDiff: null,
+                    isAnalyzing: false,
+                    isCheckingSufficiency: false,
+                    sufficiencyQuestions: suffResult.questions || [],
+                    sufficiencyMessage: suffResult.message || '추가 정보가 필요합니다.',
+                }));
+                // case-input에 머무름 (router.push 안 함)
+            }
         } catch (err: any) {
-            setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
+            setState(prev => ({ ...prev, isAnalyzing: false, isCheckingSufficiency: false, error: err.message }));
         }
     }, [router]);
 
@@ -192,6 +273,7 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             setState(prev => ({
                 ...prev,
                 issueResult,
+                predictionResult: result.prediction || null,
                 currentStep: 1,
                 isAnalyzing: false,
             }));
@@ -295,10 +377,10 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             setState(prev => ({
                 ...prev,
                 alternativesResult: result,
-                currentStep: 3,
+                currentStep: 4,
                 isAnalyzing: false,
             }));
-            updateCaseStep(state.caseId, 'alternativesAnalysis', result, 3).catch(console.error);
+            updateCaseStep(state.caseId, 'alternativesAnalysis', result, 4).catch(console.error);
         } catch (err: any) {
             setState(prev => ({ ...prev, isAnalyzing: false, error: err.message }));
         }
@@ -310,8 +392,9 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             case 0: router.push('/case-input'); break;
             case 1: router.push('/issue-analysis'); break;
             case 2: router.push('/case-search'); break;
-            case 3: router.push('/alternatives'); break;
-            case 4: router.push('/follow-up'); break;
+            case 3: router.push('/prediction'); break;
+            case 4: router.push('/alternatives'); break;
+            case 5: router.push('/follow-up'); break;
         }
     }, [router]);
 
@@ -326,6 +409,58 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
     const setSelectedMethod = useCallback((method: AlternativeMethod | null) => {
         setState(prev => ({ ...prev, selectedMethod: method }));
     }, []);
+
+    // 추가 답변 후 재체크
+    const appendAndRecheck = useCallback(async (additionalInfo: string) => {
+        if (!state.caseId) return;
+        const newDescription = state.description + '\n\n[추가 정보]\n' + additionalInfo;
+        setState(prev => ({ ...prev, isCheckingSufficiency: true, description: newDescription, sufficiencyQuestions: [], sufficiencyMessage: null }));
+        try {
+            // 서버에 상황 업데이트
+            await apiUpdateDescription(state.caseId, newDescription, '추가 정보 입력');
+
+            // 다시 충분성 체크
+            const suffResult = await apiCheckSufficiency(newDescription, state.caseType);
+
+            if (suffResult.sufficient) {
+                setState(prev => ({
+                    ...prev,
+                    isCheckingSufficiency: false,
+                    sufficiencyQuestions: [],
+                    sufficiencyMessage: null,
+                    currentStep: 1,
+                    timeline: [...prev.timeline, { type: 'info_added', timestamp: new Date().toISOString(), detail: '추가 정보 입력 완료' }],
+                }));
+                router.push('/issue-analysis');
+            } else {
+                setState(prev => ({
+                    ...prev,
+                    isCheckingSufficiency: false,
+                    sufficiencyQuestions: suffResult.questions || [],
+                    sufficiencyMessage: suffResult.message || '아직 추가 정보가 필요합니다.',
+                }));
+            }
+        } catch (err: any) {
+            // 오류 시 분석 진행 허용
+            setState(prev => ({
+                ...prev, isCheckingSufficiency: false,
+                sufficiencyQuestions: [], sufficiencyMessage: null,
+                currentStep: 1,
+            }));
+            router.push('/issue-analysis');
+        }
+    }, [state.caseId, state.description, state.caseType, router]);
+
+    // 충분성 무시하고 분석 진행
+    const skipSufficiencyCheck = useCallback(() => {
+        setState(prev => ({
+            ...prev,
+            sufficiencyQuestions: [],
+            sufficiencyMessage: null,
+            currentStep: 1,
+        }));
+        router.push('/issue-analysis');
+    }, [router]);
 
     return (
         <CaseFlowContext.Provider value={{
@@ -342,6 +477,8 @@ export function CaseFlowProvider({ children }: { children: React.ReactNode }) {
             resetFlow,
             reanalyze,
             updateDescription,
+            appendAndRecheck,
+            skipSufficiencyCheck,
         }}>
             {children}
         </CaseFlowContext.Provider>

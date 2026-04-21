@@ -107,6 +107,28 @@ export default function IssueAnalysisView({
                         >✕</button>
                     </div>
                     <p className={styles.detailSummary}>{selectedIssue.summary}</p>
+                    {/* 판례 인용 (Feature 1) */}
+                    {selectedIssue.precedents && selectedIssue.precedents.length > 0 && (
+                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--toss-border)' }}>
+                            <h4 style={{ fontSize: '0.9rem', color: 'var(--toss-text-primary)', marginBottom: '8px', fontWeight: 600 }}>📚 관련 주요 판례</h4>
+                            {selectedIssue.precedents.map((prec, i) => (
+                                <div key={i} style={{
+                                    padding: '10px 12px',
+                                    backgroundColor: 'var(--toss-bg-secondary)',
+                                    borderRadius: '8px',
+                                    marginBottom: '8px',
+                                    fontSize: '0.85rem'
+                                }}>
+                                    <div style={{ fontWeight: 700, color: 'var(--toss-blue)', marginBottom: '4px' }}>
+                                        {prec.caseNumber}
+                                    </div>
+                                    <div style={{ color: 'var(--toss-text-secondary)', lineHeight: 1.5 }}>
+                                        {prec.summary}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 

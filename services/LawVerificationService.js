@@ -275,6 +275,99 @@ class LawOpenAPIService {
     }));
   }
 
+  /**
+   * 행정심판례 검색 (admcase)
+   * @param {string} keyword
+   * @param {number} limit
+   */
+  async searchAdminAppeal(keyword, limit = 3) {
+    console.log(`[LawOpenAPI] 행정심판례 검색: "${keyword}"`);
+    const xml = await this._callAPI({
+      target: 'admcase',
+      type: 'XML',
+      query: keyword,
+      display: String(limit)
+    });
+    if (!xml) return [];
+    const totalCnt = parseInt(this._extractTag(xml, 'totalCnt') || '0', 10);
+    if (totalCnt === 0) return [];
+    const items = this._extractItems(xml, 'admcase');
+    return items.slice(0, limit).map(item => ({
+      serialNo: this._extractTag(item, '행정심판례일련번호') || this._extractTag(item, 'admcaseSeq'),
+      title: this._extractTag(item, '사건명') || this._extractTag(item, 'caseNm'),
+      decisionDate: this._extractTag(item, '재결일자') || this._extractTag(item, 'decDt'),
+      org: this._extractTag(item, '위원회명') || this._extractTag(item, 'orgNm'),
+      result: this._extractTag(item, '재결결과') || this._extractTag(item, 'decResult'),
+    }));
+  }
+
+  /**
+   * 행정기관별 심판 결정 검색 (dcsn) — org 파라미터로 기관 필터
+   * @param {string} keyword
+   * @param {string} org  예: '고용보험심사위원회', '산업재해보상보험재심사위원회', '국가인권위원회'
+   * @param {number} limit
+   */
+  async searchCommitteeDecision(keyword, org, limit = 3) {
+    console.log(`[LawOpenAPI] ${org} 결정 검색: "${keyword}"`);
+    const xml = await this._callAPI({
+      target: 'dcsn',
+      type: 'XML',
+      query: keyword,
+      display: String(limit),
+      org
+    });
+    if (!xml) return [];
+    const totalCnt = parseInt(this._extractTag(xml, 'totalCnt') || '0', 10);
+    if (totalCnt === 0) return [];
+    const items = this._extractItems(xml, 'dcsn');
+    return items.slice(0, limit).map(item => ({
+      serialNo: this._extractTag(item, '결정례일련번호') || this._extractTag(item, 'dcsnSeq'),
+      title: this._extractTag(item, '사건명') || this._extractTag(item, 'caseNm'),
+      decisionDate: this._extractTag(item, '결정일자') || this._extractTag(item, 'dcsnDt'),
+      org: this._extractTag(item, '결정기관명') || org,
+      result: this._extractTag(item, '결정결과') || this._extractTag(item, 'dcsnResult'),
+    }));
+  }
+
+  /**
+   * 지능형 법령검색 API — 키워드 → 연관 법령 목록 반환
+   * @param {string} keyword
+   * @returns {Promise<Array>} [{ lawName, lawId, relevance }]
+   */
+  async searchRelatedLaws(keyword) {
+    console.log(`[LawOpenAPI] 지능형 법령검색: "${keyword}"`);
+    // 지능형 검색은 별도 엔드포인트 사용
+    const baseUrl = 'https://www.law.go.kr/DRF/lawSearch.do';
+    const query = new URLSearchParams({
+      OC: this.apiKey,
+      target: 'law',
+      type: 'XML',
+      query: keyword,
+      display: '5',
+      search: '2'  // 전문 검색 모드
+    }).toString();
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), this.timeout);
+      const resp = await fetch(`${baseUrl}?${query}`, {
+        headers: { 'User-Agent': 'NomuTalk/1.0' },
+        signal: controller.signal
+      });
+      clearTimeout(tid);
+      const xml = await resp.text();
+      const items = this._extractItems(xml, 'law');
+      return items.slice(0, 5).map(item => ({
+        lawId: this._extractTag(item, '법령일련번호'),
+        lawName: this._extractTag(item, '법령명한글') || '',
+        lawType: this._extractTag(item, '법령구분명') || '',
+        enforcementDate: this._extractTag(item, '시행일자') || '',
+      })).filter(i => i.lawName);
+    } catch (e) {
+      console.warn('[LawOpenAPI] 지능형 법령검색 실패:', e.message);
+      return [];
+    }
+  }
+
   // ==================== 핵심: 종합 근거자료 수집 ====================
 
   /**
@@ -489,36 +582,546 @@ ${sections.join('\n\n')}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   }
 
-  // ==================== Lv.1: 사후 검증 (기존 유지) ====================
+  // ==================== Lv.3: AI 키워드 + Open API + AI 재평가 ====================
 
   /**
-   * 판례 번호 존재 여부 검증
+   * AI 키워드 추출 + Open API 대량 검색 + AI 관련성·중요도·기간 재평가
+   * 
+   * 1단계: AI가 사건에서 8~12개의 풍부한 법률 키워드 생성
+   * 2단계: Open API에서 키워드당 최대 8건씩 대량 검색 (법령, 판례, 해석)
+   * 3단계: AI가 전체 결과를 관련성·중요도·기간 3가지 기준으로 재평가 및 정렬
+   * 
+   * @param {string} description - 사건 설명
+   * @returns {Promise<Object>} { allNodes, laws, precedents, interpretations, elapsedSec }
+   */
+  async hybridLegalSearch(description) {
+    const startTime = Date.now();
+    console.log('\n🔎 [AI+API Search] 시작');
+
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    // ═══════════════════════════════════════════════
+    // 1단계: AI가 풍부한 키워드 생성
+    // ═══════════════════════════════════════════════
+    console.log('\n📝 [1단계] AI 키워드 생성...');
+    let searchPlan;
+    try {
+      const planResp = await genai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: `당신은 한국 노동법 전문가입니다. 아래 사건을 분석하여 국가법령정보센터에서 검색할 키워드를 생성하세요.
+
+사건: ${description.substring(0, 2000)}
+
+규칙:
+- lawNames: 관련 법률명 (예: "근로기준법", "근로자퇴직급여 보장법") 최대 5개
+- precKeywords: 판례 검색용 구체적 법률 용어. 일반 용어와 전문 용어를 모두 포함.
+  (예: "부당해고", "해고무효확인", "해고예고수당청구", "부당해고구제재심판정취소")
+  최소 6개, 최대 12개
+- interpKeywords: 행정해석 및 법령해석례 검색용 키워드 최대 4개
+- decisionKeywords: 노동위원회/심사위원회 결정 검색용 키워드 최대 4개 (예: "부당해고 구제신청", "산재 업무상재해")
+- eventDate: 사건 발생 추정 시점 (있으면 "2024" 등, 모르면 null)
+- issues: 핵심 쟁점 요약 (사건의 법적 쟁점을 2~3개 문장으로)
+
+JSON: {
+  "lawNames": ["근로기준법"],
+  "precKeywords": ["부당해고", "해고무효확인"],
+  "interpKeywords": ["해고예고"],
+  "decisionKeywords": ["부당해고 구제신청"],
+  "eventDate": null,
+  "issues": "본 사건은 부당해고와 퇴직금 미지급이 핵심 쟁점이다."
+}` }] }],
+        config: { responseMimeType: 'application/json' }
+      });
+      searchPlan = JSON.parse(planResp.text || '{}');
+    } catch (err) {
+      console.warn('[1단계] AI 키워드 생성 실패, 기본 추출 사용:', err.message);
+      const extracted = this.extractLegalKeywords(description);
+      searchPlan = {
+        lawNames: extracted.lawNames || [],
+        precKeywords: extracted.keywords || [],
+        interpKeywords: extracted.keywords?.slice(0, 3) || [],
+        decisionKeywords: extracted.keywords?.slice(0, 2) || [],
+        eventDate: null,
+        issues: ''
+      };
+    }
+
+    const lawNames = (searchPlan.lawNames || []).slice(0, 5);
+    const precKeywords = (searchPlan.precKeywords || []).slice(0, 12);
+    const interpKeywords = (searchPlan.interpKeywords || []).slice(0, 4);
+    const decisionKeywords = (searchPlan.decisionKeywords || []).slice(0, 4);
+    const eventDate = searchPlan.eventDate || null;
+    const issuesSummary = searchPlan.issues || '';
+
+    console.log(`  법률: [${lawNames.join(', ')}]`);
+    console.log(`  판례 키워드 (${precKeywords.length}개): [${precKeywords.join(', ')}]`);
+    console.log(`  해석 키워드: [${interpKeywords.join(', ')}]`);
+    console.log(`  결정 키워드: [${decisionKeywords.join(', ')}]`);
+    if (eventDate) console.log(`  사건 시점: ${eventDate}`);
+
+    // ═══════════════════════════════════════════════
+    // 2단계: Open API 대량 검색 (7개 소스 병렬)
+    // ═══════════════════════════════════════════════
+    console.log('\n🔍 [2단계] Open API 멀티소스 병렬 검색 (7개 소스)...');
+    const rawResults = { laws: [], precedents: [], interpretations: [], decisions: [] };
+    const seenIds = new Set();
+
+    // 1) 법령 검색 + 지능형 법령 검색
+    const lawPromises = [
+      ...lawNames.map(name =>
+        this.searchLaw(name).then(r => ({ type: 'law', data: r })).catch(() => null)
+      ),
+      // 지능형 법령검색 (첫 번째 precKeyword로)
+      ...(precKeywords.slice(0, 2).map(kw =>
+        this.searchRelatedLaws(kw).then(r => ({ type: 'law_related', data: r })).catch(() => null)
+      ))
+    ];
+
+    // 2) 판례 검색 — 키워드당 8건
+    const precPromises = precKeywords.map(kw =>
+      this.searchPrecedents(kw, 8).then(r => ({ type: 'prec', data: r, kw })).catch(() => null)
+    );
+
+    // 3) 행정해석 + 고용노동부 법령해석례 검색
+    const interpPromises = interpKeywords.map(kw =>
+      this.searchLaborInterpretations(kw, 5).then(r => ({ type: 'interp', data: r })).catch(() => null)
+    );
+
+    // 4) 노무 관련 결정문 검색 (5개 기관 병렬)
+    const decisionOrgs = [
+      { org: '노동위원회', useMethod: 'nwcm' },
+      { org: '고용보험심사위원회', useMethod: 'dcsn' },
+      { org: '산업재해보상보험재심사위원회', useMethod: 'dcsn' },
+      { org: '국가인권위원회', useMethod: 'dcsn' },
+    ];
+    const decisionPromises = decisionKeywords.flatMap(kw =>
+      [
+        // 노동위원회는 전용 메서드
+        this.searchLaborCommissionDecisions(kw, 4).then(r => ({ type: 'decision', data: r, org: '노동위원회' })).catch(() => null),
+        // 나머지 3개 기관은 dcsn
+        ...decisionOrgs.slice(1).map(o =>
+          this.searchCommitteeDecision(kw, o.org, 3).then(r => ({ type: 'decision', data: r, org: o.org })).catch(() => null)
+        ),
+        // 행정심판례
+        this.searchAdminAppeal(kw, 3).then(r => ({ type: 'admcase', data: r })).catch(() => null),
+      ]
+    );
+
+    const allPromises = [...lawPromises, ...precPromises, ...interpPromises, ...decisionPromises];
+    const results = await Promise.allSettled(allPromises);
+
+    for (const result of results) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      const { type, data, org } = result.value;
+
+      if ((type === 'law' || type === 'law_related') && data) {
+        const lawList = type === 'law' ? (data.results || []) : (Array.isArray(data) ? data : []);
+        for (const law of lawList) {
+          const key = law.lawName;
+          if (!key || seenIds.has(`law:${key}`)) continue;
+          seenIds.add(`law:${key}`);
+          rawResults.laws.push({
+            title: key,
+            lawType: law.lawType || '',
+            enforcementDate: law.enforcementDate || '',
+            lawId: law.lawId || ''
+          });
+        }
+      }
+
+      if (type === 'prec' && Array.isArray(data)) {
+        for (const prec of data) {
+          const key = prec.caseSerialNo || prec.caseNo;
+          if (!key || seenIds.has(`prec:${key}`)) continue;
+          seenIds.add(`prec:${key}`);
+          rawResults.precedents.push({
+            caseNo: prec.caseNo || '',
+            caseName: prec.caseName || '',
+            courtName: prec.courtName || '',
+            judgementDate: prec.judgementDate || '',
+            caseSerialNo: prec.caseSerialNo || '',
+            caseType: prec.caseType || ''
+          });
+        }
+      }
+
+      if (type === 'interp' && Array.isArray(data)) {
+        for (const interp of data) {
+          const key = interp.serialNo || interp.title;
+          if (!key || seenIds.has(`interp:${key}`)) continue;
+          seenIds.add(`interp:${key}`);
+          rawResults.interpretations.push(interp);
+        }
+      }
+
+      // ★ 새로 추가: 결정문 (노동위원회, 고용보험심사위, 산재재심사위, 국가인권위)
+      if ((type === 'decision' || type === 'admcase') && Array.isArray(data)) {
+        for (const dec of data) {
+          const key = dec.serialNo || dec.title;
+          if (!key || seenIds.has(`dec:${key}`)) continue;
+          seenIds.add(`dec:${key}`);
+          rawResults.decisions.push({
+            ...dec,
+            org: org || dec.org || (type === 'admcase' ? '행정심판위원회' : '위원회'),
+            sourceType: type
+          });
+        }
+      }
+    }
+
+    console.log(`  수집 완료: 법령 ${rawResults.laws.length}, 판례 ${rawResults.precedents.length}, 해석 ${rawResults.interpretations.length}, 결정문 ${rawResults.decisions.length}`);
+
+    // 판례 본문 조회 (상위 10건만, 병렬 처리)
+    const precWithText = [];
+    const topPrecs = rawResults.precedents.slice(0, 10);
+    const textPromises = topPrecs.map(async (prec) => {
+      if (!prec.caseSerialNo) return { ...prec, judgement: '', summary: '' };
+      try {
+        const detail = await this.getPrecedentText(prec.caseSerialNo);
+        if (detail) {
+          return {
+            ...prec,
+            judgement: (detail.judgement || '').replace(/<[^>]*>/g, '').substring(0, 300),
+            summary: (detail.summary || '').replace(/<[^>]*>/g, '').substring(0, 300),
+            refArticles: (detail.refArticles || '').replace(/<[^>]*>/g, '')
+          };
+        }
+      } catch {}
+      return { ...prec, judgement: '', summary: '' };
+    });
+    const precTexts = await Promise.allSettled(textPromises);
+    for (const r of precTexts) {
+      if (r.status === 'fulfilled') precWithText.push(r.value);
+    }
+
+    // ═══════════════════════════════════════════════
+    // 3단계: AI가 관련성·중요도·기간 3가지로 재평가
+    // ═══════════════════════════════════════════════
+    console.log('\n🧠 [3단계] AI 관련성·중요도·기간 재평가...');
+    let rankedNodes = [];
+    try {
+      const rankPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건에 대해, 검색된 법적 자료를 3가지 기준으로 평가하세요.
+
+【사건 내용】
+${description.substring(0, 1500)}
+
+【핵심 쟁점】
+${issuesSummary}
+${eventDate ? `【사건 추정 시점】 ${eventDate}` : ''}
+
+【검색된 법령 (${rawResults.laws.length}건)】
+${rawResults.laws.map((l, i) => `${i+1}. ${l.title} (${l.lawType}, 시행일: ${l.enforcementDate})`).join('\n') || '없음'}
+
+【검색된 판례 (${precWithText.length}건)】
+${precWithText.map((p, i) => `${i+1}. ${p.courtName} ${p.caseNo} (${p.judgementDate})
+   사건명: ${p.caseName}
+   ${p.judgement ? `판시: ${p.judgement.substring(0, 150)}...` : ''}
+   ${p.summary ? `요지: ${p.summary.substring(0, 150)}...` : ''}`).join('\n') || '없음'}
+
+【검색된 행정해석 (${rawResults.interpretations.length}건)】
+${rawResults.interpretations.map((it, i) => `${i+1}. ${it.title} (${it.org || ''}, ${it.date || ''})`).join('\n') || '없음'}
+
+【검색된 결정문 (${rawResults.decisions.length}건) — 노동위원회/심사위원회/행정심판】
+${rawResults.decisions.map((d, i) => `${i+1}. [${d.org}] ${d.title} (${d.decisionDate || ''}) — ${d.result || ''}`).join('\n') || '없음'}
+
+【평가 기준】
+각 항목을 아래 3가지 기준으로 1~10점 평가:
+1. relevance (관련성): 이 사건의 쟁점과 얼마나 직접적으로 관련되는가
+2. importance (중요도): 법적으로 얼마나 중요한 자료인가 (대법원 전원합의체 > 하급심, 노동위원회결정/심사위결정 > 행정심판)
+3. recency (최신성): 최근 판례일수록, 현행 법령일수록 높은 점수${eventDate ? ` (특히 ${eventDate}년 전후의 판례 우선)` : ''}
+
+총점 = relevance×0.5 + importance×0.3 + recency×0.2
+
+🚨【절대 규칙】🚨
+- 반드시 위에서 제시된 【검색된 법령】, 【검색된 판례】, 【검색된 행정해석】, 【검색된 결정문】 목록에 있는 항목만 선택하세요!
+- 목록에 없는 번호나 사건(예: 92다33319)을 임의로 지어내면(환각) 절대 안 됩니다!!
+- "title" 값은 위에서 제공된 텍스트의 제목 양식과 동일해야 합니다. (예: "대법원 2011다42324", "[노동위원회] 중앙2020부해123")
+
+응답: 총점 6.0 이상인 것만 포함. 최대 20건. 총점 내림차순 정렬.
+
+JSON:
+{
+  "ranked": [
+    {
+      "title": "법령·판례·해석·결정 제목",
+      "type": "law|precedent|interpretation|decision",
+      "detail": "이 사건과의 관련성 설명 (2~3문장)",
+      "relevance": 9,
+      "importance": 8,
+      "recency": 7,
+      "totalScore": 8.5
+    }
+  ]
+}`;
+
+      const rankResp = await genai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: [{ role: 'user', parts: [{ text: rankPrompt }] }],
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const rankData = JSON.parse(rankResp.text || '{}');
+
+      // ──────────────────────────────────────────
+      // 환각(Hallucination) 필터링: 원본에 없는 건 무조건 버림
+      const validTitles = [
+        ...rawResults.laws.map(l => l.title),
+        ...precWithText.map(p => `${p.courtName || '대법원'} ${p.caseNo}`.trim()),
+        ...rawResults.interpretations.map(it => it.title),
+        ...rawResults.decisions.map(d => `[${d.org}] ${d.title}`)
+      ];
+
+      const validTitlesNoSpace = validTitles.map(t => t.replace(/\s+/g, ''));
+
+      rankedNodes = (rankData.ranked || [])
+        .filter(item => {
+          if (!item.title) return false;
+          const cleanTitle = item.title.replace(/\s+/g, '');
+          // 유효한 원본 제목과 느슨하게 일치하는지 확인
+          const isValid = validTitlesNoSpace.some(vt => 
+            vt === cleanTitle || cleanTitle.includes(vt) || vt.includes(cleanTitle)
+          );
+          if (!isValid) {
+            console.warn(`[AI 재평가] ❌ 환각 데이터 제거됨 (원본에 없음): ${item.title}`);
+          }
+          return isValid;
+        })
+        .map(item => ({
+          title: item.title,
+          type: item.type || 'law',
+          detail: item.detail || '',
+          source: 'api_ranked',
+          val: Math.round(item.totalScore * 1.5 + 2), // 6~15 → 11~24
+          relevance: item.relevance,
+          importance: item.importance,
+          recency: item.recency,
+          totalScore: item.totalScore
+        }));
+
+      console.log(`  평가 완료: ${rankedNodes.length}건 유효 (총점 6.0 이상, 환각 필터 통과)`);
+      for (const n of rankedNodes.slice(0, 5)) {
+        console.log(`    ${n.totalScore.toFixed(1)}점 | ${n.type} | ${n.title}`);
+      }
+    } catch (err) {
+      console.warn('[3단계] AI 재평가 실패, 원본 결과 사용:', err.message);
+      // fallback: 재평가 실패 시 원본 결과 그대로 사용
+      for (const law of rawResults.laws) {
+        rankedNodes.push({ title: law.title, type: 'law', detail: `시행일: ${law.enforcementDate}`, source: 'api_raw', val: 13 });
+      }
+      for (const prec of precWithText.slice(0, 8)) {
+        const title = `${prec.courtName || '대법원'} ${prec.caseNo} 판결`;
+        const detail = [
+          prec.judgement ? `[판시] ${prec.judgement.substring(0, 200)}` : '',
+          prec.summary ? `[요지] ${prec.summary.substring(0, 200)}` : ''
+        ].filter(Boolean).join('\n');
+        rankedNodes.push({ title, type: 'precedent', detail, source: 'api_raw', val: 12 });
+      }
+      for (const interp of rawResults.interpretations.slice(0, 5)) {
+        rankedNodes.push({ title: interp.title, type: 'interpretation', detail: `${interp.org || ''} (${interp.date || ''})`, source: 'api_raw', val: 10 });
+      }
+    }
+
+    // ──── 결과 종합 ────
+    const allNodes = rankedNodes;
+    const laws = allNodes.filter(n => n.type === 'law');
+    const precedents = allNodes.filter(n => n.type === 'precedent');
+    const interpretations = allNodes.filter(n => n.type === 'interpretation');
+    const decisions = allNodes.filter(n => n.type === 'decision');
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`\n✅ [AI+API Search 7소스] 완료 (${elapsed}초)`);
+    console.log(`   법령 ${laws.length}, 판례 ${precedents.length}, 해석 ${interpretations.length}, 결정문 ${decisions.length}건`);
+    console.log(`   총 ${allNodes.length}건 (원본: 법령 ${rawResults.laws.length} + 판례 ${rawResults.precedents.length} + 해석 ${rawResults.interpretations.length} + 결정문 ${rawResults.decisions.length})`);
+
+    return {
+      allNodes,
+      laws,
+      precedents,
+      interpretations,
+      decisions,
+      rawCounts: {
+        laws: rawResults.laws.length,
+        precedents: rawResults.precedents.length,
+        interpretations: rawResults.interpretations.length,
+        decisions: rawResults.decisions.length
+      },
+      elapsedSec: parseFloat(elapsed)
+    };
+  }
+
+
+
+  // ==================== Lv.1: 사후 검증 ====================
+
+  /**
+   * 판례 번호 존재 여부 검증 (정확한 사건번호 매칭 — nb 파라미터 사용)
+   * @param {string} caseNumber - 사건번호 (예: '2009다62558')
+   * @returns {Promise<boolean>} 존재 여부
    */
   async verifyPrecedent(caseNumber) {
     if (!this.apiKey) return true;
 
     try {
+      // nb 파라미터로 정확한 사건번호 검색 (keyword search가 아닌 exact match)
       const xml = await this._callAPI({
         target: 'prec',
         type: 'XML',
+        nb: caseNumber
+      });
+
+      if (!xml) return true; // API 에러 시 오탐지 방지 (benefit of doubt)
+
+      const totalCnt = parseInt(this._extractTag(xml, 'totalCnt') || '0', 10);
+      if (totalCnt > 0) {
+        console.log(`  ✅ [검증] 판례 확인됨: ${caseNumber}`);
+        return true;
+      }
+
+      // nb로 못 찾으면 keyword fallback 한 번 더 시도
+      const xml2 = await this._callAPI({
+        target: 'prec',
+        type: 'XML',
+        search: '2',
         query: caseNumber
       });
 
-      if (!xml) return true; // API 에러 시 오탐지 방지
+      if (!xml2) return true;
 
-      const totalCnt = parseInt(this._extractTag(xml, 'totalCnt') || '0', 10);
-      return totalCnt > 0;
+      const totalCnt2 = parseInt(this._extractTag(xml2, 'totalCnt') || '0', 10);
+      if (totalCnt2 > 0) {
+        console.log(`  ✅ [검증] 판례 확인됨 (keyword fallback): ${caseNumber}`);
+        return true;
+      }
+
+      console.warn(`  ❌ [검증] 존재하지 않는 판례: ${caseNumber}`);
+      return false;
     } catch (error) {
       console.error('[LawOpenAPI] 판례 검증 실패:', error.message);
+      return true; // 에러 시 benefit of doubt
+    }
+  }
+
+  /**
+   * 법령 조문 존재 여부 검증
+   * 법령명으로 검색하여 해당 법령이 실제 존재하는지 확인
+   * @param {string} title - 법령 인용 제목 (예: '근로기준법 제23조 제1항')
+   * @returns {Promise<boolean>} 존재 여부
+   */
+  async verifyLawArticle(title) {
+    if (!this.apiKey) return true;
+
+    try {
+      // 법령명 추출 (예: "근로기준법 제23조 제1항" → "근로기준법")
+      const lawNameMatch = title.match(/([가-힣]+(?:법|령|규칙|규정|조례))/); 
+      if (!lawNameMatch) return true; // 법령명 패턴이 없으면 skip
+
+      const lawName = lawNameMatch[1];
+
+      const xml = await this._callAPI({
+        target: 'law',
+        type: 'XML',
+        query: lawName,
+        display: '1'
+      });
+
+      if (!xml) return true;
+
+      const totalCnt = parseInt(this._extractTag(xml, 'totalCnt') || '0', 10);
+      if (totalCnt > 0) {
+        console.log(`  ✅ [검증] 법령 확인됨: ${lawName}`);
+        return true;
+      }
+
+      console.warn(`  ❌ [검증] 존재하지 않는 법령: ${lawName} (원문: ${title})`);
+      return false;
+    } catch (error) {
+      console.error('[LawOpenAPI] 법령 검증 실패:', error.message);
       return true;
     }
+  }
+
+  /**
+   * 인용 목록 일괄 검증 + 미검증 항목 제거
+   * Gemini fallback 경로에서 생성된 법령/판례를 그래프에 추가하기 전에 호출
+   * 
+   * @param {Array<{title: string, type: string}>} citations - 검증할 인용 목록 
+   * @returns {Promise<{verified: Array, removed: Array}>} 검증된 것과 제거된 것
+   */
+  async verifyAndFilterCitations(citations) {
+    if (!this.apiKey || !Array.isArray(citations) || citations.length === 0) {
+      return { verified: citations || [], removed: [] };
+    }
+
+    console.log(`\n🔍 [LawOpenAPI] 인용 검증 시작: ${citations.length}건`);
+    const verified = [];
+    const removed = [];
+
+    // 병렬 처리 (최대 4건 동시 — API rate limit 고려)
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < citations.length; i += BATCH_SIZE) {
+      const batch = citations.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(async (cit) => {
+        const type = cit.type || this._inferCitationType(cit.title);
+
+        if (type === 'precedent') {
+          // 판례: 사건번호 추출 후 검증
+          const caseNoMatch = cit.title.match(/(\d{4}[가-힣]+\d+)/);
+          if (!caseNoMatch) return { cit, valid: true }; // 패턴 없으면 skip
+          const isValid = await this.verifyPrecedent(caseNoMatch[1]);
+          return { cit, valid: isValid };
+
+        } else if (type === 'law') {
+          // 법령: 법령명 존재 여부 검증
+          const isValid = await this.verifyLawArticle(cit.title);
+          return { cit, valid: isValid };
+
+        } else {
+          // 행정해석, 노동위 결정 등은 검증 skip (API 제한)
+          return { cit, valid: true };
+        }
+      }));
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          if (result.value.valid) {
+            verified.push(result.value.cit);
+          } else {
+            removed.push(result.value.cit);
+          }
+        } else {
+          // Promise rejected → benefit of doubt
+          verified.push(batch[results.indexOf(result)]);
+        }
+      }
+    }
+
+    console.log(`✅ [LawOpenAPI] 인용 검증 완료: ${verified.length}건 통과, ${removed.length}건 제거`);
+    if (removed.length > 0) {
+      console.log(`   제거된 인용:`);
+      removed.forEach(r => console.log(`     ❌ ${r.title}`));
+    }
+
+    return { verified, removed };
+  }
+
+  /**
+   * 제목으로 인용 유형 추론
+   */
+  _inferCitationType(title) {
+    if (!title) return 'unknown';
+    if (/판결|선고|대법|\d{4}[가-힣]+\d+/.test(title)) return 'precedent';
+    if (/법|령|규칙|규정|조례/.test(title) && /제\d+조/.test(title)) return 'law';
+    if (/해석|지침|회시|고용노동부/.test(title)) return 'interpretation';
+    if (/노동위|결정/.test(title)) return 'decision';
+    return 'unknown';
   }
 
   /**
    * AI 답변에서 환각 판례 추출 및 검증
    */
   async checkHallucinations(text) {
-    const caseRegex = /20[0-9]{2}[가-힣][0-9]+/g;
+    const caseRegex = /\d{4}[가-힣]+\d+/g;
     const matches = [...new Set(text.match(caseRegex) || [])];
 
     const hallucinations = [];

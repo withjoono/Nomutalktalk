@@ -1,10 +1,11 @@
-const express = require('express');
+﻿const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const RAGAgent = require('./RAGAgent');
 const OpenAI = require('openai');
+const LawVerificationService = require('./services/LawVerificationService');
 require('dotenv').config();
 
 // GCP Secret Manager (프로덕션 환경)
@@ -1423,93 +1424,71 @@ app.post('/api/labor/analyze-case', verifyToken, async (req, res) => {
       console.warn('[법령 분석] RAG 검색 실패, Gemini 폴백 진행:', ragError.message);
     }
 
-    // ── 2차: RAG 결과가 없으면 Gemini로 직접 법령/판례 추출 ──
+    // ── 2차: RAG 결과 없음 → Open API 직접 검색 + Gemini(요약만) ──
     if (!ragHasResults) {
-      console.log('[법령 분석] RAG 결과 없음 → Gemini 직접 분석');
+      console.log('[법령 분석] RAG 결과 없음 → Open API 직접 검색 시작');
 
       try {
         const { GoogleGenAI } = require('@google/genai');
         const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-        const lawPrompt = `당신은 한국 노동법 전문가입니다. 아래 노동 사건과 관련된 **법령**, **판례**, **행정해석**을 구체적으로 분석해주세요.
+        // ★ AI 키워드 + Open API 대량 검색 + AI 관련성·중요도·기간 재평가
+        console.log('[법령 분석] AI+API Search 시작...');
+        const legalData = await LawVerificationService.hybridLegalSearch(description);
 
-규칙:
-- 반드시 실제 존재하는 한국 법령명, 조항, 판례번호를 제시하세요
-- 각 항목의 type은 "law"(법령), "precedent"(판례), "interpretation"(행정해석/고용노동부 해석) 중 하나입니다
-- relevance는 사건과의 관련도입니다 (high/medium/low)
-- detail에는 해당 법령/판례가 이 사건에 어떻게 적용되는지 구체적으로 설명하세요
-- 최소 5개, 최대 12개 항목을 제시하세요
-- 법령은 조항까지 구체적으로 명시 (예: "근로기준법 제23조 제1항")
-- 판례는 판례번호 포함 (예: "대법원 2020다12345")
+        // 재평가된 노드를 그래프에 추가
+        let addedCount = 0;
+        for (const node of (legalData.allNodes || [])) {
+          if (seenTitles.has(node.title)) continue;
+          seenTitles.add(node.title);
 
-응답 형식 (JSON):
-{
-  "items": [
-    {
-      "title": "근로기준법 제23조 제1항 (해고 등의 제한)",
-      "type": "law",
-      "relevance": "high",
-      "detail": "사용자는 정당한 이유 없이 근로자를 해고하지 못한다. 본 사건에서..."
-    },
-    {
-      "title": "대법원 2018다12345 판결",
-      "type": "precedent",
-      "relevance": "high",
-      "detail": "부당해고 요건에 대한 대법원 판시 사항..."
-    }
-  ],
-  "summary": "이 사건에 적용되는 법령과 판례를 종합 분석한 요약 (3~5문장)"
-}
-
-사건 내용:
-${description.substring(0, 3000)}
-${orgRulesContext}`;
-
-        const response = await genai.models.generateContent({
-          model: 'gemini-2.5-pro',
-          contents: [{ role: 'user', parts: [{ text: lawPrompt }] }],
-          config: {
-            responseMimeType: 'application/json',
-          }
-        });
-
-        const responseText = response.text || '';
-        const lawData = JSON.parse(responseText);
-        const items = (lawData.items || []).slice(0, 12);
-
-        if (lawData.summary) {
-          summary = lawData.summary;
-        }
-
-        items.forEach((item, idx) => {
-          if (seenTitles.has(item.title)) return;
-          seenTitles.add(item.title);
-
-          const nodeType = item.type || classifyCitationType(item.title);
-          const nodeId = `gemini-${idx}`;
-
+          const nodeId = `ranked-${addedCount++}`;
+          // 점수 정보가 있으면 detail에 추가
+          const scoreInfo = node.totalScore
+            ? `[평가: 관련성${node.relevance} 중요도${node.importance} 최신성${node.recency} = ${node.totalScore.toFixed(1)}점]\n`
+            : '';
           nodes.push({
             id: nodeId,
-            label: item.title,
-            type: nodeType,
-            detail: item.detail || '',
-            val: item.relevance === 'high' ? 16 : item.relevance === 'medium' ? 12 : 9,
-            severity: item.relevance || 'medium'
+            label: node.title,
+            type: node.type,
+            detail: scoreInfo + (node.detail || ''),
+            val: node.val || 12,
+            source: node.source
           });
 
           links.push({
             source: 'center',
             target: nodeId,
-            label: getRelationLabel(nodeType)
+            label: getRelationLabel(node.type)
           });
-        });
-
-        console.log(`[법령 분석] Gemini 결과: ${items.length}건`);
-      } catch (geminiError) {
-        console.error('[법령 분석] Gemini 분석 실패:', geminiError.message);
-        if (!summary) {
-          summary = '관련 법령 분석 중 오류가 발생했습니다. 다시 시도해주세요.';
         }
+
+        const raw = legalData.rawCounts || {};
+        console.log(`[법령 분석] AI+API 완료: ${addedCount}건 선별 (원본: 법령${raw.laws||0} 판례${raw.precedents||0} 해석${raw.interpretations||0})`);
+
+        // 요약 생성
+        const summaryPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건에 대해 법적 분석 요약을 3~5문장으로 작성해주세요.
+아래 검색된 법령/판례를 참고하되, 판례번호를 새로 만들지 마세요.
+
+사건: ${description.substring(0, 2000)}
+${orgRulesContext}
+
+검색된 법적 근거:
+${(legalData.allNodes || []).map(n => `- ${n.title}: ${n.detail}`).join('\n')}
+
+JSON: { "summary": "요약" }`;
+
+        const summaryResp = await genai.models.generateContent({
+          model: 'gemini-2.5-pro',
+          contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }],
+          config: { responseMimeType: 'application/json' }
+        });
+        const summaryData = JSON.parse(summaryResp.text || '{}');
+        if (summaryData.summary) summary = summaryData.summary;
+
+      } catch (geminiError) {
+        console.error('[법령 분석] Hybrid Search 실패:', geminiError.message);
+        if (!summary) summary = '관련 법령 분석 중 오류가 발생했습니다. 다시 시도해주세요.';
       }
     }
 
@@ -1531,6 +1510,246 @@ ${orgRulesContext}`;
       success: false,
       error: error.message
     });
+  }
+});
+
+/**
+ * 노무 AI - 사건 정보 충분성 체크
+ * POST /api/labor/check-sufficiency
+ * Body: { description: string, caseType?: string }
+ * 
+ * AI가 사건 내용을 평가하여 분석에 필요한 정보가 충분한지 확인합니다.
+ * 동시에 요청의 의도(intent)를 분류합니다.
+ * - dispute: 분쟁/사건 → 기존 6단계 플로우
+ * - document: 문서/매뉴얼 생성 → quick-assist
+ * - calculation: 연차/퇴직금 계산 → quick-assist
+ * - information: 법률 질의응답 → quick-assist
+ */
+app.post('/api/labor/check-sufficiency', verifyToken, async (req, res) => {
+  try {
+    const { description, caseType } = req.body;
+
+    if (!description || typeof description !== 'string' || description.trim().length === 0) {
+      return res.status(400).json({ success: false, error: '사건 내용이 필요합니다.' });
+    }
+
+    // 너무 짧으면 무조건 부족
+    if (description.trim().length < 30) {
+      return res.json({
+        success: true,
+        data: {
+          sufficient: false,
+          intent: 'dispute',
+          message: '사건 내용이 너무 짧습니다. 아래 사항을 추가로 알려주세요.',
+          questions: [
+            { id: 'q1', question: '어떤 일이 발생했나요? (해고, 임금체불, 괴롭힘 등)', placeholder: '예: 갑자기 해고 통보를 받았습니다' },
+            { id: 'q2', question: '근무 기간과 사업장 규모는?', placeholder: '예: 3년 근무, 직원 30명 규모' },
+            { id: 'q3', question: '현재 진행 상황과 원하는 결과는?', placeholder: '예: 아직 아무 조치도 못 했고, 복직을 원합니다' },
+          ]
+        }
+      });
+    }
+
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const userType = req.userType || 'PERSONAL';
+    const isBiz = userType === 'BUSINESS';
+    const perspective = isBiz ? '사업주/인사담당자' : '근로자';
+
+const sufficiencyPrompt = `당신은 한국 노동법 전문가입니다. 아래 내용을 2가지 관점에서 평가해주세요.
+
+[1단계: 의도 분류]
+사용자의 요청이 아래 4가지 중 어디에 해당하는지 판단하세요:
+- "dispute": 분쟁/사건 (해고, 임금체불, 산재, 징계 등 구체적인 사건에 대한 분석이 필요한 경우)
+- "document": 문서/매뉴얼/서식 작성 요청 (예: "중대재해 예방 매뉴얼 만들어 줘", "근로계약서 써줘", "사직서 양식 필요해")
+- "calculation": 계산 요청 (예: "내 연차 계산해줘", "퇴직금 얼마 받을 수 있어?")
+- "information": 법률 질의/가이드 요청 (예: "해고 절차가 어떻게 돼?", "법안 요약해줘")
+
+**중요 경고:** 
+사용자가 짧게 "OO 만들어줘", "OO 알려줘"라고만 입력했다면 이는 구체적 사건 분쟁이 아니므로 절대로 "dispute"로 분류하지 마세요! "document" 또는 "information"으로 분류해야 합니다.
+
+[2단계: 충분성 평가 (dispute인 경우에만 의미 있음)]
+분쟁(dispute) 사건이면:
+- 이 사건의 핵심 사실관계 파악이 가능한가? 최소 100자 이상이고 기본 요건이 갖춰져 있는가?
+- 충분하면 sufficient: true, 부족하면 sufficient: false로 설정.
+
+비분쟁(document/calculation/information)이면:
+- 무조건 sufficient: true로 설정.
+
+질문은 ${perspective} 관점에서 작성하세요.
+반드시 아래 JSON 형식으로만 응답하세요.
+
+사건 유형: ${caseType || '미분류'}
+내용: ${description.substring(0, 2000)}
+
+{
+  "intent": "dispute 또는 document 또는 calculation 또는 information",
+  "intentReason": "의도 판단 근거 1문장",
+  "sufficient": true/false,
+  "confidenceNote": "충분/부족 판단 근거",
+  "questions": [
+    { "id": "q1", "question": "질문", "placeholder": "답변 예시", "reason": "필요 이유" }
+  ]
+}`;
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: sufficiencyPrompt }] }],
+      config: { responseMimeType: 'application/json' }
+    });
+
+    let result;
+    try {
+      result = JSON.parse(response.text || '{}');
+    } catch {
+      result = { intent: 'dispute', sufficient: true, confidenceNote: '판단 불가', questions: [] };
+    }
+
+    const intent = ['dispute', 'document', 'calculation', 'information'].includes(result.intent)
+      ? result.intent : 'dispute';
+
+    // 비분쟁은 항상 sufficient
+    const sufficient = intent !== 'dispute' ? true : !!result.sufficient;
+
+    console.log(`[의도 분류] ${intent} | ${sufficient ? '✅ 충분' : '❓ 부족'} (${description.substring(0, 30)}...)`);
+
+    res.json({
+      success: true,
+      data: {
+        intent,
+        intentReason: result.intentReason || '',
+        sufficient,
+        message: intent !== 'dispute'
+          ? `요청 유형: ${intent === 'document' ? '문서 생성' : intent === 'calculation' ? '계산' : '정보 조회'}`
+          : (sufficient ? '사건 정보가 충분합니다.' : '추가 정보가 필요합니다.'),
+        confidenceNote: result.confidenceNote || '',
+        questions: intent === 'dispute' && !sufficient ? (result.questions || []).slice(0, 4) : [],
+      }
+    });
+
+  } catch (error) {
+    console.error('[충분성 체크] 오류:', error.message);
+    res.json({
+      success: true,
+      data: { intent: 'dispute', sufficient: true, message: '분류 중 오류 — 분석을 진행합니다.', questions: [] }
+    });
+  }
+});
+
+/**
+ * 노무 AI - 빠른 도움 (비분쟁: 문서 생성, 계산, 정보 조회)
+ * POST /api/labor/quick-assist
+ * Body: { description: string, intent: string, caseType?: string }
+ */
+app.post('/api/labor/quick-assist', verifyToken, checkUsageLimit('analysis'), async (req, res) => {
+  try {
+    const { description, intent, caseType } = req.body;
+
+    if (!description || !intent) {
+      return res.status(400).json({ success: false, error: '요청 내용과 의도가 필요합니다.' });
+    }
+
+    const { GoogleGenAI } = require('@google/genai');
+    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    const userType = req.userType || 'PERSONAL';
+    const isBiz = userType === 'BUSINESS';
+
+    const promptMap = {
+      document: `당신은 한국 노동법 전문가이자 문서 작성 전문가입니다.
+아래 요청에 따라 실무에서 바로 사용할 수 있는 문서/매뉴얼/서식을 작성해주세요.
+
+규칙:
+- 관련 법령 조항을 반드시 인용하세요 (근거 기반)
+- 실무 적용 가능한 구체적인 내용으로 작성하세요
+- 목차, 본문, 서식 양식 등을 포함하세요
+- ${isBiz ? '사업주/인사담당자' : '근로자'} 관점에서 작성하세요
+- 마크다운 형식으로 작성하세요
+
+응답 JSON:
+{
+  "title": "문서 제목",
+  "content": "마크다운 형식의 전체 문서 내용",
+  "relatedLaws": ["관련 법령 조항 목록"],
+  "tips": ["실무 활용 팁 2~3개"]
+}`,
+
+      calculation: `당신은 한국 노동법 계산 전문가입니다.
+아래 요청에 따라 정확한 계산 결과를 제공해주세요.
+
+규칙:
+- 계산 과정을 단계별로 보여주세요
+- 관련 법령 근거를 반드시 인용하세요
+- 필요한 정보가 부족하면 일반적인 기준으로 예시 계산해주세요
+- 주의사항도 포함하세요
+
+응답 JSON:
+{
+  "title": "계산 제목",
+  "content": "마크다운 형식의 계산 과정 및 결과",
+  "relatedLaws": ["관련 법령 조항"],
+  "tips": ["주의사항 2~3개"]
+}`,
+
+      information: `당신은 한국 노동법 전문가입니다.
+아래 질문에 대해 정확하고 이해하기 쉬운 답변을 제공해주세요.
+
+규칙:
+- 관련 법령 조항을 반드시 인용하세요
+- ${isBiz ? '사업주/인사담당자' : '근로자'} 관점에서 실무적 조언을 포함하세요
+- 핵심 내용을 먼저, 상세 내용을 뒤에 배치하세요
+- 마크다운 형식으로 작성하세요
+
+응답 JSON:
+{
+  "title": "답변 제목",
+  "content": "마크다운 형식의 상세 답변",
+  "relatedLaws": ["관련 법령 조항"],
+  "tips": ["실무 팁 2~3개"]
+}`
+    };
+
+    const systemPrompt = promptMap[intent] || promptMap.information;
+    const fullPrompt = `${systemPrompt}\n\n사건 유형: ${caseType || '일반'}\n\n요청 내용:\n${description.substring(0, 3000)}`;
+
+    console.log(`[빠른 도움] ${intent} 요청: ${description.substring(0, 50)}...`);
+
+    const response = await genai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+      config: { responseMimeType: 'application/json' }
+    });
+
+    let result;
+    try {
+      result = JSON.parse(response.text || '{}');
+    } catch {
+      result = {
+        title: '결과',
+        content: response.text || '결과를 생성하지 못했습니다.',
+        relatedLaws: [],
+        tips: []
+      };
+    }
+
+    console.log(`[빠른 도움] 완료: ${result.title}`);
+
+    res.json({
+      success: true,
+      data: {
+        title: result.title || '결과',
+        content: result.content || '',
+        relatedLaws: result.relatedLaws || [],
+        tips: result.tips || [],
+        intent,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('[빠른 도움] 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1594,6 +1813,7 @@ app.post('/api/labor/analyze-issues', verifyToken, checkUsageLimit('analysis'), 
 - unfavorableFactors는 사업주에게 불리한 요소 목록 (없으면 빈 배열)
 - overallWinRate는 모든 쟁점을 종합한 사업주 패소 리스크 (0~100 정수)
 - overallAssessment는 전체적인 리스크 전망을 2~3문장으로 서술하세요
+- precedents: 각 쟁점과 관련된 실제 판례(대법원 등) 또는 행정해석을 1개 이상 반드시 포함하세요. (예: 대법원 2020다12345)
 - 반드시 아래 JSON 형식으로만 응답하세요
 
 응답 형식:
@@ -1607,7 +1827,10 @@ app.post('/api/labor/analyze-issues', verifyToken, checkUsageLimit('analysis'), 
       "winRate": 72,
       "winRateReason": "서면통지 의무 미이행이 확인되어 사업주 패소 리스크가 72%로 판단",
       "favorableFactors": ["징계 사유의 실질적 정당성"],
-      "unfavorableFactors": ["서면통지 절차 미이행", "노동위 진정 가능성"]
+      "unfavorableFactors": ["서면통지 절차 미이행", "노동위 진정 가능성"],
+      "precedents": [
+        { "caseNumber": "대법원 2011다12345", "summary": "해고의 서면통지의무를 위반한 해고는 효력이 없다." }
+      ]
     }
   ],
   "overallSummary": "이 사건의 전체적인 리스크 요약",
@@ -1618,7 +1841,7 @@ app.post('/api/labor/analyze-issues', verifyToken, checkUsageLimit('analysis'), 
 사건 내용:
 ${description.substring(0, 3000)}
 ${orgRulesContext}`
-      : `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 근로자의 승소 가능성을 예측해주세요.
+      : `당신은 한국 노동법 전문가입니다. 아래 사건 내용을 분석하여 핵심 법적 쟁점을 추출하고, 각 쟁점별 근로자의 승소 가능성을 예측하며, 종합 예상 결과를 제시해주세요.
 
 규칙:
 - 최소 2개, 최대 5개의 핵심 쟁점을 추출하세요
@@ -1630,6 +1853,8 @@ ${orgRulesContext}`
 - unfavorableFactors는 근로자에게 불리한 요소 목록 (없으면 빈 배열)
 - overallWinRate는 모든 쟁점을 종합한 전체 승소 가능성 (0~100 정수)
 - overallAssessment는 전체적인 승패 전망을 2~3문장으로 서술하세요
+- prediction: 예상 결과를 아래 형식으로 반드시 포함하세요
+- precedents: 각 쟁점과 관련된 실제 판례(대법원 등) 또는 행정해석을 1개 이상 반드시 포함하세요. (예: 대법원 2020다12345)
 - 반드시 아래 JSON 형식으로만 응답하세요
 
 응답 형식:
@@ -1643,12 +1868,35 @@ ${orgRulesContext}`
       "winRate": 72,
       "winRateReason": "근로기준법 제23조 위반이 명확하나, 사용자측 징계사유 입증 가능성이 있어 72%로 판단",
       "favorableFactors": ["해고 사전통보 의무 미이행", "서면통지 없음"],
-      "unfavorableFactors": ["근무태도 지적 사실 존재"]
+      "unfavorableFactors": ["근무태도 지적 사실 존재"],
+      "precedents": [
+        { "caseNumber": "대법원 2011다12345", "summary": "해고의 서면통지의무를 위반한 해고는 효력이 없다." }
+      ]
     }
   ],
   "overallSummary": "이 사건의 전체적인 법적 쟁점 요약",
   "overallWinRate": 65,
-  "overallAssessment": "전반적으로 근로자에게 유리하나 일부 쟁점에서 반론 가능성이 존재합니다."
+  "overallAssessment": "전반적으로 근로자에게 유리하나 일부 쟁점에서 반론 가능성이 존재합니다.",
+  "prediction": {
+    "estimatedAmounts": [
+      { "item": "해고예고수당", "amount": "약 월급 1개월분", "basis": "근로기준법 제26조" },
+      { "item": "퇴직금", "amount": "약 3개월분 평균임금", "basis": "퇴직급여보장법 제8조" }
+    ],
+    "timeline": {
+      "laborCommission": "3~6개월",
+      "lawsuit": "1~2년",
+      "settlement": "1~3개월"
+    },
+    "riskFactors": ["해고 통지 증거 확보 필요", "근무태도 관련 반론 대비 필요"],
+    "actionPlan": [
+      { "priority": "즉시", "action": "해고 통지 증거 확보 (문자, 녹음 등)", "reason": "증거 보전" },
+      { "priority": "30일 이내", "action": "노동위원회 부당해고 구제신청", "reason": "법정 기한 준수" },
+      { "priority": "병행", "action": "고용노동부 체불임금·퇴직금 진정", "reason": "금전적 권리 확보" }
+    ],
+    "bestCase": "복직 + 해고기간 임금 전액 + 퇴직금 + 해고예고수당 수령",
+    "worstCase": "해고 정당성 인정 시 퇴직금만 수령 가능",
+    "mostLikely": "부당해고 인정으로 합의금 또는 복직 결정"
+  }
 }
 
 사건 내용:
@@ -1719,7 +1967,7 @@ ${orgRulesContext}`;
     if (issuesWithNoCitations.length > 0) {
       console.log(`[쟁점 분석] RAG 결과 없는 쟁점 ${issuesWithNoCitations.length}개 → Gemini 폴백`);
       try {
-        const fallbackPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건의 핵심 쟁점별로 관련 법령, 판례, 행정해석을 구체적으로 제시해주세요.
+        const fallbackPrompt = `당신은 한국 노동법 전문가입니다. 아래 사건의 핵심 쟁점별로 관련 법령과 행정해석을 제시해주세요.
 
 사건 내용:
 ${description.substring(0, 2000)}
@@ -1727,10 +1975,12 @@ ${description.substring(0, 2000)}
 쟁점 목록:
 ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.summary}`).join('\n')}
 
-규칙:
-- 각 쟁점별로 관련 법령/판례를 최소 2개, 최대 4개 제시
-- 반드시 실제 존재하는 한국 법령명과 조항, 또는 판례번호를 제시
-- type은 "law"(법령), "precedent"(판례), "interpretation"(행정해석) 중 하나
+【규칙 — 반드시 준수】
+- 각 쟁점별로 관련 법령 조항을 2~4개 제시하세요
+- 법령 조항(type: "law"): 실제 조항번호를 사용하세요
+- 판례(type: "precedent"): 알고 있는 판례번호를 포함하세요 (예: 대법원 2020다12345). 모르면 "대법원 부당해고 판례" 등 식별 가능한 설명도 허용합니다.
+- 행정해석(type: "interpretation"): 고용노동부 지침/회시 제목 수준으로 인용하세요
+- 각 쟁점당 최소 1개의 판례를 포함하도록 노력하세요
 - 반드시 아래 JSON 형식으로만 응답
 
 {
@@ -1738,7 +1988,7 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
     {
       "issueIndex": 0,
       "citations": [
-        { "title": "근로기준법 제23조 제1항", "type": "law", "detail": "정당한 이유 없는 해고 금지" }
+        { "title": "근로기준법 제23조 제1항 (해고 제한)", "type": "law", "detail": "정당한 이유 없는 해고 금지" }
       ]
     }
   ]
@@ -1754,31 +2004,77 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
         const fallbackData = JSON.parse(fallbackText);
         const issueResults = fallbackData.issueResults || [];
 
-        issueResults.forEach(ir => {
+        // ★ 각 쟁점별 Gemini 생성 인용을 검증 후 필터링
+        for (const ir of issueResults) {
           const mapping = issuesWithNoCitations[ir.issueIndex];
-          if (!mapping) return;
+          if (!mapping) continue;
           const originalIdx = mapping.idx;
           const existing = searchResults.find(r => r.issueIdx === originalIdx);
           if (existing) {
-            const newCitations = (ir.citations || []).map(c => ({
+            const rawCitations = (ir.citations || []).map(c => ({
               title: c.title,
               uri: c.detail || '',
               _type: c.type || 'law',
+              type: c.type || 'law',
             }));
+
+            // 국가법령정보센터 API로 환각 검증
+            const { verified: validCitations, removed: invalidCitations } = 
+              await LawVerificationService.verifyAndFilterCitations(rawCitations);
+
+            if (invalidCitations.length > 0) {
+              console.warn(`[쟁점 분석] 쟁점 ${originalIdx}에서 환각 ${invalidCitations.length}건 제거`);
+            }
+
             if (!existing.result) {
-              existing.result = { citations: newCitations };
+              existing.result = { citations: validCitations };
             } else {
-              existing.result.citations = [...(existing.result.citations || []), ...newCitations];
+              existing.result.citations = [...(existing.result.citations || []), ...validCitations];
             }
           }
-        });
-        console.log(`[쟁점 분석] Gemini 폴백 완료: ${issueResults.length}개 쟁점에 법령 추가`);
+        }
+        console.log(`[쟁점 분석] Gemini 폴백 완료 (검증 적용): ${issueResults.length}개 쟁점 처리`);
       } catch (geminiErr) {
         console.warn('[쟁점 분석] Gemini 폴백 실패:', geminiErr.message);
       }
     }
 
 
+
+    // 2.7단계: AI 키워드 x 7소스 멀티 API 검색 (hybridLegalSearch 활용)
+    // 소스: 판례, 노동위원회, 고용보험심사위, 산재재심사위, 국가인권위, 행정심판례, 지능형법령검색
+    const precedentsByIssue = {};
+    try {
+      console.log(`[쟁점 분析] AI 키워드 x 7소스 멀티 API 검색 시작 (${issues.length}개 쟁점 병렬)`);
+      const hybridPromises = issues.map(async (issue, idx) => {
+        const issueDesc = `${issue.title}\n${issue.summary || ''}\n원본 사건: ${description.substring(0, 500)}`;
+        try {
+          const hybrid = await LawVerificationService.hybridLegalSearch(issueDesc);
+          const precs = [];
+          for (const prec of (hybrid.precedents || [])) {
+            if (!prec.title) continue;
+            precs.push({ caseNumber: prec.title, summary: prec.detail || '', court: '', date: '', type: 'precedent' });
+          }
+          for (const dec of (hybrid.decisions || [])) {
+            if (!dec.title) continue;
+            precs.push({ caseNumber: dec.title, summary: dec.detail || '', court: '', date: '', type: 'decision' });
+          }
+          console.log(`[쟁점 분析] 쟁점 ${idx} — 판례 ${(hybrid.precedents||[]).length}건 + 결정문 ${(hybrid.decisions||[]).length}건`);
+          return { idx, precs };
+        } catch (e) {
+          console.warn(`[쟁점 분析] 쟁점 ${idx} hybridSearch 실패:`, e.message);
+          return { idx, precs: [] };
+        }
+      });
+      const hybridResults = await Promise.all(hybridPromises);
+      for (const { idx, precs } of hybridResults) {
+        if (precs.length > 0) precedentsByIssue[idx] = precs;
+      }
+      const totalFetched = Object.values(precedentsByIssue).reduce((a, b) => a + b.length, 0);
+      console.log(`[쟁점 分析] 멀티소스 조회 완료: 총 ${totalFetched}건 수집`);
+    } catch (precErr) {
+      console.warn('[쟁점 分析] 멀티소스 조회 단계 오류 (계속 진행):', precErr.message);
+    }
     // 3단계: Issue-centric 그래프 구조 생성
     const nodes = [];
     const links = [];
@@ -1802,6 +2098,10 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
     issues.forEach((issue, idx) => {
       const issueId = `issue-${idx}`;
 
+      // ★ 국가법령정보센터 API 실수집 판례만 사용 (AI 생성 판례 환각 방지)
+      // issue.precedents (Gemini 생성)는 검증되지 않으므로 포함하지 않음
+      const mergedPrecedents = precedentsByIssue[idx] || [];
+
       // 쟁점 정보
       issueInfoList.push({
         id: issueId,
@@ -1812,6 +2112,7 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
         winRateReason: issue.winRateReason || '',
         favorableFactors: issue.favorableFactors || [],
         unfavorableFactors: issue.unfavorableFactors || [],
+        precedents: mergedPrecedents,
       });
 
       // 쟁점 노드
@@ -1872,6 +2173,9 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
 
     console.log(`[쟁점 분석] 그래프 생성 완료: ${nodes.length} nodes, ${links.length} links`);
 
+    // prediction 데이터 추출
+    const prediction = issueData.prediction || null;
+
     res.json({
       success: true,
       data: {
@@ -1879,6 +2183,7 @@ ${issuesWithNoCitations.map((x, i) => `${i + 1}. ${x.issue.title}: ${x.issue.sum
         summary: overallSummary,
         overallWinRate,
         overallAssessment,
+        prediction,
         nodes,
         links,
         timestamp: new Date().toISOString()
@@ -5271,4 +5576,5 @@ startServer().catch(err => {
   console.error('❌ 서버 시작 실패:', err);
   process.exit(1);
 });
+
 

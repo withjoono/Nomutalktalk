@@ -1,0 +1,226 @@
+.page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 16px 100px;
+}
+
+/* ── 결과 카드 ── */
+.resultCard {
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.resultTitle {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--toss-text-primary);
+    margin: 0 0 6px;
+}
+
+.resultMeta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.intentBadge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.intentDocument {
+    background: rgba(139,92,246,0.1);
+    color: #8b5cf6;
+}
+
+.intentCalculation {
+    background: rgba(16,185,129,0.1);
+    color: #10b981;
+}
+
+.intentInformation {
+    background: rgba(59,130,246,0.1);
+    color: #3b82f6;
+}
+
+/* ── 마크다운 본문 ── */
+.contentBody {
+    font-size: 0.88rem;
+    color: var(--toss-text-primary);
+    line-height: 1.8;
+}
+
+.contentBody h1 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 24px 0 8px;
+    color: var(--toss-text-primary);
+}
+
+.contentBody h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 20px 0 8px;
+    color: var(--toss-text-primary);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--toss-border);
+}
+
+.contentBody h3 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    margin: 16px 0 6px;
+    color: var(--toss-text-primary);
+}
+
+.contentBody p {
+    margin: 8px 0;
+}
+
+.contentBody ul, .contentBody ol {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.contentBody li {
+    margin: 4px 0;
+}
+
+.contentBody code {
+    background: rgba(59,130,246,0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.84rem;
+}
+
+.contentBody blockquote {
+    border-left: 3px solid #3b82f6;
+    margin: 12px 0;
+    padding: 8px 14px;
+    background: rgba(59,130,246,0.04);
+    border-radius: 0 8px 8px 0;
+    color: var(--toss-text-secondary);
+}
+
+.contentBody table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.84rem;
+}
+
+.contentBody th, .contentBody td {
+    border: 1px solid var(--toss-border);
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.contentBody th {
+    background: var(--toss-bg-secondary);
+    font-weight: 600;
+}
+
+.contentBody strong {
+    color: var(--toss-text-primary);
+    font-weight: 700;
+}
+
+/* ── 관련 법령 ── */
+.lawsSection {
+    margin-bottom: 20px;
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--toss-text-primary);
+}
+
+.lawTag {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    font-size: 0.82rem;
+    color: var(--toss-text-secondary);
+    margin: 0 6px 6px 0;
+}
+
+/* ── 실무 팁 ── */
+.tipsSection {
+    margin-bottom: 20px;
+}
+
+.tipCard {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(16,185,129,0.05);
+    border: 1px solid rgba(16,185,129,0.15);
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.6;
+}
+
+/* ── 하단 CTA ── */
+.ctaSection {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.ctaBtn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: transform 0.15s;
+}
+
+.ctaBtn:active {
+    transform: scale(0.97);
+}
+
+.ctaPrimary {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+}
+
+.ctaSecondary {
+    background: var(--toss-bg-secondary);
+    border: 1px solid var(--toss-border);
+    color: var(--toss-text-secondary);
+}
+
+/* ── 로딩 ── */
+.loadingSection {
+    text-align: center;
+    padding: 4rem 0;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--toss-border);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

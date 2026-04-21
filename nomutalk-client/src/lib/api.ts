@@ -182,6 +182,13 @@ export interface CaseAnalysisResult {
 
 // ==================== Issue Analysis API ====================
 
+export interface Precedent {
+    caseNumber: string;
+    summary: string;
+    court?: string;
+    date?: string;
+}
+
 export interface IssueInfo {
     id: string;
     title: string;
@@ -193,6 +200,17 @@ export interface IssueInfo {
     unfavorableFactors?: string[];
     estimatedAmount?: string;
     risks?: string[];
+    precedents?: Precedent[];
+}
+
+export interface PredictionResult {
+    estimatedAmounts: { item: string; amount: string; basis: string }[];
+    timeline: { laborCommission: string; lawsuit: string; settlement: string };
+    riskFactors: string[];
+    actionPlan: { priority: string; action: string; reason: string }[];
+    bestCase: string;
+    worstCase: string;
+    mostLikely: string;
 }
 
 export interface IssueAnalysisResult {
@@ -200,9 +218,77 @@ export interface IssueAnalysisResult {
     summary: string;
     overallWinRate?: number | null;
     overallAssessment?: string;
+    prediction?: PredictionResult | null;
     nodes: GraphNode[];
     links: GraphLink[];
     timestamp: string;
+}
+
+// ==================== Sufficiency Check API ====================
+
+export type RequestIntent = 'dispute' | 'document' | 'calculation' | 'information';
+
+export interface SufficiencyQuestion {
+    id: string;
+    question: string;
+    placeholder: string;
+    reason?: string;
+}
+
+export interface SufficiencyResult {
+    sufficient: boolean;
+    intent: RequestIntent;
+    intentReason?: string;
+    message: string;
+    confidenceNote?: string;
+    questions: SufficiencyQuestion[];
+}
+
+/**
+ * 사건 정보 충분성 체크 + 의도 분류
+ */
+export async function checkSufficiency(description: string, caseType?: string): Promise<SufficiencyResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/check-sufficiency`, {
+        method: 'POST',
+        body: JSON.stringify({ description, caseType })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '충분성 체크 실패');
+    }
+
+    return data.data;
+}
+
+// ==================== Quick Assist API ====================
+
+export interface QuickAssistResult {
+    title: string;
+    content: string;
+    relatedLaws: string[];
+    tips: string[];
+    intent: RequestIntent;
+    timestamp: string;
+}
+
+/**
+ * 빠른 도움 (비분쟁: 문서 생성, 계산, 정보 조회)
+ */
+export async function fetchQuickAssist(description: string, intent: RequestIntent, caseType?: string): Promise<QuickAssistResult> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/api/labor/quick-assist`, {
+        method: 'POST',
+        body: JSON.stringify({ description, intent, caseType })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(data.error || '빠른 도움 실패');
+    }
+
+    return data.data;
 }
 
 /**

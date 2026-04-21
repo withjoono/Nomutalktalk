@@ -133,13 +133,10 @@ export default function AppShell({ children }: AppShellProps) {
                                 사건 관리
                             </Link>
                             <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
-                                핵심 쟁점
-                            </Link>
-                            <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
-                                관련 법령
+                                분석 결과
                             </Link>
                             <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
-                                대안 제안
+                                해결 방법
                             </Link>
                             <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
                                 법령 검색
@@ -158,16 +155,10 @@ export default function AppShell({ children }: AppShellProps) {
                                 내 사건
                             </Link>
                             <Link href="/issue-analysis" className={`${styles.navLink} ${isActive('/issue-analysis') ? styles.navActive : ''}`}>
-                                핵심 쟁점
-                            </Link>
-                            <Link href="/case-search" className={`${styles.navLink} ${isActive('/case-search') ? styles.navActive : ''}`}>
-                                관련 법령
+                                분석 결과
                             </Link>
                             <Link href="/alternatives" className={`${styles.navLink} ${isActive('/alternatives') ? styles.navActive : ''}`}>
-                                대안 제안
-                            </Link>
-                            <Link href="/follow-up" className={`${styles.navLink} ${isActive('/follow-up') ? styles.navActive : ''}`}>
-                                후속 지원
+                                해결 방법
                             </Link>
                             <Link href="/laws" className={`${styles.navLink} ${isActive('/laws') ? styles.navActive : ''}`}>
                                 법령 검색
@@ -296,11 +287,11 @@ export default function AppShell({ children }: AppShellProps) {
                         </Link>
                         <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
                             {Icons.caseSearch}
-                            <span>쟁점</span>
+                            <span>분석</span>
                         </Link>
-                        <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
-                            {Icons.laws}
-                            <span>법령</span>
+                        <Link href="/alternatives" className={`${styles.tabItem} ${isActive('/alternatives') ? styles.activeTab : ''}`}>
+                            {Icons.chat}
+                            <span>해결</span>
                         </Link>
                         <Link href="/biz/dashboard" className={`${styles.tabItem} ${isActive('/biz/dashboard') ? styles.activeTab : ''}`}>
                             {Icons.dashboard}
@@ -320,19 +311,11 @@ export default function AppShell({ children }: AppShellProps) {
                         </Link>
                         <Link href="/issue-analysis" className={`${styles.tabItem} ${isActive('/issue-analysis') ? styles.activeTab : ''}`}>
                             {Icons.caseSearch}
-                            <span>쟁점</span>
-                        </Link>
-                        <Link href="/case-search" className={`${styles.tabItem} ${isActive('/case-search') ? styles.activeTab : ''}`}>
-                            {Icons.laws}
-                            <span>법령</span>
+                            <span>결과</span>
                         </Link>
                         <Link href="/alternatives" className={`${styles.tabItem} ${isActive('/alternatives') ? styles.activeTab : ''}`}>
                             {Icons.chat}
-                            <span>대안</span>
-                        </Link>
-                        <Link href="/follow-up" className={`${styles.tabItem} ${isActive('/follow-up') ? styles.activeTab : ''}`}>
-                            {Icons.caseInput}
-                            <span>후속</span>
+                            <span>해결</span>
                         </Link>
                         <Link href="/laws" className={`${styles.tabItem} ${isActive('/laws') ? styles.activeTab : ''}`}>
                             {Icons.laws}

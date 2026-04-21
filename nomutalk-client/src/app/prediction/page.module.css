@@ -1,0 +1,319 @@
+.page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 16px 100px;
+}
+
+/* ── 종합 판정 카드 ── */
+.verdictCard {
+    background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.06));
+    border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.winRateCircle {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    border: 4px solid;
+    background: var(--toss-bg-primary);
+}
+
+.winRateNumber {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.winRateLabel {
+    font-size: 0.72rem;
+    margin-top: 2px;
+    color: var(--toss-text-tertiary);
+}
+
+.verdictText {
+    font-size: 0.92rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.7;
+    margin: 0;
+}
+
+/* ── 시나리오 카드 ── */
+.scenarioSection {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.scenarioCard {
+    padding: 16px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+}
+
+.scenarioLabel {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.scenarioText {
+    font-size: 0.88rem;
+    color: var(--toss-text-primary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── 쟁점별 예측 ── */
+.issueSection {
+    margin-bottom: 20px;
+}
+
+.issueSectionTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--toss-text-primary);
+}
+
+.issueCard {
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+}
+
+.issueCard:hover {
+    border-color: rgba(59,130,246,0.3);
+}
+
+.issueHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.issueTitle {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+.issueRate {
+    font-size: 0.92rem;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(59,130,246,0.08);
+}
+
+.issueReason {
+    font-size: 0.84rem;
+    color: var(--toss-text-secondary);
+    line-height: 1.6;
+    margin: 0 0 10px;
+}
+
+.factorsRow {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.factorBadge {
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.factorPro {
+    background: rgba(16,185,129,0.1);
+    color: #10b981;
+}
+
+.factorCon {
+    background: rgba(239,68,68,0.1);
+    color: #ef4444;
+}
+
+/* ── 예상 금액 ── */
+.amountSection {
+    margin-bottom: 20px;
+}
+
+.amountCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    margin-bottom: 8px;
+}
+
+.amountLeft {
+    display: flex;
+    flex-direction: column;
+}
+
+.amountItem {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+}
+
+.amountBasis {
+    font-size: 0.76rem;
+    color: var(--toss-text-tertiary);
+    margin-top: 2px;
+}
+
+.amountValue {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #3b82f6;
+}
+
+/* ── 소요기간 ── */
+.timelineSection {
+    margin-bottom: 20px;
+}
+
+.timelineGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.timelineCard {
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: 14px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+}
+
+.timelineIcon {
+    font-size: 1.5rem;
+    margin-bottom: 6px;
+}
+
+.timelineLabel {
+    font-size: 0.76rem;
+    color: var(--toss-text-tertiary);
+    margin-bottom: 4px;
+}
+
+.timelineDuration {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--toss-text-primary);
+}
+
+/* ── 행동 계획 ── */
+.actionSection {
+    margin-bottom: 20px;
+}
+
+.actionCard {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--toss-border);
+    background: var(--toss-bg-secondary);
+    margin-bottom: 8px;
+}
+
+.actionPriority {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.actionBody {
+    flex: 1;
+}
+
+.actionText {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--toss-text-primary);
+    margin: 0 0 2px;
+}
+
+.actionReason {
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary);
+    margin: 0;
+}
+
+/* ── 리스크 ── */
+.riskSection {
+    margin-bottom: 20px;
+}
+
+.riskItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(239,68,68,0.05);
+    border: 1px solid rgba(239,68,68,0.12);
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: #ef4444;
+}
+
+/* ── 면책 ── */
+.disclaimer {
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.15);
+    font-size: 0.78rem;
+    color: var(--toss-text-tertiary);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+/* ── 로딩 ── */
+.loadingSection {
+    text-align: center;
+    padding: 4rem 0;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--toss-border);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

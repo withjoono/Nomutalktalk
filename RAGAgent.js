@@ -850,10 +850,29 @@ class RAGAgent {
       const hallucinations = await LawVerificationService.checkHallucinations(answer.text);
       if (hallucinations.length > 0) {
         console.warn(`⚠️  환각 의심 판례 발견: ${hallucinations.join(', ')}`);
-        const warningMessage = `\n\n> ⚠️ **[AI 검증 알림]**\n> 위 답변에 인용된 판례 중 다음 판례 번호는 국가법령정보센터 검색 결과 존재하지 않는 판례(Open API 검증 실패)로 확인되었습니다. AI 환각(Hallucination)일 가능성이 높으므로 실무 적용 전 반드시 교차 확인하시기 바랍니다.\n> - 의심 판례: **${hallucinations.join(', ')}**`;
-        answer.text += warningMessage;
-        // 메타데이터에도 환각 정보 추가
-        answer.hallucinations = hallucinations;
+        console.log(`🔄 환각 제거를 위한 AI 재요청(Self-Correction) 시작...`);
+        
+        const correctionPrompt = `[시스템 긴급 지시]
+당신이 방금 작성한 답변에는 국가법령정보센터에 존재하지 않는 가짜 판례(환각)가 포함되어 있습니다.
+존재하지 않는 가짜 판례 번호: ${hallucinations.join(', ')}
+
+해당 가짜 판례에 대한 언급과 인용을 답변에서 완전히 삭제하고, 원본 답변의 전체 맥락이 자연스럽게 이어지도록 다시 작성해주세요.
+가짜 판례나 확인되지 않은 허위 법령 번호는 "단 하나도" 포함해서는 안 됩니다.
+
+[원본 답변]
+${answer.text}`;
+
+        try {
+          const correctedAnswer = await this.manager.search(correctionPrompt, this.storeName, model);
+          if (correctedAnswer && correctedAnswer.text) {
+            console.log(`✓ 환각 판례가 제거된 답변으로 성공적으로 교체되었습니다.`);
+            answer.text = correctedAnswer.text;
+            answer.hallucinations_detected_and_removed = hallucinations;
+          }
+        } catch (error) {
+          console.error(`⚠️ 재요청 실패:`, error.message);
+          answer.text += `\n\n> ⚠️ **[AI 검증 알림]**\n> 위 답변에 인용된 판례 중 ${hallucinations.join(', ')}는 국가법령정보센터에 존재하지 않아 주의가 필요합니다.`;
+        }
       }
     }
 

@@ -113,6 +113,21 @@ select {
 }
 
 /* ═══════════════════════════════════════
+   Mobile Layout & Touch Optimizations
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Prevent iOS zoom on focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  /* Ensure proper touch targets for accessibility */
+  button, a {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+/* ═══════════════════════════════════════
    Global Hero Banner Utility
    ═══════════════════════════════════════ */
 .page-hero {
@@ -214,6 +229,10 @@ select {
     print-color-adjust: exact;
     padding: 0 !important;
     margin: 0 !important;
+  }
+  
+  .page-hero h1, .page-hero p {
+    color: black !important;
   }
   
   /* 그라데이션, 그림자 등 불필요한 장식 제거 */
