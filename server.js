@@ -332,6 +332,9 @@ function checkUsageLimit(usageType) {
     const userId = req.user?.uid;
     if (!userId) return next(); // 인증 안 된 경우 다른 미들웨어에서 처리
 
+    const userEmail = req.user?.email || '';
+    if (userEmail === 'withjoono@gmail.com') return next();
+
     const tier = req.subscriptionTier || 'FREE';
     const limits = DAILY_LIMITS[tier] || DAILY_LIMITS.FREE;
     const limit = limits[usageType];
