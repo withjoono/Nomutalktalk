@@ -289,7 +289,7 @@ function requireTier(minTier) {
  * 티어별 일일 사용 한도
  */
 const DAILY_LIMITS = {
-  FREE:          { analysis: 3,   chat: 10,  document: 1,  evidence: 1  },
+  FREE:          { analysis: -1,  chat: -1,  document: -1,  evidence: -1  },
   PRO:           { analysis: 30,  chat: 100, document: 20, evidence: 20 },
   BIZ_STANDARD:  { analysis: 100, chat: 500, document: 50, evidence: 50 },
   BIZ_PREMIUM:   { analysis: -1,  chat: -1,  document: -1, evidence: -1 }, // -1 = 무제한
