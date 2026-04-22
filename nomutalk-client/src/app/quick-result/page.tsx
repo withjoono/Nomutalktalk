@@ -222,7 +222,7 @@ export default function QuickResultPage() {
             )}
 
             {/* ══════════ 심층 분석 대화형 섹션 ══════════ */}
-            {isDispute && !escalating && (
+            {(isDispute || showConversation) && !escalating && (
                 <div style={{
                     padding: '20px', borderRadius: '16px', marginBottom: '16px',
                     background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(139,92,246,0.08))',
