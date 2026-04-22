@@ -415,7 +415,24 @@ export default function CaseInputPage() {
                         {state.isAnalyzing ? <span className={styles.spinner} /> : '↑'}
                     </button>
                 </div>
-                {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
+                {state.error && (
+                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                        <p className={styles.errorText} style={{ margin: '0 0 12px' }}>⚠️ {state.error}</p>
+                        {state.error.includes('한도를 초과') && (
+                            <button
+                                onClick={() => router.push('/pricing')}
+                                style={{
+                                    padding: '10px 20px', borderRadius: '12px', border: 'none',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
+                                    marginTop: '4px',
+                                }}
+                            >
+                                ✨ 무제한 요금제로 전환하기
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* ── 2. 추천 칩 (예시 해시태그) ── */}
                 <div className={styles.suggestionChips}>

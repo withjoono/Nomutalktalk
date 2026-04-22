@@ -674,23 +674,36 @@ export default function ChatPage() {
                     {error && !isInitializing && (
                         <div className={styles.messageList}>
                             <div className={styles.initScreen}>
-                                <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
-                                <button
-                                    onClick={() => {
-                                        setTabSessions(prev => ({
-                                            ...prev,
-                                            [activeTab]: { ...prev[activeTab], initialized: false, error: null }
-                                        }));
-                                        initTabSession(activeTab);
-                                    }}
-                                    style={{
-                                        padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--toss-border)',
-                                        background: 'var(--toss-bg-secondary)', cursor: 'pointer', color: 'var(--toss-text-primary)',
-                                        fontFamily: 'inherit',
-                                    }}
-                                >
-                                    🔄 다시 시도
-                                </button>
+                                <p style={{ color: '#ef4444', marginBottom: '16px' }}>⚠️ {error}</p>
+                                {error.includes('한도를 초과') ? (
+                                    <button
+                                        onClick={() => router.push('/pricing')}
+                                        style={{
+                                            padding: '8px 20px', borderRadius: '8px', border: 'none',
+                                            background: 'linear-gradient(135deg, #10b981, #059669)', cursor: 'pointer', color: '#fff',
+                                            fontFamily: 'inherit', fontWeight: 600,
+                                        }}
+                                    >
+                                        ✨ 무제한 요금제로 전환하기
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            setTabSessions(prev => ({
+                                                ...prev,
+                                                [activeTab]: { ...prev[activeTab], initialized: false, error: null }
+                                            }));
+                                            initTabSession(activeTab);
+                                        }}
+                                        style={{
+                                            padding: '8px 20px', borderRadius: '8px', border: '1px solid var(--toss-border)',
+                                            background: 'var(--toss-bg-secondary)', cursor: 'pointer', color: 'var(--toss-text-primary)',
+                                            fontFamily: 'inherit',
+                                        }}
+                                    >
+                                        🔄 다시 시도
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}

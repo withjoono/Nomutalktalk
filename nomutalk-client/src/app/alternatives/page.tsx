@@ -73,11 +73,17 @@ export default function AlternativesPage() {
 
             {/* ═══ 에러 ═══ */}
             {state.error && !result && !state.isAnalyzing && (
-                <div>
-                    <div className={styles.errorMsg}>⚠️ {state.error}</div>
-                    <button className={styles.retryBtn} onClick={runAlternativesAnalysis}>
-                        🔄 다시 시도
-                    </button>
+                <div style={{ textAlign: 'center' }}>
+                    <div className={styles.errorMsg} style={{ marginBottom: '16px' }}>⚠️ {state.error}</div>
+                    {state.error.includes('한도를 초과') ? (
+                        <button className={styles.retryBtn} onClick={() => router.push('/pricing')} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}>
+                            ✨ 무제한 요금제로 전환하기
+                        </button>
+                    ) : (
+                        <button className={styles.retryBtn} onClick={runAlternativesAnalysis}>
+                            🔄 다시 시도
+                        </button>
+                    )}
                 </div>
             )}
 
