@@ -227,7 +227,7 @@
     }
 
     /* Keep headers with their content */
-    h2, h3, .sectionTitle, .issueTitle {
+    :global(h2), :global(h3), .sectionTitle, .issueTitle {
         page-break-after: avoid;
         break-after: avoid;
     }

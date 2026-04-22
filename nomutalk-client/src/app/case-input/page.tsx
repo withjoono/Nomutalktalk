@@ -407,11 +407,12 @@ export default function CaseInputPage() {
                         autoFocus
                     />
                     <button 
-                        className={`${styles.mainSearchButton} ${(!caseDescription.trim() || state.isAnalyzing) ? styles.mainSearchButtonDisabled : styles.mainSearchButtonActive}`}
+                        className={`${styles.mainSearchButton} ${!caseDescription.trim() ? styles.mainSearchButtonDisabled : styles.mainSearchButtonActive}`}
                         onClick={handleStart}
                         disabled={!caseDescription.trim() || state.isAnalyzing}
+                        style={{ cursor: state.isAnalyzing ? 'wait' : (!caseDescription.trim() ? 'default' : 'pointer') }}
                     >
-                        {state.isAnalyzing ? <span className={styles.spinner} style={{ width: 20, height: 20, borderWidth: 3 }} /> : '↑'}
+                        {state.isAnalyzing ? <span className={styles.spinner} /> : '↑'}
                     </button>
                 </div>
                 {state.error && <p className={styles.errorText}>⚠️ {state.error}</p>}
